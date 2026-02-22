@@ -1,7 +1,8 @@
 import gc
 import logging
 import os
-from multiprocessing import Process
+import time
+from multiprocessing import get_context
 
 import dramatiq
 from scrapy.crawler import CrawlerProcess
@@ -12,6 +13,17 @@ logger = logging.getLogger(__name__)
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _SPIDER_PROCESS_TIMEOUT_SECONDS = int(os.getenv("SCRAPY_PROCESS_TIMEOUT_SECONDS", "3300"))
 _SPIDER_TERMINATE_GRACE_SECONDS = int(os.getenv("SCRAPY_PROCESS_TERMINATE_GRACE_SECONDS", "30"))
+_SPIDER_PROGRESS_LOG_INTERVAL_SECONDS = int(os.getenv("SCRAPY_PROCESS_PROGRESS_LOG_INTERVAL_SECONDS", "60"))
+_SPIDER_PROCESS_START_METHOD = os.getenv("SCRAPY_PROCESS_START_METHOD", "spawn").strip().lower()
+
+try:
+    _PROCESS_CONTEXT = get_context(_SPIDER_PROCESS_START_METHOD)
+except ValueError:
+    logger.warning(
+        "Invalid SCRAPY_PROCESS_START_METHOD=%s. Falling back to 'spawn'.",
+        _SPIDER_PROCESS_START_METHOD,
+    )
+    _PROCESS_CONTEXT = get_context("spawn")
 
 
 def run_spider_in_process(spider_name, *args, **kwargs):
@@ -40,21 +52,44 @@ def run_spider(spider_name: str, *args, **kwargs):
     """
     Wrapper function to run the spider in a separate process.
 
-    Uses multiprocessing.Process because Scrapy's Twisted reactor cannot be
-    restarted within the same process.  We pipe the child's stdout/stderr
+    Uses multiprocessing with a dedicated child process because Scrapy's
+    Twisted reactor cannot be restarted within the same process. We pipe the
+    child's stdout/stderr
     back to the current process so Dramatiq captures the logs.
     """
     logger.info(
-        "Starting spider %s in subprocess (timeout=%ss)",
+        "Starting spider %s in subprocess (timeout=%ss, start_method=%s)",
         spider_name,
         _SPIDER_PROCESS_TIMEOUT_SECONDS,
+        _PROCESS_CONTEXT.get_start_method(),
     )
     p = None
     try:
-        p = Process(target=run_spider_in_process, args=(spider_name, *args), kwargs=kwargs)
+        p = _PROCESS_CONTEXT.Process(target=run_spider_in_process, args=(spider_name, *args), kwargs=kwargs)
         p.start()
 
-        p.join(timeout=_SPIDER_PROCESS_TIMEOUT_SECONDS)
+        started_at = time.monotonic()
+        deadline = started_at + _SPIDER_PROCESS_TIMEOUT_SECONDS
+        next_progress_log_at = started_at + max(_SPIDER_PROGRESS_LOG_INTERVAL_SECONDS, 15)
+
+        while p.is_alive():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+
+            join_step = min(remaining, float(max(_SPIDER_PROGRESS_LOG_INTERVAL_SECONDS, 15)))
+            p.join(timeout=join_step)
+
+            if p.is_alive() and time.monotonic() >= next_progress_log_at:
+                elapsed = round(time.monotonic() - started_at, 2)
+                logger.warning(
+                    "Spider %s still running in subprocess pid=%s after %ss.",
+                    spider_name,
+                    p.pid,
+                    elapsed,
+                )
+                next_progress_log_at = time.monotonic() + max(_SPIDER_PROGRESS_LOG_INTERVAL_SECONDS, 15)
+
         if p.is_alive():
             logger.error(
                 "Spider %s exceeded timeout (%ss). Terminating subprocess pid=%s.",

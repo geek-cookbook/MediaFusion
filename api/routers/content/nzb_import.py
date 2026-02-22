@@ -34,12 +34,34 @@ from db.models.streams import (
 from scrapers.scraper_tasks import meta_fetcher
 from utils.nzb import generate_nzb_hash, parse_nzb_content
 from utils.nzb_storage import get_nzb_storage, verify_nzb_signature
+from utils.notification_registry import send_pending_contribution_notification
 from utils.parser import convert_bytes_to_readable
 from utils.zyclops import submit_nzb_to_zyclops
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/import", tags=["Content Import"])
+
+
+async def _notify_pending_contribution(
+    contribution: Contribution,
+    user: User,
+    is_anonymous: bool,
+    anonymous_display_name: str | None,
+) -> None:
+    if contribution.status != ContributionStatus.PENDING:
+        return
+
+    uploader_name, _ = resolve_uploader_identity(user, is_anonymous, anonymous_display_name)
+    await send_pending_contribution_notification(
+        {
+            "contribution_id": contribution.id,
+            "contribution_type": contribution.contribution_type,
+            "target_id": contribution.target_id,
+            "uploader_name": uploader_name,
+            "data": contribution.data,
+        }
+    )
 
 
 # ============================================
@@ -563,6 +585,12 @@ async def import_nzb_file(
 
         await session.commit()
         await session.refresh(contribution)
+        await _notify_pending_contribution(
+            contribution,
+            user,
+            resolved_is_anonymous,
+            normalized_anonymous_display_name,
+        )
 
         if should_auto_approve and import_result and import_result.get("status") == "success":
             return NZBImportResponse(
@@ -722,6 +750,12 @@ async def import_nzb_url(
 
         await session.commit()
         await session.refresh(contribution)
+        await _notify_pending_contribution(
+            contribution,
+            user,
+            resolved_is_anonymous,
+            normalized_anonymous_display_name,
+        )
 
         if should_auto_approve and import_result and import_result.get("status") == "success":
             return NZBImportResponse(

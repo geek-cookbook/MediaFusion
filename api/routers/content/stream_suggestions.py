@@ -34,6 +34,7 @@ from db.models import (
 )
 from db.models.links import StreamLanguageLink
 from db.crud.reference import get_or_create_language
+from utils.notification_registry import send_pending_stream_suggestion_notification
 
 logger = logging.getLogger(__name__)
 
@@ -999,6 +1000,23 @@ async def create_stream_suggestion(
     session.add(suggestion)
     await session.commit()
     await session.refresh(suggestion)
+
+    if suggestion.status == STATUS_PENDING:
+        await send_pending_stream_suggestion_notification(
+            {
+                "suggestion_id": suggestion.id,
+                "stream_id": suggestion.stream_id,
+                "user_id": current_user.id,
+                "username": current_user.username or f"User #{current_user.id}",
+                "suggestion_type": suggestion.suggestion_type,
+                "field_name": request.field_name,
+                "current_value": suggestion.current_value,
+                "suggested_value": suggestion.suggested_value,
+                "reason": suggestion.reason,
+                "target_media_id": request.target_media_id,
+                "file_index": request.file_index,
+            }
+        )
 
     return build_suggestion_response(
         suggestion,

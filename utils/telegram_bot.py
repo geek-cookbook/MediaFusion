@@ -52,7 +52,14 @@ from db.redis_database import REDIS_SYNC_CLIENT
 from api.routers.content.torrent_import import fetch_and_create_media_from_external
 from scrapers.imdb_data import get_imdb_title_data, search_multiple_imdb
 from scrapers.scraper_tasks import meta_fetcher
-from utils.notification_registry import register_file_annotation_handler
+from utils.notification_registry import (
+    register_file_annotation_handler,
+    register_pending_contribution_handler,
+    register_pending_episode_suggestion_handler,
+    register_pending_metadata_suggestion_handler,
+    register_pending_stream_suggestion_handler,
+    send_pending_contribution_notification,
+)
 from utils import const, torrent
 from utils.parser import convert_bytes_to_readable
 from utils.youtube import analyze_youtube_video
@@ -264,6 +271,193 @@ class TelegramNotifier:
         message += f"\n\n[🚫 Block/Delete Torrent]({block_url})"
 
         await self._send_photo_message(poster, message)
+
+    @staticmethod
+    def _value_text(value: Any, *, limit: int = 260) -> str:
+        """Format dynamic values safely for Telegram Markdown."""
+        if value is None:
+            return "N/A"
+        text = str(value).replace("`", "'")
+        if len(text) > limit:
+            return text[: limit - 3] + "..."
+        return text
+
+    async def send_pending_contribution_notification(self, payload: dict[str, Any]):
+        """Send moderator alert when a contribution is pending review."""
+        if not self.enabled:
+            logger.warning("Telegram notifications are disabled. Check bot token.")
+            return
+
+        contribution_data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+        contribution_type = self._value_text(payload.get("contribution_type", "unknown"), limit=80)
+        contribution_id = self._value_text(payload.get("contribution_id"), limit=80)
+        uploader_name = self._value_text(payload.get("uploader_name", "Unknown"), limit=80)
+        target_id = payload.get("target_id")
+
+        title = contribution_data.get("title") or contribution_data.get("name")
+        if not title:
+            title = contribution_data.get("url") or contribution_data.get("youtube_url")
+
+        message = (
+            "🆕 Pending User Upload\n\n"
+            f"*Contribution ID*: `{contribution_id}`\n"
+            f"*Type*: `{contribution_type}`\n"
+            f"*Uploader*: `{uploader_name}`\n"
+        )
+
+        if target_id:
+            message += f"*Target ID*: `{self._value_text(target_id, limit=120)}`\n"
+
+        if title:
+            message += f"*Title*: `{self._value_text(title, limit=180)}`\n"
+
+        meta_type = contribution_data.get("meta_type")
+        if meta_type:
+            message += f"*Media Type*: `{self._value_text(meta_type, limit=40)}`\n"
+
+        info_hash = contribution_data.get("info_hash")
+        if info_hash:
+            message += f"*Info Hash*: `{self._value_text(info_hash, limit=64)}`\n"
+
+        for key in ("url", "youtube_url", "content_id", "video_id", "nzb_guid"):
+            value = contribution_data.get(key)
+            if value:
+                message += f"*{key.replace('_', ' ').title()}*: `{self._value_text(value, limit=160)}`\n"
+
+        for key in ("languages", "catalogs"):
+            values = contribution_data.get(key)
+            if isinstance(values, list) and values:
+                formatted_values = ", ".join(self._value_text(item, limit=30) for item in values[:8])
+                message += f"*{key.title()}*: `{formatted_values}`\n"
+
+        review_url = f"{settings.host_url}/api/v1/contributions/review/pending"
+        message += f"\n*Review Queue*: `{review_url}`"
+
+        if info_hash:
+            block_url = f"{settings.host_url}/scraper?action=block_torrent&info_hash={info_hash}"
+            message += f"\n[🚫 Block/Delete Torrent]({block_url})"
+
+        poster = contribution_data.get("poster")
+        if isinstance(poster, str) and poster.startswith(("http://", "https://")):
+            await self._send_photo_message(poster, message)
+        else:
+            await self._send_text_only_message(message)
+
+    async def send_pending_stream_suggestion_notification(self, payload: dict[str, Any]):
+        """Send moderator alert for pending stream suggestion."""
+        if not self.enabled:
+            logger.warning("Telegram notifications are disabled. Check bot token.")
+            return
+
+        suggestion_id = self._value_text(payload.get("suggestion_id"), limit=80)
+        stream_id = self._value_text(payload.get("stream_id"), limit=40)
+        username = self._value_text(payload.get("username"), limit=80)
+        user_id = self._value_text(payload.get("user_id"), limit=40)
+        suggestion_type = self._value_text(payload.get("suggestion_type"), limit=100)
+        field_name = payload.get("field_name")
+        current_value = payload.get("current_value")
+        suggested_value = payload.get("suggested_value")
+        reason = payload.get("reason")
+
+        message = (
+            "🛠️ Pending Stream Suggestion\n\n"
+            f"*Suggestion ID*: `{suggestion_id}`\n"
+            f"*Stream ID*: `{stream_id}`\n"
+            f"*Requester*: `{username}` (`{user_id}`)\n"
+            f"*Suggestion Type*: `{suggestion_type}`\n"
+        )
+
+        if field_name:
+            message += f"*Field*: `{self._value_text(field_name, limit=80)}`\n"
+        if current_value:
+            message += f"*Current*: `{self._value_text(current_value)}`\n"
+        if suggested_value:
+            message += f"*Suggested*: `{self._value_text(suggested_value)}`\n"
+        if reason:
+            message += f"*Reason*: `{self._value_text(reason)}`\n"
+
+        review_url = f"{settings.host_url}/api/v1/stream-suggestions/pending"
+        message += f"\n*Review Queue*: `{review_url}`"
+        await self._send_text_only_message(message)
+
+    async def send_pending_metadata_suggestion_notification(self, payload: dict[str, Any]):
+        """Send moderator alert for pending metadata suggestion."""
+        if not self.enabled:
+            logger.warning("Telegram notifications are disabled. Check bot token.")
+            return
+
+        suggestion_id = self._value_text(payload.get("suggestion_id"), limit=80)
+        media_id = self._value_text(payload.get("media_id"), limit=40)
+        media_title = self._value_text(payload.get("media_title"), limit=180)
+        media_type = self._value_text(payload.get("media_type"), limit=40)
+        field_name = self._value_text(payload.get("field_name"), limit=80)
+        username = self._value_text(payload.get("username"), limit=80)
+        user_id = self._value_text(payload.get("user_id"), limit=40)
+        current_value = payload.get("current_value")
+        suggested_value = payload.get("suggested_value")
+        reason = payload.get("reason")
+
+        message = (
+            "📝 Pending Metadata Suggestion\n\n"
+            f"*Suggestion ID*: `{suggestion_id}`\n"
+            f"*Requester*: `{username}` (`{user_id}`)\n"
+            f"*Media ID*: `{media_id}`\n"
+            f"*Media*: `{media_title}` (`{media_type}`)\n"
+            f"*Field*: `{field_name}`\n"
+        )
+
+        if current_value:
+            message += f"*Current*: `{self._value_text(current_value)}`\n"
+        if suggested_value:
+            message += f"*Suggested*: `{self._value_text(suggested_value)}`\n"
+        if reason:
+            message += f"*Reason*: `{self._value_text(reason)}`\n"
+
+        review_url = f"{settings.host_url}/api/v1/suggestions/pending"
+        message += f"\n*Review Queue*: `{review_url}`"
+        await self._send_text_only_message(message)
+
+    async def send_pending_episode_suggestion_notification(self, payload: dict[str, Any]):
+        """Send moderator alert for pending episode suggestion."""
+        if not self.enabled:
+            logger.warning("Telegram notifications are disabled. Check bot token.")
+            return
+
+        suggestion_id = self._value_text(payload.get("suggestion_id"), limit=80)
+        episode_id = self._value_text(payload.get("episode_id"), limit=40)
+        series_title = self._value_text(payload.get("series_title"), limit=160)
+        episode_title = self._value_text(payload.get("episode_title"), limit=160)
+        season_number = payload.get("season_number")
+        episode_number = payload.get("episode_number")
+        field_name = self._value_text(payload.get("field_name"), limit=80)
+        username = self._value_text(payload.get("username"), limit=80)
+        user_id = self._value_text(payload.get("user_id"), limit=40)
+        current_value = payload.get("current_value")
+        suggested_value = payload.get("suggested_value")
+        reason = payload.get("reason")
+
+        message = (
+            "📺 Pending Episode Suggestion\n\n"
+            f"*Suggestion ID*: `{suggestion_id}`\n"
+            f"*Requester*: `{username}` (`{user_id}`)\n"
+            f"*Episode ID*: `{episode_id}`\n"
+            f"*Series*: `{series_title}`\n"
+            f"*Episode*: `{episode_title}`\n"
+            f"*Field*: `{field_name}`\n"
+        )
+
+        if season_number is not None and episode_number is not None:
+            message += f"*S/E*: `S{self._value_text(season_number)}E{self._value_text(episode_number)}`\n"
+        if current_value:
+            message += f"*Current*: `{self._value_text(current_value)}`\n"
+        if suggested_value:
+            message += f"*Suggested*: `{self._value_text(suggested_value)}`\n"
+        if reason:
+            message += f"*Reason*: `{self._value_text(reason)}`\n"
+
+        review_url = f"{settings.host_url}/api/v1/episode-suggestions/pending"
+        message += f"\n*Review Queue*: `{review_url}`"
+        await self._send_text_only_message(message)
 
     async def send_block_notification(
         self,
@@ -3022,6 +3216,23 @@ class TelegramContentBot:
                 )
                 session.add(contribution)
                 await session.commit()
+                await session.refresh(contribution)
+
+                if contribution.status == ContributionStatus.PENDING:
+                    uploader_name, _ = resolve_uploader_identity(
+                        linked_user,
+                        is_anonymous,
+                        anonymous_display_name,
+                    )
+                    await send_pending_contribution_notification(
+                        {
+                            "contribution_id": contribution.id,
+                            "contribution_type": contribution.contribution_type,
+                            "target_id": contribution.target_id,
+                            "uploader_name": uploader_name,
+                            "data": contribution.data,
+                        }
+                    )
                 return should_auto_approve
         except Exception as e:
             logger.warning(f"Failed to record contribution ({contribution_type}): {e}")
@@ -5189,3 +5400,7 @@ telegram_content_bot = TelegramContentBot()
 
 # Register with notification registry so streaming_providers can notify without importing us
 register_file_annotation_handler(telegram_notifier.send_file_annotation_request)
+register_pending_contribution_handler(telegram_notifier.send_pending_contribution_notification)
+register_pending_stream_suggestion_handler(telegram_notifier.send_pending_stream_suggestion_notification)
+register_pending_metadata_suggestion_handler(telegram_notifier.send_pending_metadata_suggestion_notification)
+register_pending_episode_suggestion_handler(telegram_notifier.send_pending_episode_suggestion_notification)

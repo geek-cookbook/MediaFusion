@@ -18,6 +18,7 @@ from api.routers.user.auth import require_auth, require_role
 from db.database import get_async_session
 from db.enums import UserRole
 from db.models import ContributionSettings, Media, MediaImage, MetadataSuggestion, User
+from utils.notification_registry import send_pending_metadata_suggestion_notification
 
 logger = logging.getLogger(__name__)
 
@@ -494,6 +495,22 @@ async def create_suggestion(
     session.add(suggestion)
     await session.commit()
     await session.refresh(suggestion)
+
+    if suggestion.status == STATUS_PENDING:
+        await send_pending_metadata_suggestion_notification(
+            {
+                "suggestion_id": suggestion.id,
+                "media_id": suggestion.media_id,
+                "media_title": meta.title,
+                "media_type": meta.type.value if meta.type else None,
+                "field_name": suggestion.field_name,
+                "current_value": suggestion.current_value,
+                "suggested_value": suggestion.suggested_value,
+                "reason": suggestion.reason,
+                "user_id": current_user.id,
+                "username": current_user.username or f"User #{current_user.id}",
+            }
+        )
 
     media_context = await get_media_context(session, suggestion.media_id)
 

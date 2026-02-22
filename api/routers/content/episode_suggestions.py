@@ -18,6 +18,7 @@ from api.routers.user.auth import require_auth, require_role
 from db.database import get_async_session
 from db.enums import UserRole
 from db.models import ContributionSettings, Episode, EpisodeSuggestion, Season, User
+from utils.notification_registry import send_pending_episode_suggestion_notification
 
 logger = logging.getLogger(__name__)
 
@@ -434,6 +435,25 @@ async def create_episode_suggestion(
     session.add(suggestion)
     await session.commit()
     await session.refresh(suggestion)
+
+    if suggestion.status == STATUS_PENDING:
+        season = await session.get(Season, episode.season_id)
+        await send_pending_episode_suggestion_notification(
+            {
+                "suggestion_id": suggestion.id,
+                "episode_id": suggestion.episode_id,
+                "episode_title": episode.title,
+                "season_number": season.season_number if season else None,
+                "episode_number": episode.episode_number,
+                "series_title": season.name if season else None,
+                "field_name": suggestion.field_name,
+                "current_value": suggestion.current_value,
+                "suggested_value": suggestion.suggested_value,
+                "reason": suggestion.reason,
+                "user_id": current_user.id,
+                "username": current_user.username or f"User #{current_user.id}",
+            }
+        )
 
     return await format_suggestion_response(suggestion, session, current_user)
 

@@ -21,7 +21,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from thefuzz import fuzz
 
-from api.routers.content.anonymous_utils import normalize_anonymous_display_name
+from api.routers.content.anonymous_utils import normalize_anonymous_display_name, resolve_uploader_identity
 from api.routers.user.auth import require_auth
 from db.database import get_read_session, get_async_session
 from db.enums import ContributionStatus, MediaType, UserRole
@@ -43,6 +43,7 @@ from db.schemas.config import StreamingProvider
 from scrapers.scraper_tasks import MetadataFetcher
 from streaming_providers import mapper
 from utils.network import get_user_public_ip
+from utils.notification_registry import send_pending_contribution_notification
 from utils.profile_context import ProfileDataProvider
 from utils.profile_crypto import profile_crypto
 
@@ -54,6 +55,19 @@ TORRENT_DETAILS_CACHE_TTL_SECONDS = 120
 IMPORT_PREPARE_CONCURRENCY = 6
 IMPORT_DB_BATCH_SIZE = 25
 TORRENT_DETAILS_CACHE_KEY_PREFIX = "watchlist:torrent_details"
+
+
+def _pending_contribution_payload(
+    contribution: Contribution,
+    uploader_name: str,
+) -> dict[str, Any]:
+    return {
+        "contribution_id": contribution.id,
+        "contribution_type": contribution.contribution_type,
+        "target_id": contribution.target_id,
+        "uploader_name": uploader_name,
+        "data": contribution.data,
+    }
 
 
 # ============================================
@@ -1122,6 +1136,11 @@ async def import_torrents(
     auto_review_notes = (
         "Auto-approved: Privileged reviewer" if is_privileged_reviewer else "Auto-approved: Active user content import"
     )
+    uploader_name, _ = resolve_uploader_identity(
+        current_user,
+        resolved_is_anonymous,
+        normalized_anonymous_display_name,
+    )
 
     profile_ctx = await ProfileDataProvider.get_context(current_user.id, session, profile_id=profile_id)
 
@@ -1202,6 +1221,7 @@ async def import_torrents(
                 batch_hashes = [item.info_hash for item in batch]
                 try:
                     pre_existing_hashes = await get_existing_info_hashes(write_session, batch_hashes)
+                    pending_notifications: list[dict[str, Any]] = []
 
                     for item in batch:
                         if item.info_hash in pre_existing_hashes:
@@ -1254,6 +1274,13 @@ async def import_torrents(
                         )
                         write_session.add(contribution)
                         await write_session.flush()
+                        if contribution.status == ContributionStatus.PENDING:
+                            pending_notifications.append(
+                                _pending_contribution_payload(
+                                    contribution,
+                                    uploader_name,
+                                )
+                            )
 
                         if should_auto_approve:
                             import_result = await process_torrent_import(write_session, contribution_data, current_user)
@@ -1292,6 +1319,8 @@ async def import_torrents(
                             )
 
                     await write_session.commit()
+                    for notification_payload in pending_notifications:
+                        await send_pending_contribution_notification(notification_payload)
                 except Exception as error:
                     await write_session.rollback()
                     logger.exception("Failed to import torrent batch for provider=%s: %s", provider, error)
@@ -1365,6 +1394,11 @@ async def advanced_import_torrents(
     should_auto_approve = is_privileged_reviewer or (current_user.is_active and not resolved_is_anonymous)
     auto_review_notes = (
         "Auto-approved: Privileged reviewer" if is_privileged_reviewer else "Auto-approved: Active user content import"
+    )
+    uploader_name, _ = resolve_uploader_identity(
+        current_user,
+        resolved_is_anonymous,
+        normalized_anonymous_display_name,
     )
 
     # Get profile context
@@ -1519,6 +1553,13 @@ async def advanced_import_torrents(
                         import_result = None
 
                     await write_session.commit()
+                    if contribution.status == ContributionStatus.PENDING:
+                        await send_pending_contribution_notification(
+                            _pending_contribution_payload(
+                                contribution,
+                                uploader_name,
+                            )
+                        )
 
                     if not should_auto_approve:
                         results.append(

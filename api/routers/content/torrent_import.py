@@ -28,9 +28,32 @@ from db.models.streams import (
     StreamType,
     TorrentStream,
 )
+from utils.notification_registry import send_pending_contribution_notification
 from utils import torrent
 
 logger = logging.getLogger(__name__)
+
+
+async def _notify_pending_contribution(
+    contribution: Contribution,
+    user: User,
+    is_anonymous: bool,
+    anonymous_display_name: str | None,
+) -> None:
+    """Notify moderators when a contribution is pending review."""
+    if contribution.status != ContributionStatus.PENDING:
+        return
+
+    uploader_name, _ = resolve_uploader_identity(user, is_anonymous, anonymous_display_name)
+    await send_pending_contribution_notification(
+        {
+            "contribution_id": contribution.id,
+            "contribution_type": contribution.contribution_type,
+            "target_id": contribution.target_id,
+            "uploader_name": uploader_name,
+            "data": contribution.data,
+        }
+    )
 
 
 async def fetch_and_create_media_from_external(
@@ -688,6 +711,12 @@ async def import_magnet(
 
         await session.commit()
         await session.refresh(contribution)
+        await _notify_pending_contribution(
+            contribution,
+            user,
+            resolved_is_anonymous,
+            normalized_anonymous_display_name,
+        )
 
         if should_auto_approve and import_result and import_result.get("status") == "success":
             return ImportResponse(
@@ -870,6 +899,12 @@ async def import_torrent_file(
 
         await session.commit()
         await session.refresh(contribution)
+        await _notify_pending_contribution(
+            contribution,
+            user,
+            resolved_is_anonymous,
+            normalized_anonymous_display_name,
+        )
 
         if should_auto_approve and import_result and import_result.get("status") == "success":
             return ImportResponse(

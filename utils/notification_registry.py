@@ -23,8 +23,33 @@ logger = logging.getLogger(__name__)
 
 # Type for async handler: (info_hash: str, name: str) -> None
 FileAnnotationHandler = Callable[[str, str], Awaitable[Any]]
+PendingContributionHandler = Callable[[dict[str, Any]], Awaitable[Any]]
+PendingStreamSuggestionHandler = Callable[[dict[str, Any]], Awaitable[Any]]
+PendingMetadataSuggestionHandler = Callable[[dict[str, Any]], Awaitable[Any]]
+PendingEpisodeSuggestionHandler = Callable[[dict[str, Any]], Awaitable[Any]]
 
 _file_annotation_handlers: list[FileAnnotationHandler] = []
+_pending_contribution_handlers: list[PendingContributionHandler] = []
+_pending_stream_suggestion_handlers: list[PendingStreamSuggestionHandler] = []
+_pending_metadata_suggestion_handlers: list[PendingMetadataSuggestionHandler] = []
+_pending_episode_suggestion_handlers: list[PendingEpisodeSuggestionHandler] = []
+
+
+async def _dispatch_payload(
+    handlers: list[Callable[[dict[str, Any]], Awaitable[Any]]],
+    payload: dict[str, Any],
+    event_name: str,
+) -> None:
+    """Dispatch a payload to registered handlers with per-handler isolation."""
+    if not handlers:
+        logger.debug("No %s handlers registered, skipping notification", event_name)
+        return
+
+    for handler in handlers:
+        try:
+            await handler(payload)
+        except Exception as e:
+            logger.exception("%s handler %s failed: %s", event_name, handler.__qualname__, e)
 
 
 def register_file_annotation_handler(handler: FileAnnotationHandler) -> None:
@@ -60,3 +85,75 @@ async def send_file_annotation_request(info_hash: str, name: str) -> None:
             await handler(info_hash, name)
         except Exception as e:
             logger.exception("File annotation handler %s failed: %s", handler.__qualname__, e)
+
+
+def register_pending_contribution_handler(handler: PendingContributionHandler) -> None:
+    """Register a handler for pending contribution notifications."""
+    if handler not in _pending_contribution_handlers:
+        _pending_contribution_handlers.append(handler)
+        logger.debug("Registered pending contribution handler: %s", handler.__qualname__)
+
+
+def unregister_pending_contribution_handler(handler: PendingContributionHandler) -> None:
+    """Unregister a pending contribution handler."""
+    if handler in _pending_contribution_handlers:
+        _pending_contribution_handlers.remove(handler)
+
+
+async def send_pending_contribution_notification(payload: dict[str, Any]) -> None:
+    """Notify handlers about a newly created pending contribution."""
+    await _dispatch_payload(_pending_contribution_handlers, payload, "Pending contribution")
+
+
+def register_pending_stream_suggestion_handler(handler: PendingStreamSuggestionHandler) -> None:
+    """Register a handler for pending stream suggestion notifications."""
+    if handler not in _pending_stream_suggestion_handlers:
+        _pending_stream_suggestion_handlers.append(handler)
+        logger.debug("Registered pending stream suggestion handler: %s", handler.__qualname__)
+
+
+def unregister_pending_stream_suggestion_handler(handler: PendingStreamSuggestionHandler) -> None:
+    """Unregister a pending stream suggestion handler."""
+    if handler in _pending_stream_suggestion_handlers:
+        _pending_stream_suggestion_handlers.remove(handler)
+
+
+async def send_pending_stream_suggestion_notification(payload: dict[str, Any]) -> None:
+    """Notify handlers about a newly created pending stream suggestion."""
+    await _dispatch_payload(_pending_stream_suggestion_handlers, payload, "Pending stream suggestion")
+
+
+def register_pending_metadata_suggestion_handler(handler: PendingMetadataSuggestionHandler) -> None:
+    """Register a handler for pending metadata suggestion notifications."""
+    if handler not in _pending_metadata_suggestion_handlers:
+        _pending_metadata_suggestion_handlers.append(handler)
+        logger.debug("Registered pending metadata suggestion handler: %s", handler.__qualname__)
+
+
+def unregister_pending_metadata_suggestion_handler(handler: PendingMetadataSuggestionHandler) -> None:
+    """Unregister a pending metadata suggestion handler."""
+    if handler in _pending_metadata_suggestion_handlers:
+        _pending_metadata_suggestion_handlers.remove(handler)
+
+
+async def send_pending_metadata_suggestion_notification(payload: dict[str, Any]) -> None:
+    """Notify handlers about a newly created pending metadata suggestion."""
+    await _dispatch_payload(_pending_metadata_suggestion_handlers, payload, "Pending metadata suggestion")
+
+
+def register_pending_episode_suggestion_handler(handler: PendingEpisodeSuggestionHandler) -> None:
+    """Register a handler for pending episode suggestion notifications."""
+    if handler not in _pending_episode_suggestion_handlers:
+        _pending_episode_suggestion_handlers.append(handler)
+        logger.debug("Registered pending episode suggestion handler: %s", handler.__qualname__)
+
+
+def unregister_pending_episode_suggestion_handler(handler: PendingEpisodeSuggestionHandler) -> None:
+    """Unregister a pending episode suggestion handler."""
+    if handler in _pending_episode_suggestion_handlers:
+        _pending_episode_suggestion_handlers.remove(handler)
+
+
+async def send_pending_episode_suggestion_notification(payload: dict[str, Any]) -> None:
+    """Notify handlers about a newly created pending episode suggestion."""
+    await _dispatch_payload(_pending_episode_suggestion_handlers, payload, "Pending episode suggestion")

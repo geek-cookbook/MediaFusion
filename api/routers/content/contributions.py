@@ -13,6 +13,7 @@ from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from api.routers.content.acestream_import import process_acestream_import
+from api.routers.content.anonymous_utils import resolve_uploader_identity
 from api.routers.content.http_import import process_http_import
 from api.routers.content.nzb_import import process_nzb_import
 from api.routers.content.torrent_import import process_torrent_import
@@ -21,6 +22,7 @@ from api.routers.user.auth import require_auth, require_role
 from db.database import get_async_session, get_read_session
 from db.enums import ContributionStatus, UserRole
 from db.models import Contribution, StreamSuggestion, User
+from utils.notification_registry import send_pending_contribution_notification
 
 router = APIRouter(prefix="/api/v1/contributions", tags=["Contributions"])
 
@@ -328,6 +330,22 @@ async def create_contribution(
     session.add(contribution)
     await session.commit()
     await session.refresh(contribution)
+
+    if contribution.status == ContributionStatus.PENDING:
+        uploader_name, _ = resolve_uploader_identity(
+            user,
+            is_anonymous,
+            data.data.get("anonymous_display_name"),
+        )
+        await send_pending_contribution_notification(
+            {
+                "contribution_id": contribution.id,
+                "contribution_type": contribution.contribution_type,
+                "target_id": contribution.target_id,
+                "uploader_name": uploader_name,
+                "data": contribution.data,
+            }
+        )
 
     return contribution_to_response(contribution)
 

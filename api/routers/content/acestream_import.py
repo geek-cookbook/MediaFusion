@@ -31,10 +31,32 @@ from db.models.providers import MediaImage
 from db.models.streams import (
     StreamLanguageLink,
 )
+from utils.notification_registry import send_pending_contribution_notification
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/import", tags=["Content Import"])
+
+
+async def _notify_pending_contribution(
+    contribution: Contribution,
+    user: User,
+    is_anonymous: bool,
+    anonymous_display_name: str | None,
+) -> None:
+    if contribution.status != ContributionStatus.PENDING:
+        return
+
+    uploader_name, _ = resolve_uploader_identity(user, is_anonymous, anonymous_display_name)
+    await send_pending_contribution_notification(
+        {
+            "contribution_id": contribution.id,
+            "contribution_type": contribution.contribution_type,
+            "target_id": contribution.target_id,
+            "uploader_name": uploader_name,
+            "data": contribution.data,
+        }
+    )
 
 
 # ============================================
@@ -523,6 +545,12 @@ async def import_acestream(
 
         await session.commit()
         await session.refresh(contribution)
+        await _notify_pending_contribution(
+            contribution,
+            user,
+            resolved_is_anonymous,
+            normalized_anonymous_display_name,
+        )
 
         if should_auto_approve and import_result and import_result.get("status") == "success":
             return AceStreamImportResponse(

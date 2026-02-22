@@ -191,9 +191,25 @@ export function TelegramSettings({ config, onChange }: TelegramSettingsProps) {
           {enableTelegram && (
             <Alert>
               <Info className="h-4 w-4" />
-              <AlertDescription>
-                <strong>Requirement:</strong> You must have MediaFlow Proxy configured with a Telegram session to stream
-                content. The bot sends videos to your DM, and MediaFlow streams them via MTProto.
+              <AlertDescription className="space-y-2">
+                <p>
+                  <strong>MediaFlow + Telegram setup required:</strong> Telegram playback uses your own Telegram session
+                  in MediaFlow.
+                </p>
+                <ol className="list-decimal list-inside text-sm text-muted-foreground space-y-1">
+                  <li>
+                    In <strong>External Services → MediaFlow</strong>, set your MediaFlow Proxy URL and API Password.
+                  </li>
+                  <li>
+                    In MediaFlow environment, configure{' '}
+                    <code className="bg-muted px-1 py-0.5 rounded">ENABLE_TELEGRAM=true</code>,{' '}
+                    <code className="bg-muted px-1 py-0.5 rounded">TELEGRAM_API_ID</code>,{' '}
+                    <code className="bg-muted px-1 py-0.5 rounded">TELEGRAM_API_HASH</code>, and{' '}
+                    <code className="bg-muted px-1 py-0.5 rounded">TELEGRAM_SESSION_STRING</code>.
+                  </li>
+                  <li>Use MediaFlow URL Generator (`/url-generator#telegram`) to generate session string.</li>
+                  <li>Restart MediaFlow, then link your account by sending `/login` to the MediaFusion bot.</li>
+                </ol>
               </AlertDescription>
             </Alert>
           )}

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Eye, EyeOff, ExternalLink, X } from 'lucide-react'
+import { Eye, EyeOff, ExternalLink, Info, X } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import type { ConfigSectionProps } from './types'
 
 export function ExternalServices({ config, onChange }: ConfigSectionProps) {
@@ -99,6 +100,37 @@ export function ExternalServices({ config, onChange }: ConfigSectionProps) {
                       MediaFlow Setup Guide <ExternalLink className="h-3 w-3" />
                     </a>
                   </div>
+
+                  <Alert className="bg-muted/30">
+                    <Info className="h-4 w-4" />
+                    <AlertDescription className="space-y-2">
+                      <p className="font-medium text-sm">MediaFlow setup checklist for Telegram and AceStream</p>
+                      <ol className="list-decimal list-inside text-xs text-muted-foreground space-y-1">
+                        <li>
+                          Deploy MediaFlow Proxy and configure{' '}
+                          <code className="bg-muted px-1 py-0.5 rounded">API_PASSWORD</code>.
+                        </li>
+                        <li>
+                          For Telegram streams, set{' '}
+                          <code className="bg-muted px-1 py-0.5 rounded">ENABLE_TELEGRAM=true</code>,{' '}
+                          <code className="bg-muted px-1 py-0.5 rounded">TELEGRAM_API_ID</code>,{' '}
+                          <code className="bg-muted px-1 py-0.5 rounded">TELEGRAM_API_HASH</code>, and{' '}
+                          <code className="bg-muted px-1 py-0.5 rounded">TELEGRAM_SESSION_STRING</code> in MediaFlow.
+                        </li>
+                        <li>
+                          For AceStream streams, run AceEngine and set{' '}
+                          <code className="bg-muted px-1 py-0.5 rounded">ENABLE_ACESTREAM=true</code>,{' '}
+                          <code className="bg-muted px-1 py-0.5 rounded">ACESTREAM_HOST</code>, and{' '}
+                          <code className="bg-muted px-1 py-0.5 rounded">ACESTREAM_PORT</code> in MediaFlow.
+                        </li>
+                        <li>Restart MediaFlow, then enter the Proxy URL and API Password below.</li>
+                      </ol>
+                      <p className="text-xs text-muted-foreground">
+                        Telegram and AceStream secrets are configured in MediaFlow environment variables, not in your
+                        MediaFusion profile.
+                      </p>
+                    </AlertDescription>
+                  </Alert>
 
                   <div className="space-y-2">
                     <Label>

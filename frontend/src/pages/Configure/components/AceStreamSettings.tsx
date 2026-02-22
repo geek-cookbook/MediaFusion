@@ -56,23 +56,33 @@ export function AceStreamSettings({ config, onChange }: AceStreamSettingsProps) 
           <Switch id="enable-acestream" checked={enableAceStream} onCheckedChange={handleEnableChange} />
         </div>
 
-        {/* MediaFlow Proxy Requirement */}
-        {enableAceStream && !hasMediaFlow && (
+        {/* AceStream Setup Requirement */}
+        {enableAceStream && (
           <Alert>
             <Info className="h-4 w-4" />
-            <AlertDescription>
-              <strong>MediaFlow Required:</strong> You must configure MediaFlow Proxy in the Services tab for AceStream
-              playback to work. AceStream content is streamed through MediaFlow's AceEngine integration.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {enableAceStream && hasMediaFlow && (
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertDescription>
-              AceStream content will be streamed through your MediaFlow Proxy with automatic transcoding for browser
-              playback. Make sure AceEngine is running and accessible from your MediaFlow instance.
+            <AlertDescription className="space-y-2">
+              <p>
+                <strong>AceStream setup required:</strong> AceStream playback needs MediaFlow Proxy and a reachable
+                AceEngine instance.
+              </p>
+              <ol className="list-decimal list-inside text-sm text-muted-foreground space-y-1">
+                <li>Run AceEngine and make it reachable from your MediaFlow container (default port: 6878).</li>
+                <li>
+                  In MediaFlow environment, set{' '}
+                  <code className="bg-muted px-1 py-0.5 rounded">ENABLE_ACESTREAM=true</code>,{' '}
+                  <code className="bg-muted px-1 py-0.5 rounded">ACESTREAM_HOST</code>, and{' '}
+                  <code className="bg-muted px-1 py-0.5 rounded">ACESTREAM_PORT</code>.
+                </li>
+                <li>
+                  Configure MediaFlow Proxy URL and API Password in <strong>External Services → MediaFlow</strong>.
+                </li>
+                <li>Restart MediaFlow after changing environment variables.</li>
+              </ol>
+              <p className="text-sm text-muted-foreground">
+                {hasMediaFlow
+                  ? 'MediaFlow is configured in this profile. Verify AceEngine connectivity if playback fails.'
+                  : 'MediaFlow is not configured in this profile yet. Complete MediaFlow settings first.'}
+              </p>
             </AlertDescription>
           </Alert>
         )}

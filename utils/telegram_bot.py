@@ -18,8 +18,9 @@ from sqlmodel import func, select
 
 from db import crud
 from db.config import settings
-from db.crud.reference import get_or_create_catalog, get_or_create_genre
+from db.crud.reference import get_or_create_catalog, get_or_create_genre, get_or_create_language
 from db.crud.streams import (
+    add_languages_to_stream,
     create_acestream_stream,
     create_http_stream,
     create_torrent_stream,
@@ -1597,6 +1598,7 @@ class TelegramContentBot:
             "quality": parsed.get("quality"),
             "codec": parsed.get("codec"),
             "audio": parsed.get("audio"),
+            "languages": parsed.get("languages"),
             "seasons": parsed.get("seasons"),
             "episodes": parsed.get("episodes"),
             "matches": matches,
@@ -2387,7 +2389,8 @@ class TelegramContentBot:
         quality = overrides.get("quality") or analysis.get("quality") or "Auto"
         codec = overrides.get("codec") or analysis.get("codec") or "Auto"
         audio = overrides.get("audio") or analysis.get("audio") or "Auto"
-        languages = overrides.get("languages") or "English"
+        languages_list = self._get_selected_languages(analysis, overrides)
+        languages = ", ".join(languages_list) if languages_list else "Auto"
 
         # Series episode info (override > analysis parsed values)
         is_series = state.media_type == "series"
@@ -2740,6 +2743,48 @@ class TelegramContentBot:
 
         return season_number, episode_number, episode_end
 
+    @staticmethod
+    def _normalize_language_values(value: Any) -> list[str]:
+        """Normalize language input to a clean list of names."""
+        if not value:
+            return []
+        if isinstance(value, str):
+            parts = [part.strip() for part in value.split(",")]
+            return [part for part in parts if part and part.lower() != "auto"]
+        if isinstance(value, (list, tuple, set)):
+            normalized = []
+            for item in value:
+                if isinstance(item, str):
+                    item = item.strip()
+                    if item and item.lower() != "auto":
+                        normalized.append(item)
+            return normalized
+        return []
+
+    def _get_selected_languages(self, analysis: dict, overrides: dict) -> list[str]:
+        """Resolve selected languages (override first, parser fallback)."""
+        override_languages = self._normalize_language_values(overrides.get("languages"))
+        if override_languages:
+            return override_languages
+        return self._normalize_language_values(analysis.get("languages"))
+
+    async def _resolve_language_refs(self, session, language_names: list[str]) -> list:
+        """Get/create Language rows for selected names."""
+        if not language_names:
+            return []
+        resolved = []
+        seen = set()
+        for language_name in language_names:
+            if language_name in seen:
+                continue
+            seen.add(language_name)
+            try:
+                lang = await get_or_create_language(session, language_name)
+                resolved.append(lang)
+            except Exception as error:
+                logger.warning("Failed to resolve language '%s': %s", language_name, error)
+        return resolved
+
     async def _resolve_telegram_uploader(
         self,
         session,
@@ -2987,6 +3032,7 @@ class TelegramContentBot:
         analysis = state.analysis_result or {}
         match = state.selected_match or {}
         overrides = state.metadata_overrides
+        selected_languages = self._get_selected_languages(analysis, overrides)
 
         external_id = self._get_canonical_external_id(match)
         if not external_id:
@@ -3009,6 +3055,7 @@ class TelegramContentBot:
             "resolution": overrides.get("resolution") or analysis.get("resolution"),
             "quality": overrides.get("quality") or analysis.get("quality"),
             "codec": overrides.get("codec") or analysis.get("codec"),
+            "languages": selected_languages,
             "season_number": season_number,
             "episode_number": episode_number,
             "episode_end": episode_end,
@@ -3028,6 +3075,7 @@ class TelegramContentBot:
                     "resolution": overrides.get("resolution") or analysis.get("resolution"),
                     "quality": overrides.get("quality") or analysis.get("quality"),
                     "codec": overrides.get("codec") or analysis.get("codec"),
+                    "languages": selected_languages,
                     "meta_id": external_id,
                     "season_number": season_number,
                     "episode_number": episode_number,
@@ -3046,6 +3094,7 @@ class TelegramContentBot:
         analysis = state.analysis_result or {}
         match = state.selected_match or {}
         overrides = state.metadata_overrides
+        selected_languages = self._get_selected_languages(analysis, overrides)
 
         external_id = self._get_canonical_external_id(match)
         if not external_id:
@@ -3078,6 +3127,7 @@ class TelegramContentBot:
                 mf_user_id,
                 state.anonymous_display_name,
             )
+            language_refs = await self._resolve_language_refs(session, selected_languages)
 
             # Create the torrent stream
             await create_torrent_stream(
@@ -3092,6 +3142,7 @@ class TelegramContentBot:
                 codec=overrides.get("codec") or analysis.get("codec"),
                 uploader=uploader_name,
                 uploader_user_id=uploader_user_id,
+                languages=language_refs,
             )
 
             await session.commit()
@@ -3108,6 +3159,7 @@ class TelegramContentBot:
                 "resolution": overrides.get("resolution") or analysis.get("resolution"),
                 "quality": overrides.get("quality") or analysis.get("quality"),
                 "codec": overrides.get("codec") or analysis.get("codec"),
+                "languages": selected_languages,
                 "is_anonymous": is_anonymous,
                 "anonymous_display_name": state.anonymous_display_name if is_anonymous else None,
             },
@@ -3136,6 +3188,7 @@ class TelegramContentBot:
         analysis = state.analysis_result or {}
         match = state.selected_match or {}
         overrides = state.metadata_overrides
+        selected_languages = self._get_selected_languages(analysis, overrides)
 
         external_id = self._get_canonical_external_id(match)
         if not external_id:
@@ -3167,7 +3220,7 @@ class TelegramContentBot:
             )
 
             # Create the YouTube stream (uses kwargs for extra fields)
-            await create_youtube_stream(
+            yt_stream = await create_youtube_stream(
                 session,
                 video_id=video_id,
                 name=analysis.get("title") or "YouTube Video",
@@ -3178,6 +3231,9 @@ class TelegramContentBot:
                 uploader_user_id=uploader_user_id,
                 resolution=overrides.get("resolution") or analysis.get("resolution"),
             )
+            language_refs = await self._resolve_language_refs(session, selected_languages)
+            if language_refs:
+                await add_languages_to_stream(session, yt_stream.stream_id, [lang.id for lang in language_refs])
 
             await session.commit()
 
@@ -3190,6 +3246,7 @@ class TelegramContentBot:
                 "title": analysis.get("title"),
                 "meta_id": external_id,
                 "resolution": overrides.get("resolution") or analysis.get("resolution"),
+                "languages": selected_languages,
                 "is_anonymous": is_anonymous,
                 "anonymous_display_name": state.anonymous_display_name if is_anonymous else None,
             },
@@ -3203,6 +3260,7 @@ class TelegramContentBot:
         analysis = state.analysis_result or {}
         match = state.selected_match or {}
         overrides = state.metadata_overrides
+        selected_languages = self._get_selected_languages(analysis, overrides)
 
         external_id = self._get_canonical_external_id(match)
         if not external_id:
@@ -3229,7 +3287,7 @@ class TelegramContentBot:
             )
 
             # Create the HTTP stream
-            await create_http_stream(
+            http_stream = await create_http_stream(
                 session,
                 url=url,
                 name=analysis.get("file_name") or analysis.get("parsed_title") or "HTTP Stream",
@@ -3243,6 +3301,9 @@ class TelegramContentBot:
                 quality=overrides.get("quality") or analysis.get("quality"),
                 codec=overrides.get("codec") or analysis.get("codec"),
             )
+            language_refs = await self._resolve_language_refs(session, selected_languages)
+            if language_refs:
+                await add_languages_to_stream(session, http_stream.stream_id, [lang.id for lang in language_refs])
 
             await session.commit()
 
@@ -3255,6 +3316,7 @@ class TelegramContentBot:
                 "title": analysis.get("parsed_title"),
                 "meta_id": external_id,
                 "resolution": overrides.get("resolution") or analysis.get("resolution"),
+                "languages": selected_languages,
                 "is_anonymous": is_anonymous,
                 "anonymous_display_name": state.anonymous_display_name if is_anonymous else None,
             },
@@ -3268,6 +3330,7 @@ class TelegramContentBot:
         analysis = state.analysis_result or {}
         match = state.selected_match or {}
         overrides = state.metadata_overrides
+        selected_languages = self._get_selected_languages(analysis, overrides)
 
         external_id = self._get_canonical_external_id(match)
         if not external_id:
@@ -3300,6 +3363,7 @@ class TelegramContentBot:
                 mf_user_id,
                 state.anonymous_display_name,
             )
+            language_refs = await self._resolve_language_refs(session, selected_languages)
 
             # Create the Usenet stream
             await create_usenet_stream(
@@ -3315,6 +3379,7 @@ class TelegramContentBot:
                 codec=overrides.get("codec") or analysis.get("codec"),
                 uploader=uploader_name,
                 uploader_user_id=uploader_user_id,
+                languages=language_refs,
             )
 
             await session.commit()
@@ -3329,6 +3394,7 @@ class TelegramContentBot:
                 "title": analysis.get("nzb_name"),
                 "meta_id": external_id,
                 "resolution": overrides.get("resolution") or analysis.get("resolution"),
+                "languages": selected_languages,
                 "is_anonymous": is_anonymous,
                 "anonymous_display_name": state.anonymous_display_name if is_anonymous else None,
             },
@@ -3342,6 +3408,7 @@ class TelegramContentBot:
         analysis = state.analysis_result or {}
         match = state.selected_match or {}
         overrides = state.metadata_overrides
+        selected_languages = self._get_selected_languages(analysis, overrides)
 
         external_id = self._get_canonical_external_id(match)
         if not external_id:
@@ -3373,7 +3440,7 @@ class TelegramContentBot:
             )
 
             # Create the AceStream
-            await create_acestream_stream(
+            acestream = await create_acestream_stream(
                 session,
                 content_id=content_id,
                 name=match.get("title") or "AceStream",
@@ -3383,6 +3450,9 @@ class TelegramContentBot:
                 uploader_user_id=uploader_user_id,
                 resolution=overrides.get("resolution") or analysis.get("resolution"),
             )
+            language_refs = await self._resolve_language_refs(session, selected_languages)
+            if language_refs:
+                await add_languages_to_stream(session, acestream.stream_id, [lang.id for lang in language_refs])
 
             await session.commit()
 
@@ -3395,6 +3465,7 @@ class TelegramContentBot:
                 "title": match.get("title"),
                 "meta_id": external_id,
                 "resolution": overrides.get("resolution") or analysis.get("resolution"),
+                "languages": selected_languages,
                 "is_anonymous": is_anonymous,
                 "anonymous_display_name": state.anonymous_display_name if is_anonymous else None,
             },
@@ -3413,6 +3484,7 @@ class TelegramContentBot:
         analysis = state.analysis_result or {}
         match = state.selected_match or {}
         overrides = state.metadata_overrides
+        selected_languages = self._get_selected_languages(analysis, overrides)
         sports_category = state.sports_category or "other_sports"
 
         event_title = (
@@ -3478,6 +3550,7 @@ class TelegramContentBot:
                 mf_user_id,
                 state.anonymous_display_name,
             )
+            language_refs = await self._resolve_language_refs(session, selected_languages)
 
             # Create the appropriate stream based on content type
             content_type = state.content_type
@@ -3506,13 +3579,14 @@ class TelegramContentBot:
                     codec=overrides.get("codec") or analysis.get("codec"),
                     uploader=uploader_name,
                     uploader_user_id=uploader_user_id,
+                    languages=language_refs,
                 )
 
             elif content_type == ContentType.HTTP:
                 url = analysis.get("url")
                 if not url:
                     return {"success": False, "error": "No URL provided."}
-                await create_http_stream(
+                http_stream = await create_http_stream(
                     session,
                     url=url,
                     name=analysis.get("file_name") or event_title,
@@ -3526,6 +3600,8 @@ class TelegramContentBot:
                     quality=overrides.get("quality") or analysis.get("quality"),
                     codec=overrides.get("codec") or analysis.get("codec"),
                 )
+                if language_refs:
+                    await add_languages_to_stream(session, http_stream.stream_id, [lang.id for lang in language_refs])
 
             elif content_type == ContentType.ACESTREAM:
                 content_id = analysis.get("content_id")
@@ -3536,7 +3612,7 @@ class TelegramContentBot:
                 if existing.first():
                     return {"success": False, "error": "This AceStream is already in the database."}
 
-                await create_acestream_stream(
+                acestream = await create_acestream_stream(
                     session,
                     content_id=content_id,
                     name=event_title,
@@ -3546,6 +3622,8 @@ class TelegramContentBot:
                     uploader_user_id=uploader_user_id,
                     resolution=overrides.get("resolution") or analysis.get("resolution"),
                 )
+                if language_refs:
+                    await add_languages_to_stream(session, acestream.stream_id, [lang.id for lang in language_refs])
 
             elif content_type == ContentType.VIDEO:
                 # Delegate to the video import which uses _store_forwarded_content
@@ -3563,6 +3641,7 @@ class TelegramContentBot:
                     "resolution": overrides.get("resolution") or analysis.get("resolution"),
                     "quality": overrides.get("quality") or analysis.get("quality"),
                     "codec": overrides.get("codec") or analysis.get("codec"),
+                    "languages": selected_languages,
                     "anonymous_display_name": state.anonymous_display_name,
                 }
                 await session.commit()
@@ -3580,7 +3659,7 @@ class TelegramContentBot:
                 existing = await session.exec(select(YouTubeStream).where(YouTubeStream.video_id == video_id))
                 if existing.first():
                     return {"success": False, "error": "This YouTube video is already in the database."}
-                await create_youtube_stream(
+                yt_stream = await create_youtube_stream(
                     session,
                     video_id=video_id,
                     name=analysis.get("title") or event_title,
@@ -3591,6 +3670,8 @@ class TelegramContentBot:
                     uploader_user_id=uploader_user_id,
                     resolution=overrides.get("resolution") or analysis.get("resolution"),
                 )
+                if language_refs:
+                    await add_languages_to_stream(session, yt_stream.stream_id, [lang.id for lang in language_refs])
 
             elif content_type == ContentType.NZB:
                 nzb_url = analysis.get("nzb_url")
@@ -3613,6 +3694,7 @@ class TelegramContentBot:
                     codec=overrides.get("codec") or analysis.get("codec"),
                     uploader=uploader_name,
                     uploader_user_id=uploader_user_id,
+                    languages=language_refs,
                 )
 
             else:
@@ -4383,6 +4465,9 @@ class TelegramContentBot:
 
             # Parse filename for quality attributes
             parsed = PTT.parse_title(content["file_name"], True)
+            selected_languages = self._normalize_language_values(
+                content.get("languages")
+            ) or self._normalize_language_values(parsed.get("languages"))
 
             # Get MediaFusion user ID if linked
             mf_user_id = await self._get_mediafusion_user_id(content["user_id"])
@@ -4440,6 +4525,7 @@ class TelegramContentBot:
                 episode_number = parsed["episodes"][0]
                 if episode_end is None and len(parsed["episodes"]) > 1:
                     episode_end = parsed["episodes"][-1]
+            language_refs = await self._resolve_language_refs(session, selected_languages)
 
             await crud.create_telegram_stream(
                 session,
@@ -4457,10 +4543,11 @@ class TelegramContentBot:
                 source="telegram_bot",
                 uploader=uploader_name,
                 uploader_user_id=uploader_user_id,
-                resolution=parsed.get("resolution"),
-                codec=parsed.get("codec"),
-                quality=parsed.get("quality"),
+                resolution=content.get("resolution") or parsed.get("resolution"),
+                codec=content.get("codec") or parsed.get("codec"),
+                quality=content.get("quality") or parsed.get("quality"),
                 release_group=parsed.get("group"),
+                languages=language_refs,
                 season_number=season_number,
                 episode_number=episode_number,
                 episode_end=episode_end,

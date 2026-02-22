@@ -1037,6 +1037,25 @@ function formatBytes(bytes: number | string): string {
   return parseFloat((size / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
+function getContributionUploaderLabel(contribution: Contribution): string {
+  const contributionData = contribution.data as Record<string, unknown>
+  if (contributionData.is_anonymous === true) {
+    const anonymousName =
+      typeof contributionData.anonymous_display_name === 'string' ? contributionData.anonymous_display_name.trim() : ''
+    return anonymousName || 'Anonymous'
+  }
+
+  if (contribution.username && contribution.username.trim().length > 0) {
+    return contribution.username
+  }
+
+  if (typeof contribution.user_id === 'number') {
+    return `User #${contribution.user_id}`
+  }
+
+  return 'Unknown'
+}
+
 // Contributions Tab (Torrent Imports)
 function ContributionsTab() {
   const [page, setPage] = useState(1)
@@ -1140,6 +1159,7 @@ function ContributionsTab() {
             const isStream = contribution.contribution_type === 'stream'
             const isPending = contribution.status === 'pending'
             const torrentData = contribution.data as Record<string, unknown>
+            const uploaderLabel = getContributionUploaderLabel(contribution)
 
             return (
               <Card key={contribution.id} className="glass border-border/50 hover:border-primary/30 transition-colors">
@@ -1191,7 +1211,7 @@ function ContributionsTab() {
                             {String(torrentData.quality)}
                           </Badge>
                         )}
-                        {/* Anonymous indicator */}
+                        {/* Uploader identity */}
                         <Badge
                           variant="outline"
                           className={`text-xs ${
@@ -1199,8 +1219,9 @@ function ContributionsTab() {
                               ? 'bg-gray-500/10 border-gray-500/30 text-gray-500'
                               : 'bg-primary/10 border-primary/30 text-primary'
                           }`}
+                          title={uploaderLabel}
                         >
-                          {torrentData.is_anonymous === true ? 'Anonymous' : 'Linked'}
+                          {uploaderLabel}
                         </Badge>
                       </div>
 
@@ -1376,6 +1397,8 @@ function ContributionsTab() {
 
               {/* Submitted info */}
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span>By: {getContributionUploaderLabel(selectedContribution)}</span>
+                <span>•</span>
                 <span>Submitted: {formatTimeAgo(selectedContribution.created_at)}</span>
               </div>
 

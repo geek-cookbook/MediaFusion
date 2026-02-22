@@ -55,6 +55,7 @@ class ContributionResponse(BaseModel):
 
     id: str  # UUID string
     user_id: int | None
+    username: str | None = None
     contribution_type: str
     target_id: str | None  # External ID (IMDb, TMDB)
     data: dict[str, Any]
@@ -94,11 +95,12 @@ class ContributionStats(BaseModel):
 # ============================================
 
 
-def contribution_to_response(contribution: Contribution) -> ContributionResponse:
+def contribution_to_response(contribution: Contribution, username: str | None = None) -> ContributionResponse:
     """Convert a Contribution model to response schema."""
     return ContributionResponse(
         id=contribution.id,
         user_id=contribution.user_id,
+        username=username,
         contribution_type=contribution.contribution_type,
         target_id=contribution.target_id,
         data=contribution.data,
@@ -109,6 +111,25 @@ def contribution_to_response(contribution: Contribution) -> ContributionResponse
         created_at=contribution.created_at,
         updated_at=contribution.updated_at,
     )
+
+
+async def get_username_map(session: AsyncSession, user_ids: set[int]) -> dict[int, str | None]:
+    """Get a map of user_id -> username for contribution lists."""
+    if not user_ids:
+        return {}
+
+    result = await session.exec(select(User.id, User.username).where(User.id.in_(user_ids)))
+    rows = result.all()
+    return {user_id: username for user_id, username in rows}
+
+
+async def get_contribution_username(session: AsyncSession, user_id: int | None) -> str | None:
+    """Get username for a single contribution's user_id."""
+    if user_id is None:
+        return None
+
+    result = await session.exec(select(User.username).where(User.id == user_id))
+    return result.first()
 
 
 # ============================================
@@ -158,8 +179,10 @@ async def list_contributions(
     result = await session.exec(query)
     items = result.all()
 
+    username_map = await get_username_map(session, {item.user_id for item in items if item.user_id is not None})
+
     return ContributionListResponse(
-        items=[contribution_to_response(item) for item in items],
+        items=[contribution_to_response(item, username_map.get(item.user_id)) for item in items],
         total=total,
         page=page,
         page_size=page_size,
@@ -280,7 +303,8 @@ async def get_contribution(
             detail="Not authorized to view this contribution",
         )
 
-    return contribution_to_response(contribution)
+    username = await get_contribution_username(session, contribution.user_id)
+    return contribution_to_response(contribution, username)
 
 
 @router.post("", response_model=ContributionResponse, status_code=status.HTTP_201_CREATED)
@@ -347,7 +371,7 @@ async def create_contribution(
             }
         )
 
-    return contribution_to_response(contribution)
+    return contribution_to_response(contribution, user.username if contribution.user_id is not None else None)
 
 
 @router.delete("/{contribution_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -414,8 +438,10 @@ async def list_pending_contributions(
     result = await session.exec(query)
     items = result.all()
 
+    username_map = await get_username_map(session, {item.user_id for item in items if item.user_id is not None})
+
     return ContributionListResponse(
-        items=[contribution_to_response(item) for item in items],
+        items=[contribution_to_response(item, username_map.get(item.user_id)) for item in items],
         total=total,
         page=page,
         page_size=page_size,
@@ -494,7 +520,8 @@ async def review_contribution(
     await session.commit()
     await session.refresh(contribution)
 
-    return contribution_to_response(contribution)
+    username = await get_contribution_username(session, contribution.user_id)
+    return contribution_to_response(contribution, username)
 
 
 @router.get("/review/stats", response_model=ContributionStats)

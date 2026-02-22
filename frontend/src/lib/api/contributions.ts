@@ -10,6 +10,7 @@ export interface ContributionData {
 export interface Contribution {
   id: string
   user_id: number | null
+  username?: string | null
   contribution_type: ContributionType
   target_id?: string
   data: ContributionData

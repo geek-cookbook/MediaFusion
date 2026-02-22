@@ -176,7 +176,7 @@ export const STREAM_TYPES = [
   { value: 'youtube', label: 'YouTube', icon: '▶️' },
 ]
 
-export const LANGUAGES = [
+export const LANGUAGES: (string | null)[] = [
   'English',
   'Tamil',
   'Hindi',
@@ -225,6 +225,7 @@ export const LANGUAGES = [
   'Mongolian',
   'Armenian',
   'Georgian',
+  null,
 ]
 
 export const CERTIFICATION_LEVELS = [

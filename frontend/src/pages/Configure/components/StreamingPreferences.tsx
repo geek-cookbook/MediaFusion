@@ -17,6 +17,7 @@ export function StreamingPreferences({ config, onChange }: ConfigSectionProps) {
   const selectedQualities = config.qf || QUALITY_GROUPS.map((q) => q.id)
   const sortingPriority = config.tsp || SORTING_OPTIONS.map((o) => ({ k: o.key, d: 'desc' as const }))
   const selectedLanguages = config.ls || LANGUAGES
+  const getLanguageLabel = (language: string | null) => language ?? 'Unknown'
 
   const toggleResolution = (value: string | null) => {
     const newResolutions = selectedResolutions.includes(value)
@@ -589,7 +590,7 @@ export function StreamingPreferences({ config, onChange }: ConfigSectionProps) {
               <div className="space-y-1">
                 {selectedLanguages.map((lang, index) => (
                   <div
-                    key={lang}
+                    key={lang ?? '__unknown__'}
                     className="flex items-center gap-1.5 p-1.5 rounded-md border border-primary/30 bg-primary/5"
                   >
                     <Badge variant="outline" className="text-[10px] w-5 h-5 justify-center p-0 shrink-0">
@@ -615,7 +616,7 @@ export function StreamingPreferences({ config, onChange }: ConfigSectionProps) {
                         <ChevronDown className="h-2.5 w-2.5" />
                       </Button>
                     </div>
-                    <span className="flex-1 text-xs font-medium">{lang}</span>
+                    <span className="flex-1 text-xs font-medium">{getLanguageLabel(lang)}</span>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -638,14 +639,14 @@ export function StreamingPreferences({ config, onChange }: ConfigSectionProps) {
                 <div className="flex flex-wrap gap-1.5">
                   {LANGUAGES.filter((l) => !selectedLanguages.includes(l)).map((lang) => (
                     <Button
-                      key={lang}
+                      key={lang ?? '__unknown__'}
                       variant="outline"
                       size="sm"
                       onClick={() => toggleLanguage(lang)}
                       className="h-7 text-xs"
                     >
                       <Plus className="h-3 w-3 mr-1" />
-                      {lang}
+                      {getLanguageLabel(lang)}
                     </Button>
                   ))}
                 </div>

@@ -89,7 +89,13 @@ async def get_streams(
                 raise HTTPException(status_code=404, detail="Meta ID not found.")
         else:
             fetched_streams = await crud.get_movie_streams(
-                session, video_id, user_data, secret_str, user_ip, background_tasks
+                session,
+                video_id,
+                user_data,
+                secret_str,
+                user_ip,
+                background_tasks,
+                user_data.user_id,
             )
             fetched_streams.extend(user_feeds)
     elif catalog_type == "series":
@@ -102,6 +108,7 @@ async def get_streams(
             secret_str,
             user_ip,
             background_tasks,
+            user_data.user_id,
         )
         fetched_streams.extend(user_feeds)
     elif catalog_type == "events":

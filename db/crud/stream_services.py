@@ -366,9 +366,17 @@ async def invalidate_media_stream_cache(media_id: int) -> None:
     Clears both movie and series cache keys for the given media_id.
     """
     try:
-        # Delete movie cache key directly
-        movie_key = f"{STREAM_CACHE_PREFIX}movie:{media_id}"
-        await REDIS_ASYNC_CLIENT.delete(movie_key)
+        # Delete legacy movie cache key (backward compatibility)
+        legacy_movie_key = f"{STREAM_CACHE_PREFIX}movie:{media_id}"
+        await REDIS_ASYNC_CLIENT.delete(legacy_movie_key)
+
+        # Delete visibility-scoped movie cache keys
+        movie_pattern = f"{STREAM_CACHE_PREFIX}movie:{media_id}:*"
+        movie_keys = []
+        async for key in REDIS_ASYNC_CLIENT.scan_iter(match=movie_pattern, count=100):
+            movie_keys.append(key)
+        if movie_keys:
+            await REDIS_ASYNC_CLIENT.delete(*movie_keys)
 
         # For series, scan and delete all season:episode combos
         pattern = f"{STREAM_CACHE_PREFIX}series:{media_id}:*"
@@ -556,9 +564,10 @@ async def _fetch_movie_raw_streams(media_id: int, visibility_filter) -> dict:
     }
 
 
-async def _get_cached_movie_streams(media_id: int, visibility_filter) -> dict:
+async def _get_cached_movie_streams(media_id: int, visibility_filter, user_id: int | None = None) -> dict:
     """Get raw movie stream data with Redis caching."""
-    cache_key = f"{STREAM_CACHE_PREFIX}movie:{media_id}"
+    visibility_scope = f"user:{user_id}" if user_id else "public"
+    cache_key = f"{STREAM_CACHE_PREFIX}movie:{media_id}:{visibility_scope}"
 
     # Try Redis cache first
     cached = await REDIS_ASYNC_CLIENT.get(cache_key)
@@ -768,9 +777,16 @@ async def _fetch_series_raw_streams(media_id: int, season: int, episode: int, vi
     }
 
 
-async def _get_cached_series_streams(media_id: int, season: int, episode: int, visibility_filter) -> dict:
+async def _get_cached_series_streams(
+    media_id: int,
+    season: int,
+    episode: int,
+    visibility_filter,
+    user_id: int | None = None,
+) -> dict:
     """Get raw series stream data with Redis caching."""
-    cache_key = f"{STREAM_CACHE_PREFIX}series:{media_id}:{season}:{episode}"
+    visibility_scope = f"user:{user_id}" if user_id else "public"
+    cache_key = f"{STREAM_CACHE_PREFIX}series:{media_id}:{season}:{episode}:{visibility_scope}"
 
     cached = await REDIS_ASYNC_CLIENT.get(cache_key)
     if cached:
@@ -864,7 +880,7 @@ async def get_movie_streams(
 
     # Get cached or fresh raw stream data
     if media:
-        raw_data = await _get_cached_movie_streams(media.id, visibility_filter)
+        raw_data = await _get_cached_movie_streams(media.id, visibility_filter, user_id)
     else:
         raw_data = {
             "torrents": [],
@@ -1075,7 +1091,7 @@ async def get_series_streams(
 
     # Get cached or fresh raw stream data
     if media:
-        raw_data = await _get_cached_series_streams(media.id, season, episode, visibility_filter)
+        raw_data = await _get_cached_series_streams(media.id, season, episode, visibility_filter, user_id)
     else:
         raw_data = {
             "torrents": [],
@@ -1270,6 +1286,7 @@ async def get_tv_streams_formatted(
         logger.warning(f"TV channel not found for video_id: {video_id}")
         return []
 
+    visibility_filter = _get_visibility_filter(user_data.user_id)
     disabled = set(settings.disabled_content_types)
     formatted_streams = []
 
@@ -1282,6 +1299,7 @@ async def get_tv_streams_formatted(
             .where(StreamMediaLink.media_id == media.id)
             .where(Stream.is_active.is_(True))
             .where(Stream.is_blocked.is_(False))
+            .where(visibility_filter)
             .options(joinedload(HTTPStream.stream))
             .limit(100)
         )
@@ -1308,6 +1326,7 @@ async def get_tv_streams_formatted(
             .where(StreamMediaLink.media_id == media.id)
             .where(Stream.is_active.is_(True))
             .where(Stream.is_blocked.is_(False))
+            .where(visibility_filter)
             .options(
                 joinedload(YouTubeStream.stream).options(
                     selectinload(Stream.languages),
@@ -1348,6 +1367,7 @@ async def get_tv_streams_formatted(
             .where(StreamMediaLink.media_id == media.id)
             .where(Stream.is_active.is_(True))
             .where(Stream.is_blocked.is_(False))
+            .where(visibility_filter)
             .options(
                 joinedload(AceStreamStream.stream).options(
                     selectinload(Stream.languages),

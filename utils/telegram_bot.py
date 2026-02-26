@@ -36,6 +36,7 @@ from db.models.media import Media
 from db.models.streams import (
     AceStreamStream,
     HTTPStream,
+    Stream,
     TelegramStream,
     TorrentStream,
     UsenetStream,
@@ -3331,20 +3332,21 @@ class TelegramContentBot:
         *,
         is_anonymous: bool = False,
         anonymous_display_name: str | None = None,
-    ) -> bool:
-        """Create a Contribution record and return whether it was auto-approved."""
+    ) -> tuple[bool, bool]:
+        """Create a Contribution record and return (recorded, auto_approved)."""
         try:
             async with get_async_session_context() as session:
                 linked_user = await session.get(User, mf_user_id)
                 if linked_user is None:
                     logger.warning("Failed to record contribution (%s): user not found", contribution_type)
-                    return False
+                    return False, False
 
                 is_privileged_reviewer = linked_user.role in {UserRole.MODERATOR, UserRole.ADMIN}
                 should_auto_approve = is_privileged_reviewer or (linked_user.is_active and not is_anonymous)
 
                 contribution_data = dict(data)
                 contribution_data["is_anonymous"] = is_anonymous
+                contribution_data["is_public"] = should_auto_approve
                 if is_anonymous and anonymous_display_name:
                     contribution_data["anonymous_display_name"] = anonymous_display_name
 
@@ -3381,10 +3383,14 @@ class TelegramContentBot:
                             "data": contribution.data,
                         }
                     )
-                return should_auto_approve
+                return True, should_auto_approve
         except Exception as e:
             logger.warning(f"Failed to record contribution ({contribution_type}): {e}")
-        return False
+        return False, False
+
+    def _get_contribution_meta_type(self, media_type: str | None) -> str:
+        """Map wizard media type to contribution import meta_type."""
+        return "series" if media_type == "series" else "movie"
 
     async def _import_video(self, state: ConversationState, mf_user_id: int) -> dict:
         """Import a video file as TelegramStream."""
@@ -3392,6 +3398,7 @@ class TelegramContentBot:
         match = state.selected_match or {}
         overrides = state.metadata_overrides
         selected_languages = self._get_selected_languages(analysis, overrides)
+        meta_type = self._get_contribution_meta_type(state.media_type)
 
         external_id = self._get_canonical_external_id(match)
         if not external_id:
@@ -3421,27 +3428,34 @@ class TelegramContentBot:
             "anonymous_display_name": state.anonymous_display_name if is_anonymous else None,
         }
 
+        recorded, auto_approved = await self._record_contribution(
+            mf_user_id,
+            "telegram",
+            external_id,
+            {
+                "title": analysis.get("file_name") or analysis.get("parsed_title") or "Telegram Video",
+                "file_name": analysis.get("file_name"),
+                "file_size": analysis.get("file_size"),
+                "file_id": analysis.get("file_id"),
+                "file_unique_id": analysis.get("file_unique_id"),
+                "meta_type": meta_type,
+                "meta_id": external_id,
+                "resolution": overrides.get("resolution") or analysis.get("resolution"),
+                "quality": overrides.get("quality") or analysis.get("quality"),
+                "codec": overrides.get("codec") or analysis.get("codec"),
+                "languages": selected_languages,
+                "season_number": season_number,
+                "episode_number": episode_number,
+                "episode_end": episode_end,
+            },
+            is_anonymous=is_anonymous,
+            anonymous_display_name=state.anonymous_display_name if is_anonymous else None,
+        )
+        if not recorded:
+            return {"success": False, "error": "Failed to record contribution."}
+
+        content_info["is_public"] = auto_approved
         stored = await self._store_forwarded_content(content_info)
-        auto_approved = False
-        if stored:
-            auto_approved = await self._record_contribution(
-                mf_user_id,
-                "telegram",
-                external_id,
-                {
-                    "file_name": analysis.get("file_name"),
-                    "file_size": analysis.get("file_size"),
-                    "resolution": overrides.get("resolution") or analysis.get("resolution"),
-                    "quality": overrides.get("quality") or analysis.get("quality"),
-                    "codec": overrides.get("codec") or analysis.get("codec"),
-                    "languages": selected_languages,
-                    "meta_id": external_id,
-                    "season_number": season_number,
-                    "episode_number": episode_number,
-                },
-                is_anonymous=is_anonymous,
-                anonymous_display_name=state.anonymous_display_name if is_anonymous else None,
-            )
         return {
             "success": stored,
             "auto_approved": auto_approved,
@@ -3454,6 +3468,7 @@ class TelegramContentBot:
         match = state.selected_match or {}
         overrides = state.metadata_overrides
         selected_languages = self._get_selected_languages(analysis, overrides)
+        meta_type = self._get_contribution_meta_type(state.media_type)
 
         external_id = self._get_canonical_external_id(match)
         if not external_id:
@@ -3488,6 +3503,30 @@ class TelegramContentBot:
             )
             language_refs = await self._resolve_language_refs(session, selected_languages)
 
+            contribution_payload = {
+                "info_hash": normalized_hash,
+                "meta_type": meta_type,
+                "meta_id": external_id,
+                "title": analysis.get("parsed_title") or analysis.get("torrent_name") or "Unknown",
+                "name": analysis.get("torrent_name") or analysis.get("parsed_title"),
+                "total_size": analysis.get("total_size"),
+                "resolution": overrides.get("resolution") or analysis.get("resolution"),
+                "quality": overrides.get("quality") or analysis.get("quality"),
+                "codec": overrides.get("codec") or analysis.get("codec"),
+                "languages": selected_languages,
+                "file_count": analysis.get("file_count", 1),
+            }
+            recorded, auto_approved = await self._record_contribution(
+                mf_user_id,
+                "torrent",
+                external_id,
+                contribution_payload,
+                is_anonymous=is_anonymous,
+                anonymous_display_name=state.anonymous_display_name if is_anonymous else None,
+            )
+            if not recorded:
+                return {"success": False, "error": "Failed to record contribution."}
+
             # Create the torrent stream
             await create_torrent_stream(
                 session,
@@ -3501,30 +3540,12 @@ class TelegramContentBot:
                 codec=overrides.get("codec") or analysis.get("codec"),
                 uploader=uploader_name,
                 uploader_user_id=uploader_user_id,
+                is_public=auto_approved,
                 languages=language_refs,
             )
 
             await session.commit()
 
-        auto_approved = await self._record_contribution(
-            mf_user_id,
-            "torrent",
-            external_id,
-            {
-                "info_hash": normalized_hash,
-                "name": analysis.get("torrent_name") or analysis.get("parsed_title"),
-                "total_size": analysis.get("total_size"),
-                "meta_id": external_id,
-                "resolution": overrides.get("resolution") or analysis.get("resolution"),
-                "quality": overrides.get("quality") or analysis.get("quality"),
-                "codec": overrides.get("codec") or analysis.get("codec"),
-                "languages": selected_languages,
-                "is_anonymous": is_anonymous,
-                "anonymous_display_name": state.anonymous_display_name if is_anonymous else None,
-            },
-            is_anonymous=is_anonymous,
-            anonymous_display_name=state.anonymous_display_name if is_anonymous else None,
-        )
         return {"success": True, "auto_approved": auto_approved}
 
     async def _import_torrent_file(self, state: ConversationState, mf_user_id: int) -> dict:
@@ -3548,6 +3569,7 @@ class TelegramContentBot:
         match = state.selected_match or {}
         overrides = state.metadata_overrides
         selected_languages = self._get_selected_languages(analysis, overrides)
+        meta_type = self._get_contribution_meta_type(state.media_type)
 
         external_id = self._get_canonical_external_id(match)
         if not external_id:
@@ -3577,6 +3599,27 @@ class TelegramContentBot:
                 mf_user_id,
                 state.anonymous_display_name,
             )
+            contribution_payload = {
+                "video_id": video_id,
+                "title": analysis.get("title") or "YouTube Video",
+                "meta_type": meta_type,
+                "meta_id": external_id,
+                "resolution": overrides.get("resolution") or analysis.get("resolution"),
+                "quality": overrides.get("quality") or analysis.get("quality"),
+                "codec": overrides.get("codec") or analysis.get("codec"),
+                "languages": selected_languages,
+                "is_live": analysis.get("is_live", False),
+            }
+            recorded, auto_approved = await self._record_contribution(
+                mf_user_id,
+                "youtube",
+                external_id,
+                contribution_payload,
+                is_anonymous=is_anonymous,
+                anonymous_display_name=state.anonymous_display_name if is_anonymous else None,
+            )
+            if not recorded:
+                return {"success": False, "error": "Failed to record contribution."}
 
             # Create the YouTube stream (uses kwargs for extra fields)
             yt_stream = await create_youtube_stream(
@@ -3588,6 +3631,7 @@ class TelegramContentBot:
                 is_live=analysis.get("is_live", False),
                 uploader=uploader_name,
                 uploader_user_id=uploader_user_id,
+                is_public=auto_approved,
                 resolution=overrides.get("resolution") or analysis.get("resolution"),
             )
             language_refs = await self._resolve_language_refs(session, selected_languages)
@@ -3596,22 +3640,6 @@ class TelegramContentBot:
 
             await session.commit()
 
-        auto_approved = await self._record_contribution(
-            mf_user_id,
-            "youtube",
-            external_id,
-            {
-                "video_id": video_id,
-                "title": analysis.get("title"),
-                "meta_id": external_id,
-                "resolution": overrides.get("resolution") or analysis.get("resolution"),
-                "languages": selected_languages,
-                "is_anonymous": is_anonymous,
-                "anonymous_display_name": state.anonymous_display_name if is_anonymous else None,
-            },
-            is_anonymous=is_anonymous,
-            anonymous_display_name=state.anonymous_display_name if is_anonymous else None,
-        )
         return {"success": True, "auto_approved": auto_approved}
 
     async def _import_http(self, state: ConversationState, mf_user_id: int) -> dict:
@@ -3620,6 +3648,7 @@ class TelegramContentBot:
         match = state.selected_match or {}
         overrides = state.metadata_overrides
         selected_languages = self._get_selected_languages(analysis, overrides)
+        meta_type = self._get_contribution_meta_type(state.media_type)
 
         external_id = self._get_canonical_external_id(match)
         if not external_id:
@@ -3644,6 +3673,27 @@ class TelegramContentBot:
                 mf_user_id,
                 state.anonymous_display_name,
             )
+            contribution_payload = {
+                "url": url,
+                "title": analysis.get("parsed_title") or analysis.get("file_name") or "HTTP Stream",
+                "meta_type": meta_type,
+                "meta_id": external_id,
+                "format": analysis.get("content_type"),
+                "resolution": overrides.get("resolution") or analysis.get("resolution"),
+                "quality": overrides.get("quality") or analysis.get("quality"),
+                "codec": overrides.get("codec") or analysis.get("codec"),
+                "languages": selected_languages,
+            }
+            recorded, auto_approved = await self._record_contribution(
+                mf_user_id,
+                "http",
+                external_id,
+                contribution_payload,
+                is_anonymous=is_anonymous,
+                anonymous_display_name=state.anonymous_display_name if is_anonymous else None,
+            )
+            if not recorded:
+                return {"success": False, "error": "Failed to record contribution."}
 
             # Create the HTTP stream
             http_stream = await create_http_stream(
@@ -3656,6 +3706,7 @@ class TelegramContentBot:
                 format=analysis.get("content_type"),
                 uploader=uploader_name,
                 uploader_user_id=uploader_user_id,
+                is_public=auto_approved,
                 resolution=overrides.get("resolution") or analysis.get("resolution"),
                 quality=overrides.get("quality") or analysis.get("quality"),
                 codec=overrides.get("codec") or analysis.get("codec"),
@@ -3666,22 +3717,6 @@ class TelegramContentBot:
 
             await session.commit()
 
-        auto_approved = await self._record_contribution(
-            mf_user_id,
-            "http",
-            external_id,
-            {
-                "url": url,
-                "title": analysis.get("parsed_title"),
-                "meta_id": external_id,
-                "resolution": overrides.get("resolution") or analysis.get("resolution"),
-                "languages": selected_languages,
-                "is_anonymous": is_anonymous,
-                "anonymous_display_name": state.anonymous_display_name if is_anonymous else None,
-            },
-            is_anonymous=is_anonymous,
-            anonymous_display_name=state.anonymous_display_name if is_anonymous else None,
-        )
         return {"success": True, "auto_approved": auto_approved}
 
     async def _import_nzb(self, state: ConversationState, mf_user_id: int) -> dict:
@@ -3690,6 +3725,7 @@ class TelegramContentBot:
         match = state.selected_match or {}
         overrides = state.metadata_overrides
         selected_languages = self._get_selected_languages(analysis, overrides)
+        meta_type = self._get_contribution_meta_type(state.media_type)
 
         external_id = self._get_canonical_external_id(match)
         if not external_id:
@@ -3723,6 +3759,31 @@ class TelegramContentBot:
                 state.anonymous_display_name,
             )
             language_refs = await self._resolve_language_refs(session, selected_languages)
+            contribution_payload = {
+                "nzb_guid": nzb_guid,
+                "nzb_url": nzb_url,
+                "meta_type": meta_type,
+                "meta_id": external_id,
+                "title": analysis.get("nzb_name") or "NZB Content",
+                "name": analysis.get("nzb_name") or "NZB Content",
+                "indexer": "telegram_bot",
+                "total_size": 0,
+                "resolution": overrides.get("resolution") or analysis.get("resolution"),
+                "quality": overrides.get("quality") or analysis.get("quality"),
+                "codec": overrides.get("codec") or analysis.get("codec"),
+                "languages": selected_languages,
+                "file_count": 1,
+            }
+            recorded, auto_approved = await self._record_contribution(
+                mf_user_id,
+                "nzb",
+                external_id,
+                contribution_payload,
+                is_anonymous=is_anonymous,
+                anonymous_display_name=state.anonymous_display_name if is_anonymous else None,
+            )
+            if not recorded:
+                return {"success": False, "error": "Failed to record contribution."}
 
             # Create the Usenet stream
             await create_usenet_stream(
@@ -3738,28 +3799,12 @@ class TelegramContentBot:
                 codec=overrides.get("codec") or analysis.get("codec"),
                 uploader=uploader_name,
                 uploader_user_id=uploader_user_id,
+                is_public=auto_approved,
                 languages=language_refs,
             )
 
             await session.commit()
 
-        auto_approved = await self._record_contribution(
-            mf_user_id,
-            "nzb",
-            external_id,
-            {
-                "nzb_guid": nzb_guid,
-                "nzb_url": nzb_url,
-                "title": analysis.get("nzb_name"),
-                "meta_id": external_id,
-                "resolution": overrides.get("resolution") or analysis.get("resolution"),
-                "languages": selected_languages,
-                "is_anonymous": is_anonymous,
-                "anonymous_display_name": state.anonymous_display_name if is_anonymous else None,
-            },
-            is_anonymous=is_anonymous,
-            anonymous_display_name=state.anonymous_display_name if is_anonymous else None,
-        )
         return {"success": True, "auto_approved": auto_approved}
 
     async def _import_acestream(self, state: ConversationState, mf_user_id: int) -> dict:
@@ -3768,6 +3813,7 @@ class TelegramContentBot:
         match = state.selected_match or {}
         overrides = state.metadata_overrides
         selected_languages = self._get_selected_languages(analysis, overrides)
+        meta_type = self._get_contribution_meta_type(state.media_type)
 
         external_id = self._get_canonical_external_id(match)
         if not external_id:
@@ -3797,6 +3843,27 @@ class TelegramContentBot:
                 mf_user_id,
                 state.anonymous_display_name,
             )
+            contribution_payload = {
+                "content_id": content_id,
+                "info_hash": analysis.get("info_hash"),
+                "title": match.get("title") or analysis.get("parsed_title") or "AceStream",
+                "meta_type": meta_type,
+                "meta_id": external_id,
+                "resolution": overrides.get("resolution") or analysis.get("resolution"),
+                "quality": overrides.get("quality") or analysis.get("quality"),
+                "codec": overrides.get("codec") or analysis.get("codec"),
+                "languages": selected_languages,
+            }
+            recorded, auto_approved = await self._record_contribution(
+                mf_user_id,
+                "acestream",
+                external_id,
+                contribution_payload,
+                is_anonymous=is_anonymous,
+                anonymous_display_name=state.anonymous_display_name if is_anonymous else None,
+            )
+            if not recorded:
+                return {"success": False, "error": "Failed to record contribution."}
 
             # Create the AceStream
             acestream = await create_acestream_stream(
@@ -3807,6 +3874,7 @@ class TelegramContentBot:
                 source="telegram_bot",
                 uploader=uploader_name,
                 uploader_user_id=uploader_user_id,
+                is_public=auto_approved,
                 resolution=overrides.get("resolution") or analysis.get("resolution"),
             )
             language_refs = await self._resolve_language_refs(session, selected_languages)
@@ -3815,22 +3883,6 @@ class TelegramContentBot:
 
             await session.commit()
 
-        auto_approved = await self._record_contribution(
-            mf_user_id,
-            "acestream",
-            external_id,
-            {
-                "content_id": content_id,
-                "title": match.get("title"),
-                "meta_id": external_id,
-                "resolution": overrides.get("resolution") or analysis.get("resolution"),
-                "languages": selected_languages,
-                "is_anonymous": is_anonymous,
-                "anonymous_display_name": state.anonymous_display_name if is_anonymous else None,
-            },
-            is_anonymous=is_anonymous,
-            anonymous_display_name=state.anonymous_display_name if is_anonymous else None,
-        )
         return {"success": True, "auto_approved": auto_approved}
 
     async def _import_sports(self, state: ConversationState, mf_user_id: int) -> dict:
@@ -3845,6 +3897,7 @@ class TelegramContentBot:
         overrides = state.metadata_overrides
         selected_languages = self._get_selected_languages(analysis, overrides)
         sports_category = state.sports_category or "other_sports"
+        is_anonymous = await self._is_linked_user_anonymous(mf_user_id)
 
         event_title = (
             match.get("title")
@@ -3904,15 +3957,17 @@ class TelegramContentBot:
             if not existing_link.first():
                 session.add(MediaCatalogLink(media_id=media.id, catalog_id=catalog.id))
 
-            uploader_name, uploader_user_id, _ = await self._resolve_telegram_uploader(
-                session,
-                mf_user_id,
-                state.anonymous_display_name,
-            )
-            language_refs = await self._resolve_language_refs(session, selected_languages)
-
             # Create the appropriate stream based on content type
             content_type = state.content_type
+            canonical_meta_id = external_id or f"mf:{media.id}"
+            contribution_type = ""
+            contribution_payload: dict = {}
+            normalized_hash: str | None = None
+            http_url: str | None = None
+            ace_content_id: str | None = None
+            youtube_video_id: str | None = None
+            nzb_url: str | None = None
+            nzb_guid: str | None = None
 
             if content_type in (ContentType.MAGNET, ContentType.TORRENT_FILE, ContentType.TORRENT_URL):
                 info_hash = analysis.get("info_hash")
@@ -3925,7 +3980,182 @@ class TelegramContentBot:
                 )
                 if existing.first():
                     return {"success": False, "error": "Stream with this info hash already exists."}
+                contribution_type = "torrent"
+                contribution_payload = {
+                    "info_hash": normalized_hash,
+                    "meta_type": "movie",
+                    "meta_id": canonical_meta_id,
+                    "title": event_title,
+                    "name": analysis.get("torrent_name") or event_title,
+                    "total_size": analysis.get("total_size") or 0,
+                    "resolution": overrides.get("resolution") or analysis.get("resolution"),
+                    "quality": overrides.get("quality") or analysis.get("quality"),
+                    "codec": overrides.get("codec") or analysis.get("codec"),
+                    "languages": selected_languages,
+                    "file_count": analysis.get("file_count", 1),
+                    "sports_category": sports_category,
+                }
 
+            elif content_type == ContentType.HTTP:
+                http_url = analysis.get("url")
+                if not http_url:
+                    return {"success": False, "error": "No URL provided."}
+                contribution_type = "http"
+                contribution_payload = {
+                    "url": http_url,
+                    "title": analysis.get("parsed_title") or event_title,
+                    "meta_type": "movie",
+                    "meta_id": canonical_meta_id,
+                    "format": analysis.get("content_type"),
+                    "resolution": overrides.get("resolution") or analysis.get("resolution"),
+                    "quality": overrides.get("quality") or analysis.get("quality"),
+                    "codec": overrides.get("codec") or analysis.get("codec"),
+                    "languages": selected_languages,
+                    "sports_category": sports_category,
+                }
+
+            elif content_type == ContentType.ACESTREAM:
+                ace_content_id = analysis.get("content_id")
+                if not ace_content_id:
+                    return {"success": False, "error": "No AceStream content ID."}
+
+                existing = await session.exec(
+                    select(AceStreamStream).where(AceStreamStream.content_id == ace_content_id)
+                )
+                if existing.first():
+                    return {"success": False, "error": "This AceStream is already in the database."}
+                contribution_type = "acestream"
+                contribution_payload = {
+                    "content_id": ace_content_id,
+                    "info_hash": analysis.get("info_hash"),
+                    "title": event_title,
+                    "meta_type": "movie",
+                    "meta_id": canonical_meta_id,
+                    "resolution": overrides.get("resolution") or analysis.get("resolution"),
+                    "quality": overrides.get("quality") or analysis.get("quality"),
+                    "codec": overrides.get("codec") or analysis.get("codec"),
+                    "languages": selected_languages,
+                    "sports_category": sports_category,
+                }
+
+            elif content_type == ContentType.VIDEO:
+                contribution_type = "telegram"
+                contribution_payload = {
+                    "title": analysis.get("file_name") or event_title,
+                    "file_name": analysis.get("file_name"),
+                    "file_size": analysis.get("file_size"),
+                    "file_id": analysis.get("file_id"),
+                    "file_unique_id": analysis.get("file_unique_id"),
+                    "meta_type": "movie",
+                    "meta_id": canonical_meta_id,
+                    "resolution": overrides.get("resolution") or analysis.get("resolution"),
+                    "quality": overrides.get("quality") or analysis.get("quality"),
+                    "codec": overrides.get("codec") or analysis.get("codec"),
+                    "languages": selected_languages,
+                    "sports_category": sports_category,
+                }
+
+            elif content_type == ContentType.YOUTUBE:
+                youtube_video_id = analysis.get("video_id")
+                if not youtube_video_id:
+                    return {"success": False, "error": "No YouTube video ID."}
+                existing = await session.exec(select(YouTubeStream).where(YouTubeStream.video_id == youtube_video_id))
+                if existing.first():
+                    return {"success": False, "error": "This YouTube video is already in the database."}
+                contribution_type = "youtube"
+                contribution_payload = {
+                    "video_id": youtube_video_id,
+                    "title": analysis.get("title") or event_title,
+                    "meta_type": "movie",
+                    "meta_id": canonical_meta_id,
+                    "resolution": overrides.get("resolution") or analysis.get("resolution"),
+                    "quality": overrides.get("quality") or analysis.get("quality"),
+                    "codec": overrides.get("codec") or analysis.get("codec"),
+                    "languages": selected_languages,
+                    "is_live": analysis.get("is_live", False),
+                    "sports_category": sports_category,
+                }
+
+            elif content_type == ContentType.NZB:
+                nzb_url = analysis.get("nzb_url")
+                if not nzb_url:
+                    return {"success": False, "error": "No NZB URL provided."}
+                nzb_guid = hashlib.sha256(nzb_url.encode()).hexdigest()[:32]
+                existing = await session.exec(select(UsenetStream).where(UsenetStream.nzb_guid == nzb_guid))
+                if existing.first():
+                    return {"success": False, "error": "This NZB is already in the database."}
+                contribution_type = "nzb"
+                contribution_payload = {
+                    "nzb_guid": nzb_guid,
+                    "nzb_url": nzb_url,
+                    "title": analysis.get("nzb_name") or event_title,
+                    "name": analysis.get("nzb_name") or event_title,
+                    "meta_type": "movie",
+                    "meta_id": canonical_meta_id,
+                    "indexer": "telegram_bot",
+                    "total_size": 0,
+                    "resolution": overrides.get("resolution") or analysis.get("resolution"),
+                    "quality": overrides.get("quality") or analysis.get("quality"),
+                    "codec": overrides.get("codec") or analysis.get("codec"),
+                    "languages": selected_languages,
+                    "file_count": 1,
+                    "sports_category": sports_category,
+                }
+
+            else:
+                return {"success": False, "error": f"Unsupported content type for sports: {content_type}"}
+
+            # Ensure media + catalog state is committed before recording contribution,
+            # so mf:<id> can be resolved by approval processing.
+            await session.commit()
+            recorded, auto_approved = await self._record_contribution(
+                mf_user_id,
+                contribution_type,
+                canonical_meta_id,
+                contribution_payload,
+                is_anonymous=is_anonymous,
+                anonymous_display_name=state.anonymous_display_name if is_anonymous else None,
+            )
+            if not recorded:
+                return {"success": False, "error": "Failed to record contribution."}
+
+            # Video stream creation is delegated to forwarded-content storage.
+            if content_type == ContentType.VIDEO:
+                content_info = {
+                    "user_id": state.user_id,
+                    "chat_id": state.chat_id,
+                    "message_id": state.original_message_id or 0,
+                    "file_id": analysis.get("file_id"),
+                    "file_unique_id": analysis.get("file_unique_id"),
+                    "file_name": analysis.get("file_name", "video"),
+                    "file_size": analysis.get("file_size"),
+                    "mime_type": analysis.get("mime_type"),
+                    "meta_id": canonical_meta_id,
+                    "needs_linking": False,
+                    "resolution": overrides.get("resolution") or analysis.get("resolution"),
+                    "quality": overrides.get("quality") or analysis.get("quality"),
+                    "codec": overrides.get("codec") or analysis.get("codec"),
+                    "languages": selected_languages,
+                    "anonymous_display_name": state.anonymous_display_name if is_anonymous else None,
+                    "is_public": auto_approved,
+                }
+                stored = await self._store_forwarded_content(content_info)
+                return {
+                    "success": stored,
+                    "auto_approved": auto_approved,
+                    "error": "Failed to store video" if not stored else None,
+                }
+
+            uploader_name, uploader_user_id, _ = await self._resolve_telegram_uploader(
+                session,
+                mf_user_id,
+                state.anonymous_display_name,
+            )
+            language_refs = await self._resolve_language_refs(session, selected_languages)
+
+            if content_type in (ContentType.MAGNET, ContentType.TORRENT_FILE, ContentType.TORRENT_URL):
+                if not normalized_hash:
+                    return {"success": False, "error": "No info hash from analysis."}
                 await create_torrent_stream(
                     session,
                     info_hash=normalized_hash,
@@ -3938,16 +4168,15 @@ class TelegramContentBot:
                     codec=overrides.get("codec") or analysis.get("codec"),
                     uploader=uploader_name,
                     uploader_user_id=uploader_user_id,
+                    is_public=auto_approved,
                     languages=language_refs,
                 )
-
             elif content_type == ContentType.HTTP:
-                url = analysis.get("url")
-                if not url:
+                if not http_url:
                     return {"success": False, "error": "No URL provided."}
                 http_stream = await create_http_stream(
                     session,
-                    url=url,
+                    url=http_url,
                     name=analysis.get("file_name") or event_title,
                     media_id=media.id,
                     source="telegram_bot",
@@ -3955,91 +4184,49 @@ class TelegramContentBot:
                     format=analysis.get("content_type"),
                     uploader=uploader_name,
                     uploader_user_id=uploader_user_id,
+                    is_public=auto_approved,
                     resolution=overrides.get("resolution") or analysis.get("resolution"),
                     quality=overrides.get("quality") or analysis.get("quality"),
                     codec=overrides.get("codec") or analysis.get("codec"),
                 )
                 if language_refs:
                     await add_languages_to_stream(session, http_stream.stream_id, [lang.id for lang in language_refs])
-
             elif content_type == ContentType.ACESTREAM:
-                content_id = analysis.get("content_id")
-                if not content_id:
+                if not ace_content_id:
                     return {"success": False, "error": "No AceStream content ID."}
-
-                existing = await session.exec(select(AceStreamStream).where(AceStreamStream.content_id == content_id))
-                if existing.first():
-                    return {"success": False, "error": "This AceStream is already in the database."}
-
                 acestream = await create_acestream_stream(
                     session,
-                    content_id=content_id,
+                    content_id=ace_content_id,
                     name=event_title,
                     media_id=media.id,
                     source="telegram_bot",
                     uploader=uploader_name,
                     uploader_user_id=uploader_user_id,
+                    is_public=auto_approved,
                     resolution=overrides.get("resolution") or analysis.get("resolution"),
                 )
                 if language_refs:
                     await add_languages_to_stream(session, acestream.stream_id, [lang.id for lang in language_refs])
-
-            elif content_type == ContentType.VIDEO:
-                # Delegate to the video import which uses _store_forwarded_content
-                content_info = {
-                    "user_id": state.user_id,
-                    "chat_id": state.chat_id,
-                    "message_id": state.original_message_id or 0,
-                    "file_id": analysis.get("file_id"),
-                    "file_unique_id": analysis.get("file_unique_id"),
-                    "file_name": analysis.get("file_name", "video"),
-                    "file_size": analysis.get("file_size"),
-                    "mime_type": analysis.get("mime_type"),
-                    "meta_id": external_id or f"mf:{media.id}",
-                    "needs_linking": False,
-                    "resolution": overrides.get("resolution") or analysis.get("resolution"),
-                    "quality": overrides.get("quality") or analysis.get("quality"),
-                    "codec": overrides.get("codec") or analysis.get("codec"),
-                    "languages": selected_languages,
-                    "anonymous_display_name": state.anonymous_display_name,
-                }
-                await session.commit()
-                stored = await self._store_forwarded_content(content_info)
-                return {
-                    "success": stored,
-                    "auto_approved": True,
-                    "error": "Failed to store video" if not stored else None,
-                }
-
             elif content_type == ContentType.YOUTUBE:
-                video_id = analysis.get("video_id")
-                if not video_id:
+                if not youtube_video_id:
                     return {"success": False, "error": "No YouTube video ID."}
-                existing = await session.exec(select(YouTubeStream).where(YouTubeStream.video_id == video_id))
-                if existing.first():
-                    return {"success": False, "error": "This YouTube video is already in the database."}
                 yt_stream = await create_youtube_stream(
                     session,
-                    video_id=video_id,
+                    video_id=youtube_video_id,
                     name=analysis.get("title") or event_title,
                     media_id=media.id,
                     source="telegram_bot",
                     is_live=analysis.get("is_live", False),
                     uploader=uploader_name,
                     uploader_user_id=uploader_user_id,
+                    is_public=auto_approved,
                     resolution=overrides.get("resolution") or analysis.get("resolution"),
                 )
                 if language_refs:
                     await add_languages_to_stream(session, yt_stream.stream_id, [lang.id for lang in language_refs])
-
             elif content_type == ContentType.NZB:
-                nzb_url = analysis.get("nzb_url")
-                if not nzb_url:
+                if not nzb_url or not nzb_guid:
                     return {"success": False, "error": "No NZB URL provided."}
-                nzb_guid = hashlib.sha256(nzb_url.encode()).hexdigest()[:32]
-                existing = await session.exec(select(UsenetStream).where(UsenetStream.nzb_guid == nzb_guid))
-                if existing.first():
-                    return {"success": False, "error": "This NZB is already in the database."}
                 await create_usenet_stream(
                     session,
                     nzb_guid=nzb_guid,
@@ -4053,15 +4240,13 @@ class TelegramContentBot:
                     codec=overrides.get("codec") or analysis.get("codec"),
                     uploader=uploader_name,
                     uploader_user_id=uploader_user_id,
+                    is_public=auto_approved,
                     languages=language_refs,
                 )
 
-            else:
-                return {"success": False, "error": f"Unsupported content type for sports: {content_type}"}
-
             await session.commit()
 
-        return {"success": True, "auto_approved": True}
+        return {"success": True, "auto_approved": auto_approved}
 
     async def handle_cancel(self, user_id: int, chat_id: int, message_id: int) -> dict:
         """Handle cancel action.
@@ -4801,6 +4986,7 @@ class TelegramContentBot:
             return False
 
         async with get_async_session_context() as session:
+            is_public = bool(content.get("is_public", True))
             # Resolve media ID
             media = await crud.get_media_by_external_id(session, meta_id)
             if not media:
@@ -4814,11 +5000,21 @@ class TelegramContentBot:
             if file_unique_id:
                 existing = await crud.get_telegram_stream_by_file_unique_id(session, file_unique_id)
                 if existing:
+                    if is_public:
+                        stream = await session.get(Stream, existing.stream_id)
+                        if stream and not stream.is_public:
+                            stream.is_public = True
+                            await session.commit()
                     logger.info(f"Telegram stream already exists (file_unique_id: {file_unique_id})")
                     return True
             elif file_id:
                 existing = await crud.get_telegram_stream_by_file_id(session, file_id)
                 if existing:
+                    if is_public:
+                        stream = await session.get(Stream, existing.stream_id)
+                        if stream and not stream.is_public:
+                            stream.is_public = True
+                            await session.commit()
                     logger.info(f"Telegram stream already exists (file_id: {file_id[:20]}...)")
                     return True
 
@@ -4902,6 +5098,7 @@ class TelegramContentBot:
                 source="telegram_bot",
                 uploader=uploader_name,
                 uploader_user_id=uploader_user_id,
+                is_public=is_public,
                 resolution=content.get("resolution") or parsed.get("resolution"),
                 codec=content.get("codec") or parsed.get("codec"),
                 quality=content.get("quality") or parsed.get("quality"),

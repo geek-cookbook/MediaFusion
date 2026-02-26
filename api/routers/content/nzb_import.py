@@ -224,13 +224,25 @@ async def process_nzb_import(
 
     is_anonymous = contribution_data.get("is_anonymous", False)
     anonymous_display_name = contribution_data.get("anonymous_display_name")
+    is_public = bool(contribution_data.get("is_public", True))
 
     if not nzb_guid:
         raise ValueError("Missing nzb_guid in contribution data")
 
     # Check if NZB already exists
     existing = await session.exec(select(UsenetStream).where(UsenetStream.nzb_guid == nzb_guid))
-    if existing.first():
+    existing_usenet = existing.first()
+    if existing_usenet:
+        if is_public:
+            existing_stream = await session.get(Stream, existing_usenet.stream_id)
+            if existing_stream and not existing_stream.is_public:
+                existing_stream.is_public = True
+                await session.flush()
+                return {
+                    "status": "success",
+                    "stream_id": existing_stream.id,
+                    "message": "Existing NZB stream published",
+                }
         return {"status": "exists", "message": "NZB already exists in database"}
 
     # Get or create media metadata
@@ -271,6 +283,7 @@ async def process_nzb_import(
         uploader=uploader_name,
         uploader_user_id=uploader_user_id,
         total_size=total_size,
+        is_public=is_public,
     )
     session.add(stream)
     await session.flush()
@@ -555,6 +568,7 @@ async def import_nzb_file(
         is_privileged_reviewer = user.role in {UserRole.MODERATOR, UserRole.ADMIN}
         should_auto_approve = is_privileged_reviewer or (user.is_active and not resolved_is_anonymous)
         initial_status = ContributionStatus.APPROVED if should_auto_approve else ContributionStatus.PENDING
+        contribution_data["is_public"] = should_auto_approve
 
         contribution = Contribution(
             user_id=None if resolved_is_anonymous else user.id,
@@ -574,14 +588,16 @@ async def import_nzb_file(
         session.add(contribution)
         await session.flush()
 
-        # If auto-approved, process the import immediately
         import_result = None
-        if should_auto_approve:
-            try:
-                import_result = await process_nzb_import(session, contribution_data, user)
-            except Exception as e:
-                logger.error(f"Failed to process NZB import: {e}")
-                contribution.review_notes = f"Auto-approved but import failed: {str(e)}"
+        try:
+            import_result = await process_nzb_import(session, contribution_data, user)
+        except Exception as e:
+            logger.error(f"Failed to process NZB import: {e}")
+            contribution.review_notes = (
+                f"Auto-approved but import failed: {str(e)}"
+                if should_auto_approve
+                else f"Pending private stream creation failed: {str(e)}"
+            )
 
         await session.commit()
         await session.refresh(contribution)
@@ -618,7 +634,7 @@ async def import_nzb_file(
         else:
             return NZBImportResponse(
                 status="success",
-                message="NZB file submitted for review. Thank you for your contribution!",
+                message="NZB file submitted for review and saved privately for your account.",
                 import_id=contribution.id,
                 details={
                     "nzb_guid": nzb_guid,
@@ -720,6 +736,7 @@ async def import_nzb_url(
         is_privileged_reviewer = user.role in {UserRole.MODERATOR, UserRole.ADMIN}
         should_auto_approve = is_privileged_reviewer or (user.is_active and not resolved_is_anonymous)
         initial_status = ContributionStatus.APPROVED if should_auto_approve else ContributionStatus.PENDING
+        contribution_data["is_public"] = should_auto_approve
 
         contribution = Contribution(
             user_id=None if resolved_is_anonymous else user.id,
@@ -739,14 +756,16 @@ async def import_nzb_url(
         session.add(contribution)
         await session.flush()
 
-        # If auto-approved, process the import immediately
         import_result = None
-        if should_auto_approve:
-            try:
-                import_result = await process_nzb_import(session, contribution_data, user)
-            except Exception as e:
-                logger.error(f"Failed to process NZB import: {e}")
-                contribution.review_notes = f"Auto-approved but import failed: {str(e)}"
+        try:
+            import_result = await process_nzb_import(session, contribution_data, user)
+        except Exception as e:
+            logger.error(f"Failed to process NZB import: {e}")
+            contribution.review_notes = (
+                f"Auto-approved but import failed: {str(e)}"
+                if should_auto_approve
+                else f"Pending private stream creation failed: {str(e)}"
+            )
 
         await session.commit()
         await session.refresh(contribution)
@@ -772,7 +791,7 @@ async def import_nzb_url(
         else:
             return NZBImportResponse(
                 status="success",
-                message="NZB URL submitted for review.",
+                message="NZB URL submitted for review and saved privately for your account.",
                 import_id=contribution.id,
                 details={
                     "nzb_guid": nzb_guid,

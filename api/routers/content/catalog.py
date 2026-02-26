@@ -1447,6 +1447,7 @@ async def get_catalog_item_streams(
             )
             .where(Stream.is_active.is_(True))
             .where(Stream.is_blocked.is_(False))
+            .where((Stream.is_public.is_(True)) | (Stream.uploader_user_id == current_user.id))
         )
     else:
         # For movies and TV: use StreamMediaLink (stream-level linking)
@@ -1456,6 +1457,7 @@ async def get_catalog_item_streams(
             .where(StreamMediaLink.media_id == metadata.id)
             .where(Stream.is_active.is_(True))
             .where(Stream.is_blocked.is_(False))
+            .where((Stream.is_public.is_(True)) | (Stream.uploader_user_id == current_user.id))
         )
 
     # Eagerly load relationships - include http_stream for TV channels, usenet_stream for NZBs, telegram_stream, and acestream_stream

@@ -59,7 +59,15 @@ async def download_info(
 
     # Get streams from PostgreSQL
     if catalog_type == "movie":
-        streams = await crud.get_movie_streams(session, video_id, user_data, secret_str, user_ip, background_tasks)
+        streams = await crud.get_movie_streams(
+            session,
+            video_id,
+            user_data,
+            secret_str,
+            user_ip,
+            background_tasks,
+            user_data.user_id,
+        )
     else:
         streams = await crud.get_series_streams(
             session,
@@ -70,6 +78,7 @@ async def download_info(
             secret_str,
             user_ip,
             background_tasks,
+            user_data.user_id,
         )
 
     streaming_provider_path = f"{settings.host_url}/streaming_provider/"

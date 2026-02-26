@@ -21,7 +21,7 @@ from db.crud.reference import get_or_create_language
 from db.crud.streams import create_http_stream, get_http_stream_by_url_for_media
 from db.database import get_async_session
 from db.enums import ContributionStatus, MediaType, UserRole
-from db.models import Contribution, Media, User
+from db.models import Contribution, Media, Stream, User
 from db.models.streams import (
     StreamLanguageLink,
 )
@@ -216,6 +216,7 @@ async def process_http_import(
 
     is_anonymous = contribution_data.get("is_anonymous", False)
     anonymous_display_name = contribution_data.get("anonymous_display_name")
+    is_public = bool(contribution_data.get("is_public", True))
 
     if not url:
         raise ValueError("Missing url in contribution data")
@@ -252,6 +253,16 @@ async def process_http_import(
     # Check if this URL already exists for this media
     existing = await get_http_stream_by_url_for_media(session, url, media.id)
     if existing:
+        if is_public:
+            stream = await session.get(Stream, existing.stream_id)
+            if stream and not stream.is_public:
+                stream.is_public = True
+                await session.flush()
+                return {
+                    "status": "success",
+                    "stream_id": stream.id,
+                    "message": "Existing HTTP stream published",
+                }
         return {"status": "exists", "message": "HTTP stream already exists for this media"}
 
     uploader_name, uploader_user_id = resolve_uploader_identity(user, is_anonymous, anonymous_display_name)
@@ -282,6 +293,7 @@ async def process_http_import(
         extractor_name=contribution_data.get("extractor_name"),
         uploader=uploader_name,
         uploader_user_id=uploader_user_id,
+        is_public=is_public,
         resolution=contribution_data.get("resolution"),
         quality=contribution_data.get("quality"),
         codec=contribution_data.get("codec"),
@@ -470,6 +482,7 @@ async def import_http_stream(
         is_privileged_reviewer = user.role in {UserRole.MODERATOR, UserRole.ADMIN}
         should_auto_approve = is_privileged_reviewer or (user.is_active and not resolved_is_anonymous)
         initial_status = ContributionStatus.APPROVED if should_auto_approve else ContributionStatus.PENDING
+        contribution_data["is_public"] = should_auto_approve
 
         contribution = Contribution(
             user_id=None if resolved_is_anonymous else user.id,
@@ -489,14 +502,16 @@ async def import_http_stream(
         session.add(contribution)
         await session.flush()
 
-        # If auto-approved, process the import immediately
         import_result = None
-        if should_auto_approve:
-            try:
-                import_result = await process_http_import(session, contribution_data, user)
-            except Exception as e:
-                logger.error(f"Failed to process HTTP import: {e}")
-                contribution.review_notes = f"Auto-approved but import failed: {str(e)}"
+        try:
+            import_result = await process_http_import(session, contribution_data, user)
+        except Exception as e:
+            logger.error(f"Failed to process HTTP import: {e}")
+            contribution.review_notes = (
+                f"Auto-approved but import failed: {str(e)}"
+                if should_auto_approve
+                else f"Pending private stream creation failed: {str(e)}"
+            )
 
         await session.commit()
         await session.refresh(contribution)
@@ -544,7 +559,7 @@ async def import_http_stream(
         else:
             return HTTPImportResponse(
                 status="success",
-                message="HTTP stream submitted for review. Thank you for your contribution!",
+                message="HTTP stream submitted for review and saved privately for your account.",
                 import_id=str(contribution.id),
                 details={
                     "url": url,

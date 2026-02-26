@@ -23,7 +23,7 @@ from api.routers.user.auth import require_auth, require_role
 from db.crud.media import get_media_by_external_id
 from db.database import get_async_session, get_read_session
 from db.enums import ContributionStatus, UserRole
-from db.models import Contribution, StreamSuggestion, User
+from db.models import Contribution, Stream, StreamSuggestion, TelegramStream, User
 from utils.notification_registry import send_pending_contribution_notification
 
 router = APIRouter(prefix="/api/v1/contributions", tags=["Contributions"])
@@ -165,6 +165,42 @@ async def resolve_contribution_media_id(session: AsyncSession, contribution: Con
         if media:
             return media.id
     return None
+
+
+async def process_telegram_import(
+    session: AsyncSession,
+    contribution_data: dict,
+    user: User | None,
+) -> dict:
+    """Publish an already-created Telegram stream when a contribution is approved."""
+    del user  # Telegram stream promotion does not require user context.
+
+    file_unique_id = contribution_data.get("file_unique_id")
+    file_id = contribution_data.get("file_id")
+
+    if not file_unique_id and not file_id:
+        return {"status": "error", "message": "Missing Telegram file identifier in contribution data"}
+
+    query = select(TelegramStream)
+    if file_unique_id:
+        query = query.where(TelegramStream.file_unique_id == file_unique_id)
+    else:
+        query = query.where(TelegramStream.file_id == file_id)
+
+    result = await session.exec(query)
+    telegram_stream = result.first()
+    if not telegram_stream:
+        return {"status": "error", "message": "Telegram stream not found for this contribution"}
+
+    stream = await session.get(Stream, telegram_stream.stream_id)
+    if not stream:
+        return {"status": "error", "message": "Telegram stream record is missing"}
+
+    if not stream.is_public:
+        stream.is_public = True
+        await session.flush()
+
+    return {"status": "success", "stream_id": stream.id}
 
 
 # ============================================
@@ -534,6 +570,7 @@ async def review_contribution(
     if review.status == ContributionStatus.APPROVED and contribution.contribution_type in {
         "torrent",
         "nzb",
+        "telegram",
         "youtube",
         "http",
         "acestream",
@@ -542,6 +579,7 @@ async def review_contribution(
             process_fn = {
                 "torrent": process_torrent_import,
                 "nzb": process_nzb_import,
+                "telegram": process_telegram_import,
                 "youtube": process_youtube_import,
                 "http": process_http_import,
                 "acestream": process_acestream_import,
@@ -552,7 +590,10 @@ async def review_contribution(
 
             # Anonymous contributions have no contributor user_id by design.
             contributor = await session.get(User, contribution.user_id) if contribution.user_id is not None else None
-            import_result = await process_fn(session, contribution.data, contributor)
+            contribution_data = dict(contribution.data or {})
+            contribution_data["is_public"] = True
+            contribution.data = contribution_data
+            import_result = await process_fn(session, contribution_data, contributor)
 
             if import_result.get("status") == "success":
                 contribution.review_notes = (

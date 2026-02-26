@@ -26,7 +26,7 @@ from db.crud.streams import (
 )
 from db.database import get_async_session
 from db.enums import ContributionStatus, MediaType, UserRole
-from db.models import Contribution, Media, User
+from db.models import Contribution, Media, Stream, User
 from db.models.providers import MediaImage
 from db.models.streams import (
     StreamLanguageLink,
@@ -189,6 +189,7 @@ async def process_acestream_import(
 
     is_anonymous = contribution_data.get("is_anonymous", False)
     anonymous_display_name = contribution_data.get("anonymous_display_name")
+    is_public = bool(contribution_data.get("is_public", True))
 
     if not content_id and not info_hash:
         raise ValueError("At least one of content_id or info_hash is required")
@@ -197,11 +198,31 @@ async def process_acestream_import(
     if content_id:
         existing = await get_acestream_by_content_id(session, content_id)
         if existing:
+            if is_public:
+                existing_stream = await session.get(Stream, existing.stream_id)
+                if existing_stream and not existing_stream.is_public:
+                    existing_stream.is_public = True
+                    await session.flush()
+                    return {
+                        "status": "success",
+                        "stream_id": existing_stream.id,
+                        "message": "Existing AceStream stream published",
+                    }
             return {"status": "exists", "message": "AceStream content_id already exists in database"}
 
     if info_hash:
         existing = await get_acestream_by_info_hash(session, info_hash)
         if existing:
+            if is_public:
+                existing_stream = await session.get(Stream, existing.stream_id)
+                if existing_stream and not existing_stream.is_public:
+                    existing_stream.is_public = True
+                    await session.flush()
+                    return {
+                        "status": "success",
+                        "stream_id": existing_stream.id,
+                        "message": "Existing AceStream stream published",
+                    }
             return {"status": "exists", "message": "AceStream info_hash already exists in database"}
 
     # Map meta_type string to MediaType enum
@@ -302,6 +323,7 @@ async def process_acestream_import(
         source="acestream",
         uploader=uploader_name,
         uploader_user_id=uploader_user_id,
+        is_public=is_public,
         resolution=contribution_data.get("resolution"),
         quality=contribution_data.get("quality"),
         codec=contribution_data.get("codec"),
@@ -515,6 +537,7 @@ async def import_acestream(
         is_privileged_reviewer = user.role in {UserRole.MODERATOR, UserRole.ADMIN}
         should_auto_approve = is_privileged_reviewer or (user.is_active and not resolved_is_anonymous)
         initial_status = ContributionStatus.APPROVED if should_auto_approve else ContributionStatus.PENDING
+        contribution_data["is_public"] = should_auto_approve
 
         contribution = Contribution(
             user_id=None if resolved_is_anonymous else user.id,
@@ -534,14 +557,16 @@ async def import_acestream(
         session.add(contribution)
         await session.flush()
 
-        # If auto-approved, process the import immediately
         import_result = None
-        if should_auto_approve:
-            try:
-                import_result = await process_acestream_import(session, contribution_data, user)
-            except Exception as e:
-                logger.error(f"Failed to process AceStream import: {e}")
-                contribution.review_notes = f"Auto-approved but import failed: {str(e)}"
+        try:
+            import_result = await process_acestream_import(session, contribution_data, user)
+        except Exception as e:
+            logger.error(f"Failed to process AceStream import: {e}")
+            contribution.review_notes = (
+                f"Auto-approved but import failed: {str(e)}"
+                if should_auto_approve
+                else f"Pending private stream creation failed: {str(e)}"
+            )
 
         await session.commit()
         await session.refresh(contribution)
@@ -591,7 +616,7 @@ async def import_acestream(
         else:
             return AceStreamImportResponse(
                 status="success",
-                message="AceStream content submitted for review. Thank you for your contribution!",
+                message="AceStream content submitted for review and saved privately for your account.",
                 import_id=str(contribution.id),
                 details={
                     "content_id": normalized_content_id,

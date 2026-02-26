@@ -21,7 +21,7 @@ from db.crud.reference import get_or_create_language
 from db.crud.streams import create_youtube_stream
 from db.database import get_async_session
 from db.enums import ContributionStatus, MediaType, UserRole
-from db.models import Contribution, Media, User
+from db.models import Contribution, Media, Stream, User
 from db.models.streams import (
     StreamLanguageLink,
     YouTubeStream,
@@ -167,13 +167,25 @@ async def process_youtube_import(
 
     is_anonymous = contribution_data.get("is_anonymous", False)
     anonymous_display_name = contribution_data.get("anonymous_display_name")
+    is_public = bool(contribution_data.get("is_public", True))
 
     if not video_id:
         raise ValueError("Missing video_id in contribution data")
 
     # Check if YouTube video already exists
     existing = await session.exec(select(YouTubeStream).where(YouTubeStream.video_id == video_id))
-    if existing.first():
+    existing_stream = existing.first()
+    if existing_stream:
+        if is_public:
+            stream = await session.get(Stream, existing_stream.stream_id)
+            if stream and not stream.is_public:
+                stream.is_public = True
+                await session.flush()
+                return {
+                    "status": "success",
+                    "stream_id": stream.id,
+                    "message": "Existing YouTube stream published",
+                }
         return {"status": "exists", "message": "YouTube video already exists in database"}
 
     # Get or create media metadata
@@ -211,6 +223,7 @@ async def process_youtube_import(
     stream_kwargs: dict[str, Any] = {
         "uploader": uploader_name,
         "uploader_user_id": uploader_user_id,
+        "is_public": is_public,
     }
     for attr in ("resolution", "quality", "codec"):
         if contribution_data.get(attr):
@@ -408,6 +421,7 @@ async def import_youtube_video(
         is_privileged_reviewer = user.role in {UserRole.MODERATOR, UserRole.ADMIN}
         should_auto_approve = is_privileged_reviewer or (user.is_active and not resolved_is_anonymous)
         initial_status = ContributionStatus.APPROVED if should_auto_approve else ContributionStatus.PENDING
+        contribution_data["is_public"] = should_auto_approve
 
         contribution = Contribution(
             user_id=None if resolved_is_anonymous else user.id,
@@ -427,14 +441,16 @@ async def import_youtube_video(
         session.add(contribution)
         await session.flush()
 
-        # If auto-approved, process the import immediately
         import_result = None
-        if should_auto_approve:
-            try:
-                import_result = await process_youtube_import(session, contribution_data, user)
-            except Exception as e:
-                logger.error(f"Failed to process YouTube import: {e}")
-                contribution.review_notes = f"Auto-approved but import failed: {str(e)}"
+        try:
+            import_result = await process_youtube_import(session, contribution_data, user)
+        except Exception as e:
+            logger.error(f"Failed to process YouTube import: {e}")
+            contribution.review_notes = (
+                f"Auto-approved but import failed: {str(e)}"
+                if should_auto_approve
+                else f"Pending private stream creation failed: {str(e)}"
+            )
 
         await session.commit()
         await session.refresh(contribution)
@@ -471,7 +487,7 @@ async def import_youtube_video(
         else:
             return YouTubeImportResponse(
                 status="success",
-                message="YouTube video submitted for review. Thank you for your contribution!",
+                message="YouTube video submitted for review and saved privately for your account.",
                 import_id=str(contribution.id),
                 details={
                     "video_id": video_id,

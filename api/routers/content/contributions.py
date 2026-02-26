@@ -2,6 +2,7 @@
 Contributions API endpoints for user-submitted metadata corrections and stream additions.
 """
 
+import asyncio
 import logging
 from datetime import datetime
 from typing import Any
@@ -19,6 +20,7 @@ from api.routers.content.nzb_import import process_nzb_import
 from api.routers.content.torrent_import import process_torrent_import
 from api.routers.content.youtube_import import process_youtube_import
 from api.routers.user.auth import require_auth, require_role
+from db.crud.media import get_media_by_external_id
 from db.database import get_async_session, get_read_session
 from db.enums import ContributionStatus, UserRole
 from db.models import Contribution, StreamSuggestion, User
@@ -58,6 +60,8 @@ class ContributionResponse(BaseModel):
     username: str | None = None
     contribution_type: str
     target_id: str | None  # External ID (IMDb, TMDB)
+    media_id: int | None = None  # Internal MediaFusion media ID
+    mediafusion_id: str | None = None  # Canonical internal ID: mf:<media_id>
     data: dict[str, Any]
     status: str
     reviewed_by: str | None = None  # User ID string
@@ -95,7 +99,11 @@ class ContributionStats(BaseModel):
 # ============================================
 
 
-def contribution_to_response(contribution: Contribution, username: str | None = None) -> ContributionResponse:
+def contribution_to_response(
+    contribution: Contribution,
+    username: str | None = None,
+    media_id: int | None = None,
+) -> ContributionResponse:
     """Convert a Contribution model to response schema."""
     return ContributionResponse(
         id=contribution.id,
@@ -103,6 +111,8 @@ def contribution_to_response(contribution: Contribution, username: str | None = 
         username=username,
         contribution_type=contribution.contribution_type,
         target_id=contribution.target_id,
+        media_id=media_id,
+        mediafusion_id=f"mf:{media_id}" if media_id is not None else None,
         data=contribution.data,
         status=contribution.status.value if hasattr(contribution.status, "value") else str(contribution.status),
         reviewed_by=contribution.reviewed_by,
@@ -130,6 +140,31 @@ async def get_contribution_username(session: AsyncSession, user_id: int | None) 
 
     result = await session.exec(select(User.username).where(User.id == user_id))
     return result.first()
+
+
+def _extract_contribution_meta_candidates(contribution: Contribution) -> list[str]:
+    """Collect potential media identifiers from contribution payload."""
+    data = contribution.data if isinstance(contribution.data, dict) else {}
+    candidates: list[str] = []
+    for raw_value in (
+        data.get("mediafusion_id"),
+        data.get("meta_id"),
+        contribution.target_id,
+    ):
+        if isinstance(raw_value, str):
+            value = raw_value.strip()
+            if value and value not in candidates:
+                candidates.append(value)
+    return candidates
+
+
+async def resolve_contribution_media_id(session: AsyncSession, contribution: Contribution) -> int | None:
+    """Resolve contribution identifiers to internal MediaFusion media ID."""
+    for candidate in _extract_contribution_meta_candidates(contribution):
+        media = await get_media_by_external_id(session, candidate)
+        if media:
+            return media.id
+    return None
 
 
 # ============================================
@@ -180,9 +215,13 @@ async def list_contributions(
     items = result.all()
 
     username_map = await get_username_map(session, {item.user_id for item in items if item.user_id is not None})
+    media_ids = await asyncio.gather(*(resolve_contribution_media_id(session, item) for item in items))
 
     return ContributionListResponse(
-        items=[contribution_to_response(item, username_map.get(item.user_id)) for item in items],
+        items=[
+            contribution_to_response(item, username_map.get(item.user_id), media_ids[idx])
+            for idx, item in enumerate(items)
+        ],
         total=total,
         page=page,
         page_size=page_size,
@@ -304,7 +343,8 @@ async def get_contribution(
         )
 
     username = await get_contribution_username(session, contribution.user_id)
-    return contribution_to_response(contribution, username)
+    media_id = await resolve_contribution_media_id(session, contribution)
+    return contribution_to_response(contribution, username, media_id)
 
 
 @router.post("", response_model=ContributionResponse, status_code=status.HTTP_201_CREATED)
@@ -371,7 +411,12 @@ async def create_contribution(
             }
         )
 
-    return contribution_to_response(contribution, user.username if contribution.user_id is not None else None)
+    media_id = await resolve_contribution_media_id(session, contribution)
+    return contribution_to_response(
+        contribution,
+        user.username if contribution.user_id is not None else None,
+        media_id,
+    )
 
 
 @router.delete("/{contribution_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -439,9 +484,13 @@ async def list_pending_contributions(
     items = result.all()
 
     username_map = await get_username_map(session, {item.user_id for item in items if item.user_id is not None})
+    media_ids = await asyncio.gather(*(resolve_contribution_media_id(session, item) for item in items))
 
     return ContributionListResponse(
-        items=[contribution_to_response(item, username_map.get(item.user_id)) for item in items],
+        items=[
+            contribution_to_response(item, username_map.get(item.user_id), media_ids[idx])
+            for idx, item in enumerate(items)
+        ],
         total=total,
         page=page,
         page_size=page_size,
@@ -521,7 +570,8 @@ async def review_contribution(
     await session.refresh(contribution)
 
     username = await get_contribution_username(session, contribution.user_id)
-    return contribution_to_response(contribution, username)
+    media_id = await resolve_contribution_media_id(session, contribution)
+    return contribution_to_response(contribution, username, media_id)
 
 
 @router.get("/review/stats", response_model=ContributionStats)

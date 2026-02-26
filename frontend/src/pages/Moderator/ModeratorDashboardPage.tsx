@@ -75,6 +75,7 @@ import type {
 import {
   Settings,
   Film,
+  Library,
   Zap,
   Save,
   RotateCcw,
@@ -1056,6 +1057,77 @@ function getContributionUploaderLabel(contribution: Contribution): string {
   return 'Unknown'
 }
 
+function getNormalizedString(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const normalized = value.trim()
+  return normalized.length > 0 ? normalized : null
+}
+
+function getContributionMediaPreview(contribution: Contribution): {
+  title: string
+  posterUrl: string | null
+  metaType: string | null
+  metaId: string | null
+  year: string | null
+} {
+  const data = contribution.data as Record<string, unknown>
+  const title =
+    getNormalizedString(data.title) ??
+    getNormalizedString(data.name) ??
+    getNormalizedString(data.file_name) ??
+    'Untitled'
+  const posterUrl =
+    getNormalizedString(data.poster) ??
+    getNormalizedString(data.meta_poster) ??
+    getNormalizedString(data.thumbnail) ??
+    null
+  const metaType = getNormalizedString(data.meta_type)
+  const metaId = getNormalizedString(data.meta_id) ?? getNormalizedString(contribution.target_id)
+  const yearValue = data.year
+  const year =
+    typeof yearValue === 'number'
+      ? String(yearValue)
+      : typeof yearValue === 'string'
+        ? getNormalizedString(yearValue)
+        : null
+
+  return { title, posterUrl, metaType, metaId, year }
+}
+
+function getLibraryBrowseLink(preview: { title: string; metaType: string | null; metaId: string | null }): string {
+  const params = new URLSearchParams({ tab: 'browse' })
+  if (preview.metaType === 'movie' || preview.metaType === 'series' || preview.metaType === 'tv') {
+    params.set('type', preview.metaType)
+  }
+  const searchTerm = preview.title !== 'Untitled' ? preview.title : ''
+  if (searchTerm) {
+    params.set('search', searchTerm)
+  }
+  return `/dashboard/library?${params.toString()}`
+}
+
+function getInternalMediaId(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+    return Math.trunc(value)
+  }
+  if (typeof value !== 'string') return null
+  const normalized = value.trim()
+  if (!normalized) return null
+  if (normalized.startsWith('mf:')) {
+    const parsedMfId = Number.parseInt(normalized.slice(3), 10)
+    return Number.isFinite(parsedMfId) && parsedMfId > 0 ? parsedMfId : null
+  }
+  if (!/^\d+$/.test(normalized)) return null
+  const parsedId = Number.parseInt(normalized, 10)
+  return Number.isFinite(parsedId) && parsedId > 0 ? parsedId : null
+}
+
+function getContentDetailLink(preview: { metaType: string | null }, mediaId: number | null): string | null {
+  if (!mediaId) return null
+  if (preview.metaType !== 'movie' && preview.metaType !== 'series' && preview.metaType !== 'tv') return null
+  return `/dashboard/content/${preview.metaType}/${mediaId}`
+}
+
 // Contributions Tab (Torrent Imports)
 function ContributionsTab() {
   const [page, setPage] = useState(1)
@@ -1064,6 +1136,21 @@ function ContributionsTab() {
   const [selectedContribution, setSelectedContribution] = useState<Contribution | null>(null)
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
   const [reviewNotes, setReviewNotes] = useState('')
+  const selectedContributionData = (selectedContribution?.data as Record<string, unknown> | undefined) ?? undefined
+  const selectedMediaPreview = selectedContribution ? getContributionMediaPreview(selectedContribution) : null
+  const selectedMediaId =
+    getInternalMediaId(selectedContribution?.media_id) ??
+    getInternalMediaId(selectedContributionData?.media_id) ??
+    getInternalMediaId(selectedContribution?.mediafusion_id) ??
+    getInternalMediaId(selectedContributionData?.mediafusion_id)
+  const selectedContentLink = selectedMediaPreview ? getContentDetailLink(selectedMediaPreview, selectedMediaId) : null
+  const selectedLibraryLink = selectedMediaPreview
+    ? getLibraryBrowseLink(selectedMediaPreview)
+    : '/dashboard/library?tab=browse'
+  const selectedMediaOpenLink = selectedContentLink ?? selectedLibraryLink
+  const selectedMediaOpenLabel = selectedContentLink ? 'Open Content' : 'Open in Library'
+  const selectedImdbId =
+    selectedMediaPreview?.metaId?.toLowerCase().startsWith('tt') === true ? selectedMediaPreview.metaId : null
 
   const { data, isLoading, refetch } = useContributions({
     contribution_type: typeFilter === 'all' ? undefined : (typeFilter as ContributionType),
@@ -1339,6 +1426,68 @@ function ContributionsTab() {
 
           {selectedContribution && (
             <div className="space-y-4 py-4">
+              {/* Media context */}
+              <div className="rounded-lg border border-border/50 bg-muted/20 p-4">
+                <div className="flex items-start gap-4">
+                  <div className="h-28 w-20 shrink-0 overflow-hidden rounded-md border border-border/50 bg-muted">
+                    {selectedMediaPreview?.posterUrl ? (
+                      <img
+                        src={selectedMediaPreview.posterUrl}
+                        alt={`${selectedMediaPreview.title} poster`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                        {selectedMediaPreview?.metaType === 'series' ? (
+                          <Tv className="h-5 w-5" />
+                        ) : (
+                          <Film className="h-5 w-5" />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Media to Review</p>
+                    <p className="break-words text-base font-semibold">
+                      {selectedMediaPreview?.title || 'Untitled'}
+                      {selectedMediaPreview?.year ? (
+                        <span className="ml-2 text-sm font-normal text-muted-foreground">
+                          ({selectedMediaPreview.year})
+                        </span>
+                      ) : null}
+                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Button asChild variant="outline" size="sm" className="h-7 rounded-lg">
+                        <Link to={selectedMediaOpenLink}>
+                          <Library className="h-3.5 w-3.5 mr-1.5" />
+                          {selectedMediaOpenLabel}
+                        </Link>
+                      </Button>
+                      {selectedMediaPreview?.metaType && (
+                        <Badge variant="outline" className="capitalize">
+                          {selectedMediaPreview.metaType}
+                        </Badge>
+                      )}
+                      {selectedImdbId ? (
+                        <a
+                          href={`https://www.imdb.com/title/${selectedImdbId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-mono text-primary hover:underline inline-flex items-center gap-1"
+                        >
+                          {selectedImdbId}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ) : selectedMediaPreview?.metaId ? (
+                        <Badge variant="secondary" className="font-mono text-xs">
+                          {selectedMediaPreview.metaId}
+                        </Badge>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Type badges */}
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant="outline" className="capitalize">
@@ -1355,7 +1504,7 @@ function ContributionsTab() {
               <div className="space-y-3">
                 <h4 className="font-medium text-sm text-muted-foreground">Contribution Details</h4>
                 <div className="grid grid-cols-2 gap-3">
-                  {formatTorrentData(selectedContribution.data as Record<string, unknown>).map((field, idx) => (
+                  {formatTorrentData(selectedContributionData ?? {}).map((field, idx) => (
                     <div
                       key={idx}
                       className={`p-3 rounded-lg bg-muted/50 ${field.type === 'text' && String(field.value).length > 30 ? 'col-span-2' : ''}`}
@@ -1384,12 +1533,12 @@ function ContributionsTab() {
               </div>
 
               {/* Magnet link if available */}
-              {!!(selectedContribution.data as Record<string, unknown>).magnet_link && (
+              {!!selectedContributionData?.magnet_link && (
                 <div className="space-y-2">
                   <h4 className="font-medium text-sm text-muted-foreground">Magnet Link</h4>
                   <div className="p-3 rounded-lg bg-muted/50">
                     <p className="text-xs font-mono break-all line-clamp-3">
-                      {String((selectedContribution.data as Record<string, unknown>).magnet_link)}
+                      {String(selectedContributionData.magnet_link)}
                     </p>
                   </div>
                 </div>

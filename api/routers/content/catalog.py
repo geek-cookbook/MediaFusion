@@ -1868,7 +1868,8 @@ async def get_catalog_item_streams(
 
         # Build service context for template
         service_context = {
-            "id": selected_provider_obj.id if selected_provider_obj else None,
+            # StreamingProvider schema has no numeric id; use configured provider name as stable identifier.
+            "id": (selected_provider_obj.name or selected_provider_obj.service) if selected_provider_obj else None,
             "name": selected_provider_obj.service if selected_provider_obj else "p2p",
             "shortName": STREAMING_PROVIDERS_SHORT_NAMES.get(
                 selected_provider_obj.service if selected_provider_obj else "", "P2P"

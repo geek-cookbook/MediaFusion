@@ -13,6 +13,8 @@ export interface Contribution {
   username?: string | null
   contribution_type: ContributionType
   target_id?: string
+  media_id?: number | null
+  mediafusion_id?: string | null
   data: ContributionData
   status: ContributionStatus
   reviewed_by?: string

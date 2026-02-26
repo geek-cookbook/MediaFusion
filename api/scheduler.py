@@ -13,6 +13,7 @@ from scrapers.scraper_tasks import cleanup_expired_scraper_task
 from scrapers.trackers import update_torrent_seeders
 from scrapers.tv import validate_tv_streams_in_db
 from streaming_providers.cache_helpers import cleanup_expired_cache
+from utils.telegram_bot import telegram_notifier
 
 
 async def async_send(actor_send_method, **kwargs):
@@ -291,3 +292,14 @@ def setup_scheduler(scheduler: AsyncIOScheduler):
             "crontab_expression": settings.background_search_crontab,
         },
     )
+
+    if (
+        not settings.disable_pending_moderation_reminder_scheduler
+        and settings.telegram_bot_token
+        and settings.telegram_chat_id
+    ):
+        scheduler.add_job(
+            telegram_notifier.send_pending_moderation_reminder,
+            CronTrigger.from_crontab(settings.pending_moderation_reminder_crontab),
+            name="pending_moderation_reminder",
+        )

@@ -308,6 +308,8 @@ class Settings(BaseSettings):
     disable_rss_feed_scraper: bool = False
     cleanup_expired_scraper_task_crontab: str = "0 * * * *"
     cleanup_expired_cache_task_crontab: str = "0 0 * * *"
+    pending_moderation_reminder_crontab: str = "0 */6 * * *"
+    disable_pending_moderation_reminder_scheduler: bool = False
 
     @model_validator(mode="after")
     def default_poster_host_url(self) -> "Settings":

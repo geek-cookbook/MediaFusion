@@ -14,6 +14,7 @@ from urllib.parse import unquote, urlparse
 import aiohttp
 import PTT
 import pytz
+from sqlalchemy import text
 from sqlmodel import func, select
 
 from db import crud
@@ -29,7 +30,7 @@ from db.crud.streams import (
 )
 from db.database import get_async_session_context
 from db.enums import ContributionStatus, MediaType, UserRole
-from db.models import Contribution, User
+from db.models import Contribution, EpisodeSuggestion, MetadataSuggestion, StreamSuggestion, User
 from db.models.links import MediaCatalogLink, MediaGenreLink
 from db.models.media import Media
 from db.models.streams import (
@@ -282,6 +283,153 @@ class TelegramNotifier:
             return text[: limit - 3] + "..."
         return text
 
+    @staticmethod
+    def _moderator_dashboard_url() -> str:
+        """Frontend moderator dashboard URL."""
+        return f"{settings.host_url}/dashboard/moderator"
+
+    @staticmethod
+    def _format_pending_age(oldest_created_at: datetime | None) -> str:
+        """Format oldest pending age into a compact human-readable string."""
+        if oldest_created_at is None:
+            return "n/a"
+
+        now = datetime.now(tz=oldest_created_at.tzinfo) if oldest_created_at.tzinfo else datetime.now()
+        delta = now - oldest_created_at
+        total_minutes = max(int(delta.total_seconds() // 60), 0)
+
+        days, remainder_minutes = divmod(total_minutes, 24 * 60)
+        hours, minutes = divmod(remainder_minutes, 60)
+
+        if days > 0:
+            return f"{days}d {hours}h"
+        if hours > 0:
+            return f"{hours}h {minutes}m"
+        return f"{minutes}m"
+
+    @staticmethod
+    async def _get_pending_count_and_oldest(session, model, status_filter) -> tuple[int, datetime | None]:
+        """Return pending count and oldest created timestamp for a model."""
+        result = await session.exec(select(func.count(model.id), func.min(model.created_at)).where(status_filter))
+        count, oldest_created_at = result.one()
+        return int(count or 0), oldest_created_at
+
+    async def send_pending_moderation_reminder(self):
+        """Send periodic pending moderation summary to Telegram."""
+        if not self.enabled:
+            logger.debug("Pending moderation reminder skipped: Telegram notifications disabled")
+            return
+
+        try:
+            async with get_async_session_context() as session:
+                contribution_count, contribution_oldest = await self._get_pending_count_and_oldest(
+                    session,
+                    Contribution,
+                    Contribution.status == ContributionStatus.PENDING,
+                )
+                metadata_count, metadata_oldest = await self._get_pending_count_and_oldest(
+                    session,
+                    MetadataSuggestion,
+                    MetadataSuggestion.status == ContributionStatus.PENDING,
+                )
+                stream_count, stream_oldest = await self._get_pending_count_and_oldest(
+                    session,
+                    StreamSuggestion,
+                    StreamSuggestion.status == ContributionStatus.PENDING,
+                )
+                episode_count, episode_oldest = await self._get_pending_count_and_oldest(
+                    session,
+                    EpisodeSuggestion,
+                    EpisodeSuggestion.status == ContributionStatus.PENDING,
+                )
+
+                annotation_result = await session.exec(
+                    text("""
+                        WITH series_streams AS (
+                            SELECT DISTINCT
+                                s.id as stream_id,
+                                s.created_at
+                            FROM stream s
+                            INNER JOIN torrent_stream ts ON ts.stream_id = s.id
+                            INNER JOIN stream_media_link sml ON sml.stream_id = s.id
+                            INNER JOIN media m ON sml.media_id = m.id
+                            WHERE m.type = 'SERIES'
+                              AND s.is_active = true
+                              AND s.is_blocked = false
+                              AND EXISTS (
+                                  SELECT 1 FROM stream_file sf
+                                  LEFT JOIN file_media_link fml ON fml.file_id = sf.id
+                                  WHERE sf.stream_id = s.id
+                                    AND (fml.id IS NULL OR fml.episode_number IS NULL)
+                              )
+                        )
+                        SELECT
+                            COUNT(*) AS total,
+                            MIN(created_at) AS oldest_created_at
+                        FROM series_streams
+                    """)
+                )
+                annotation_count, annotation_oldest = annotation_result.one()
+                annotation_count = int(annotation_count or 0)
+        except Exception as e:
+            logger.exception("Failed to build pending moderation reminder: %s", e)
+            return
+
+        queue_items = [
+            {
+                "label": "Content Imports",
+                "count": contribution_count,
+                "oldest": contribution_oldest,
+            },
+            {
+                "label": "Metadata Suggestions",
+                "count": metadata_count,
+                "oldest": metadata_oldest,
+            },
+            {
+                "label": "Stream Suggestions",
+                "count": stream_count,
+                "oldest": stream_oldest,
+            },
+            {
+                "label": "Episode Suggestions",
+                "count": episode_count,
+                "oldest": episode_oldest,
+            },
+            {
+                "label": "File Annotation Requests",
+                "count": annotation_count,
+                "oldest": annotation_oldest,
+            },
+        ]
+        total_pending = sum(item["count"] for item in queue_items)
+        if total_pending == 0:
+            logger.debug("Pending moderation reminder skipped: no pending moderation queues")
+            return
+
+        moderator_url = self._moderator_dashboard_url()
+        message_lines = [
+            "⏰ Pending Moderation Reminder",
+            "",
+            f"*Total Pending*: `{total_pending}`",
+            "",
+            "*Queues:*",
+        ]
+        for item in queue_items:
+            if item["count"] <= 0:
+                continue
+            oldest_age = self._format_pending_age(item["oldest"])
+            message_lines.append(f"- *{item['label']}*: `{item['count']}` pending (oldest `{oldest_age}`)")
+
+        message_lines.extend(
+            [
+                "",
+                f"*Review Dashboard*: `{moderator_url}`",
+            ]
+        )
+
+        await self._send_text_only_message("\n".join(message_lines).strip())
+
     async def send_pending_contribution_notification(self, payload: dict[str, Any]):
         """Send moderator alert when a contribution is pending review."""
         if not self.enabled:
@@ -330,7 +478,7 @@ class TelegramNotifier:
                 formatted_values = ", ".join(self._value_text(item, limit=30) for item in values[:8])
                 message += f"*{key.title()}*: `{formatted_values}`\n"
 
-        review_url = f"{settings.host_url}/api/v1/contributions/review/pending"
+        review_url = self._moderator_dashboard_url()
         message += f"\n*Review Queue*: `{review_url}`"
 
         if info_hash:
@@ -376,7 +524,7 @@ class TelegramNotifier:
         if reason:
             message += f"*Reason*: `{self._value_text(reason)}`\n"
 
-        review_url = f"{settings.host_url}/api/v1/stream-suggestions/pending"
+        review_url = self._moderator_dashboard_url()
         message += f"\n*Review Queue*: `{review_url}`"
         await self._send_text_only_message(message)
 
@@ -413,7 +561,7 @@ class TelegramNotifier:
         if reason:
             message += f"*Reason*: `{self._value_text(reason)}`\n"
 
-        review_url = f"{settings.host_url}/api/v1/suggestions/pending"
+        review_url = self._moderator_dashboard_url()
         message += f"\n*Review Queue*: `{review_url}`"
         await self._send_text_only_message(message)
 
@@ -455,7 +603,7 @@ class TelegramNotifier:
         if reason:
             message += f"*Reason*: `{self._value_text(reason)}`\n"
 
-        review_url = f"{settings.host_url}/api/v1/episode-suggestions/pending"
+        review_url = self._moderator_dashboard_url()
         message += f"\n*Review Queue*: `{review_url}`"
         await self._send_text_only_message(message)
 

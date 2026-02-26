@@ -1,6 +1,7 @@
 """Configuration schemas for streaming providers and user settings."""
 
 import math
+import re
 from typing import Literal
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
@@ -8,6 +9,18 @@ from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
 from db.config import settings
 from db.enums import IntegrationType, NudityStatus, SyncDirection
 from utils import const
+
+MAX_STREAM_NAME_FILTER_PATTERNS = 10
+MAX_STREAM_NAME_FILTER_PATTERN_LENGTH = 120
+
+# Guardrails against expensive regex features in user-provided filters.
+DISALLOWED_STREAM_FILTER_REGEX_TOKENS = (
+    "(?=",
+    "(?!",
+    "(?<=",
+    "(?<!",
+)
+DISALLOWED_STREAM_FILTER_REGEX_PATTERN = re.compile(r"\\[1-9]")
 
 
 class QBittorrentConfig(BaseModel):
@@ -289,9 +302,9 @@ class StreamTemplate(BaseModel):
         {addon.name} {if stream.type = torrent}🧲 {service.shortName} {if service.cached}⚡️{else}⏳{/if}{elif stream.type = usenet}📰 {service.shortName}{else}🔗{/if} {stream.resolution}
 
     Available fields:
-    - Stream: name, type, resolution, quality, codec, bit_depth
+    - Stream: name, filename, type, resolution, quality, codec, bit_depth
     - Stream types: torrent, usenet, telegram, http, youtube
-    - Stream arrays: audio_formats, channels, hdr_formats, languages
+    - Stream arrays: audio_formats, channels, hdr_formats, languages, language_flags
     - Stream info: size, seeders, source, release_group, uploader, cached
     - Service: service.name, service.shortName, service.cached
     - Addon: addon.name
@@ -696,6 +709,53 @@ class UserData(BaseModel):
             if stream_type not in valid_types:
                 raise ValueError(f"Invalid stream type: {stream_type}")
         return v
+
+    @field_validator("stream_name_filter_patterns", mode="before")
+    def validate_stream_name_filter_patterns(cls, v):
+        if v is None:
+            return []
+        if not isinstance(v, list):
+            return []
+
+        normalized_patterns: list[str] = []
+        seen_patterns: set[str] = set()
+        for raw_pattern in v[:MAX_STREAM_NAME_FILTER_PATTERNS]:
+            if raw_pattern is None:
+                continue
+            if not isinstance(raw_pattern, str):
+                continue
+
+            pattern = raw_pattern.strip()
+            if not pattern:
+                continue
+            if len(pattern) > MAX_STREAM_NAME_FILTER_PATTERN_LENGTH:
+                continue
+            if pattern not in seen_patterns:
+                seen_patterns.add(pattern)
+                normalized_patterns.append(pattern)
+
+        return normalized_patterns
+
+    @model_validator(mode="after")
+    def validate_stream_name_filter_regex_safety(self) -> "UserData":
+        if not self.stream_name_filter_use_regex:
+            return self
+
+        safe_patterns: list[str] = []
+        for pattern in self.stream_name_filter_patterns:
+            if any(token in pattern for token in DISALLOWED_STREAM_FILTER_REGEX_TOKENS):
+                continue
+            if DISALLOWED_STREAM_FILTER_REGEX_PATTERN.search(pattern):
+                continue
+            try:
+                re.compile(pattern, re.IGNORECASE)
+            except re.error:
+                continue
+            safe_patterns.append(pattern)
+
+        self.stream_name_filter_patterns = safe_patterns
+
+        return self
 
     def is_sorting_option_present(self, key: str) -> bool:
         return any(sort.key == key for sort in self.torrent_sorting_priority)

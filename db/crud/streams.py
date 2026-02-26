@@ -857,6 +857,8 @@ async def create_youtube_stream(
     media_id: int,
     source: str = "youtube",
     is_live: bool = False,
+    geo_restriction_type: str | None = None,
+    geo_restriction_countries: list[str] | None = None,
     **kwargs,
 ) -> YouTubeStream:
     """Create a new YouTube stream."""
@@ -873,6 +875,8 @@ async def create_youtube_stream(
         stream_id=stream.id,
         video_id=video_id,
         is_live=is_live,
+        geo_restriction_type=geo_restriction_type,
+        geo_restriction_countries=geo_restriction_countries,
     )
     session.add(yt_stream)
 

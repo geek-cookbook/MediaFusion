@@ -54,6 +54,7 @@ from db.schemas import (
 )
 from db.schemas.media import HTTPStreamData, TelegramStreamData, UsenetStreamData
 from utils.network import encode_mediaflow_acestream_url
+from utils.youtube import format_geo_restriction_label
 
 # Providers that support Usenet content - defined here to avoid circular import
 # This should be kept in sync with streaming_providers.mapper.USENET_CAPABLE_PROVIDERS
@@ -1320,10 +1321,20 @@ async def get_tv_streams_formatted(
 
         for yt_stream in yt_streams:
             stream = yt_stream.stream
+            geo_label = format_geo_restriction_label(
+                yt_stream.geo_restriction_type,
+                yt_stream.geo_restriction_countries,
+            )
+            display_name = stream.name
+            if geo_label:
+                display_name = f"{display_name} [{geo_label}]"
+            description = f"▶️ {stream.source}" if stream.source else "▶️ YouTube"
+            if geo_label:
+                description = f"{geo_label}\n{description}"
             formatted_streams.append(
                 StremioStream(
-                    name=f"{settings.addon_name}\n{stream.name}",
-                    description=f"▶️ {stream.source}" if stream.source else "▶️ YouTube",
+                    name=f"{settings.addon_name}\n{display_name}",
+                    description=description,
                     ytId=yt_stream.video_id,
                 )
             )

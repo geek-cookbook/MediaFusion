@@ -12,6 +12,32 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { RESOLUTIONS, QUALITY_GROUPS, SORTING_OPTIONS, LANGUAGES, STREAM_TYPES } from './constants'
 import type { ConfigSectionProps, SortingOption } from './types'
 
+const MAX_STREAM_NAME_FILTER_PATTERNS = 10
+const MAX_STREAM_NAME_FILTER_PATTERN_LENGTH = 120
+const DISALLOWED_REGEX_TOKENS = ['(?=', '(?!', '(?<=', '(?<!']
+const DISALLOWED_REGEX_BACKREFERENCE = /\\[1-9]/
+
+function validateStreamNameFilterPattern(pattern: string, useRegex: boolean): string | null {
+  if (pattern.length > MAX_STREAM_NAME_FILTER_PATTERN_LENGTH) {
+    return `Pattern must be ${MAX_STREAM_NAME_FILTER_PATTERN_LENGTH} characters or less.`
+  }
+
+  if (!useRegex) return null
+
+  if (DISALLOWED_REGEX_TOKENS.some((token) => pattern.includes(token))) {
+    return 'Lookahead/lookbehind regex operators are not allowed.'
+  }
+  if (DISALLOWED_REGEX_BACKREFERENCE.test(pattern)) {
+    return 'Regex backreferences are not allowed.'
+  }
+  try {
+    new RegExp(pattern, 'i')
+  } catch {
+    return 'Invalid regex pattern.'
+  }
+  return null
+}
+
 export function StreamingPreferences({ config, onChange }: ConfigSectionProps) {
   const selectedResolutions = config.sr || RESOLUTIONS.map((r) => r.value)
   const selectedQualities = config.qf || QUALITY_GROUPS.map((q) => q.id)
@@ -135,16 +161,30 @@ export function StreamingPreferences({ config, onChange }: ConfigSectionProps) {
   // Stream name filter
   const filterPatterns = config.snfp || []
   const [newPattern, setNewPattern] = useState('')
+  const [patternError, setPatternError] = useState<string | null>(null)
 
   const addPattern = () => {
     const trimmed = newPattern.trim()
     if (!trimmed || filterPatterns.includes(trimmed)) return
+    if (filterPatterns.length >= MAX_STREAM_NAME_FILTER_PATTERNS) {
+      setPatternError(`Maximum ${MAX_STREAM_NAME_FILTER_PATTERNS} patterns allowed.`)
+      return
+    }
+
+    const validationError = validateStreamNameFilterPattern(trimmed, config.snfr === true)
+    if (validationError) {
+      setPatternError(validationError)
+      return
+    }
+
     onChange({ ...config, snfp: [...filterPatterns, trimmed] })
+    setPatternError(null)
     setNewPattern('')
   }
 
   const removePattern = (pattern: string) => {
     onChange({ ...config, snfp: filterPatterns.filter((p) => p !== pattern) })
+    setPatternError(null)
   }
 
   return (
@@ -840,18 +880,29 @@ export function StreamingPreferences({ config, onChange }: ConfigSectionProps) {
                 </div>
                 <Switch
                   checked={config.snfr === true}
-                  onCheckedChange={(checked) => onChange({ ...config, snfr: checked })}
+                  onCheckedChange={(checked) => {
+                    setPatternError(null)
+                    onChange({ ...config, snfr: checked })
+                  }}
                 />
               </div>
 
               {/* Pattern Input */}
               <div className="space-y-2">
-                <Label>Patterns</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Patterns</Label>
+                  <span className="text-xs text-muted-foreground">
+                    {filterPatterns.length}/{MAX_STREAM_NAME_FILTER_PATTERNS}
+                  </span>
+                </div>
                 <div className="flex gap-2">
                   <Input
                     placeholder={config.snfr ? 'e.g. HDR|Atmos' : 'e.g. HEVC'}
                     value={newPattern}
-                    onChange={(e) => setNewPattern(e.target.value)}
+                    onChange={(e) => {
+                      setNewPattern(e.target.value)
+                      setPatternError(null)
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault()
@@ -859,15 +910,20 @@ export function StreamingPreferences({ config, onChange }: ConfigSectionProps) {
                       }
                     }}
                   />
-                  <Button variant="outline" onClick={addPattern} disabled={!newPattern.trim()}>
+                  <Button
+                    variant="outline"
+                    onClick={addPattern}
+                    disabled={!newPattern.trim() || filterPatterns.length >= MAX_STREAM_NAME_FILTER_PATTERNS}
+                  >
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {config.snfr
-                    ? 'Enter regex patterns. Case-insensitive. Press Enter to add.'
+                    ? 'Regex is case-insensitive. Max 10 patterns, 120 chars each. Lookarounds/backreferences are blocked.'
                     : 'Enter keywords. Case-insensitive substring match. Press Enter to add.'}
                 </p>
+                {patternError && <p className="text-xs text-destructive">{patternError}</p>}
               </div>
 
               {/* Pattern List */}

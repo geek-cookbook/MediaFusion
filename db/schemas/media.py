@@ -1401,6 +1401,8 @@ class YouTubeStreamData(BaseModel):
     quality: str | None = None
     codec: str | None = None
     languages: list[str] = Field(default_factory=list)
+    geo_restriction_type: str | None = None  # allowed | blocked
+    geo_restriction_countries: list[str] = Field(default_factory=list)
 
     # Required by AnyStreamData protocol (sort key, etc.)
     size: int | None = None
@@ -1431,6 +1433,8 @@ class YouTubeStreamData(BaseModel):
             quality=stream.quality if stream else None,
             codec=stream.codec if stream else None,
             languages=[lang.name for lang in stream.languages] if stream and stream.languages else [],
+            geo_restriction_type=yt_stream.geo_restriction_type,
+            geo_restriction_countries=yt_stream.geo_restriction_countries or [],
             created_at=stream.created_at if stream else None,
             meta_id=meta_id,
         )

@@ -429,6 +429,11 @@ class YouTubeStream(SQLModel, table=True):
     is_live: bool = Field(default=False)
     is_premiere: bool = Field(default=False)
     published_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
+    # Geo restriction metadata from YouTube regionRestriction:
+    # - allowed: video is only available in listed countries
+    # - blocked: video is blocked in listed countries
+    geo_restriction_type: str | None = None  # allowed | blocked
+    geo_restriction_countries: list[str] | None = Field(default=None, sa_type=JSONB)
 
     # Relationships
     stream: Stream = Relationship(sa_relationship_kwargs={"uselist": False})

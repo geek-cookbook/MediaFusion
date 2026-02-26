@@ -47,6 +47,8 @@ export interface YouTubeImportFormData {
   codec?: string
   languages?: string[]
   catalogs?: string[]
+  geoRestrictionType?: 'allowed' | 'blocked'
+  geoRestrictionCountries?: string[]
   isAnonymous?: boolean
   anonymousDisplayName?: string
   forceImport?: boolean
@@ -69,6 +71,19 @@ function formatDuration(seconds: number): string {
   if (h > 0) return `${h}h ${m}m ${s}s`
   if (m > 0) return `${m}m ${s}s`
   return `${s}s`
+}
+
+function formatGeoRestrictionLabel(
+  geoRestrictionType?: 'allowed' | 'blocked',
+  geoRestrictionCountries?: string[],
+): string | null {
+  if (!geoRestrictionType) return null
+  const countries = (geoRestrictionCountries || []).filter(Boolean)
+  const countryText = countries.length > 0 ? countries.join(', ') : 'selected regions'
+  if (geoRestrictionType === 'allowed') {
+    return `Only available in: ${countryText}`
+  }
+  return `Blocked in: ${countryText}`
 }
 
 export function YouTubeImportDialog({
@@ -107,12 +122,17 @@ export function YouTubeImportDialog({
   // Import options
   const [isAnonymous, setIsAnonymous] = useState(user?.contribute_anonymously ?? false)
   const [anonymousDisplayName, setAnonymousDisplayName] = useState(getStoredAnonymousDisplayName())
+  const geoRestrictionLabel = useMemo(
+    () => formatGeoRestrictionLabel(analysis?.geo_restriction_type, analysis?.geo_restriction_countries),
+    [analysis?.geo_restriction_type, analysis?.geo_restriction_countries],
+  )
+  const matches = analysis?.matches
 
   // Derive selected match from index
   const selectedMatch = useMemo(() => {
-    if (selectedMatchIndex === null || !analysis?.matches) return null
-    return analysis.matches[selectedMatchIndex] as ExtendedMatch | null
-  }, [selectedMatchIndex, analysis?.matches])
+    if (selectedMatchIndex === null || !matches) return null
+    return matches[selectedMatchIndex] as ExtendedMatch | null
+  }, [selectedMatchIndex, matches])
 
   // Initialize from analysis when dialog opens
   const [prevOpen, setPrevOpen] = useState(open)
@@ -200,6 +220,8 @@ export function YouTubeImportDialog({
       codec: codec || undefined,
       languages: languages.length > 0 ? languages : undefined,
       catalogs: selectedCatalogs.length > 0 ? selectedCatalogs : undefined,
+      geoRestrictionType: analysis.geo_restriction_type,
+      geoRestrictionCountries: analysis.geo_restriction_countries,
       isAnonymous,
       anonymousDisplayName: isAnonymous ? normalizeAnonymousDisplayName(anonymousDisplayName) : undefined,
     }
@@ -214,6 +236,8 @@ export function YouTubeImportDialog({
     codec,
     languages,
     selectedCatalogs,
+    analysis.geo_restriction_type,
+    analysis.geo_restriction_countries,
     isAnonymous,
     anonymousDisplayName,
   ])
@@ -312,6 +336,7 @@ export function YouTubeImportDialog({
                         </Badge>
                         {analysis.is_live && <Badge variant="destructive">Live</Badge>}
                         {analysis.resolution && <Badge variant="outline">{analysis.resolution}</Badge>}
+                        {geoRestrictionLabel && <Badge variant="outline">{geoRestrictionLabel}</Badge>}
                       </div>
                       <h3 className="font-semibold text-base">{analysis.title}</h3>
                       {analysis.channel_name && (

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import {
   Settings,
@@ -27,6 +27,16 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useProfiles, useCreateProfile, useUpdateProfile, useDeleteProfile, useSetDefaultProfile } from '@/hooks'
@@ -74,6 +84,22 @@ function sanitizeProfileConfig(config: ProfileConfig): ProfileConfig {
     ...config,
     sr: sanitizeResolutionList(config.sr),
   }
+}
+
+function buildProfileSnapshot({
+  name,
+  isDefault,
+  config,
+}: {
+  name: string
+  isDefault: boolean
+  config: ProfileConfig
+}): string {
+  return JSON.stringify({
+    name: name.trim(),
+    isDefault,
+    config: sanitizeProfileConfig(config),
+  })
 }
 
 // Profile card for the list view
@@ -569,6 +595,7 @@ function AnonymousConfigEditor() {
 
 // Profile Editor Component (for authenticated users)
 function ProfileEditor({ profile, onBack, isNew = false }: { profile?: Profile; onBack: () => void; isNew?: boolean }) {
+  const navigate = useNavigate()
   const createProfile = useCreateProfile()
   const updateProfile = useUpdateProfile()
   const deleteProfile = useDeleteProfile()
@@ -584,8 +611,48 @@ function ProfileEditor({ profile, onBack, isNew = false }: { profile?: Profile; 
   })
   const [activeTab, setActiveTab] = useState('provider')
   const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [savedSnapshot, setSavedSnapshot] = useState(() =>
+    buildProfileSnapshot({
+      name: profile?.name || '',
+      isDefault: profile?.is_default || false,
+      config: profile?.config
+        ? sanitizeProfileConfig(profile.config as ProfileConfig)
+        : sanitizeProfileConfig({ ...DEFAULT_CONFIG }),
+    }),
+  )
 
   const isPending = createProfile.isPending || updateProfile.isPending
+  const currentSnapshot = useMemo(() => buildProfileSnapshot({ name, isDefault, config }), [name, isDefault, config])
+  const hasUnsavedChanges = currentSnapshot !== savedSnapshot
+  const unsavedChangesMessage = 'You have unsaved configuration changes.'
+  const ignoreNextPopRef = useRef(false)
+  const pendingNavigationRef = useRef<(() => void) | null>(null)
+  const [isUnsavedDialogOpen, setIsUnsavedDialogOpen] = useState(false)
+
+  const cancelPendingNavigation = useCallback(() => {
+    pendingNavigationRef.current = null
+    setIsUnsavedDialogOpen(false)
+  }, [])
+
+  const confirmPendingNavigation = useCallback(() => {
+    const nextNavigation = pendingNavigationRef.current
+    pendingNavigationRef.current = null
+    setIsUnsavedDialogOpen(false)
+    nextNavigation?.()
+  }, [])
+
+  const requestUnsavedNavigation = useCallback(
+    (nextNavigation: () => void) => {
+      if (!hasUnsavedChanges) {
+        pendingNavigationRef.current = null
+        nextNavigation()
+        return
+      }
+      pendingNavigationRef.current = nextNavigation
+      setIsUnsavedDialogOpen(true)
+    },
+    [hasUnsavedChanges],
+  )
 
   const configHasErrors = useMemo(() => {
     const isValidUrl = (v: string | undefined) => {
@@ -614,6 +681,88 @@ function ProfileEditor({ profile, onBack, isNew = false }: { profile?: Profile; 
     }
   }, [saveStatus])
 
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!hasUnsavedChanges) return
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedChanges])
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return
+
+    const handleAnchorNavigation = (event: MouseEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return
+      }
+
+      const target = event.target instanceof Element ? event.target.closest('a[href]') : null
+      if (!(target instanceof HTMLAnchorElement)) return
+      if (target.target && target.target !== '_self') return
+
+      const rawHref = target.getAttribute('href')
+      if (!rawHref || rawHref.startsWith('#') || rawHref.startsWith('mailto:') || rawHref.startsWith('tel:')) return
+
+      const nextUrl = new URL(target.href, window.location.href)
+      const currentUrl = new URL(window.location.href)
+      if (nextUrl.href === currentUrl.href) return
+
+      event.preventDefault()
+      event.stopPropagation()
+
+      requestUnsavedNavigation(() => {
+        if (nextUrl.origin === currentUrl.origin) {
+          const nextPath = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`
+          const currentPath = `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`
+          if (nextPath !== currentPath) {
+            navigate(nextPath)
+          }
+          return
+        }
+        window.location.assign(nextUrl.href)
+      })
+    }
+
+    document.addEventListener('click', handleAnchorNavigation, true)
+    return () => document.removeEventListener('click', handleAnchorNavigation, true)
+  }, [hasUnsavedChanges, navigate, requestUnsavedNavigation])
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return
+
+    const handlePopState = () => {
+      if (ignoreNextPopRef.current) {
+        ignoreNextPopRef.current = false
+        return
+      }
+
+      ignoreNextPopRef.current = true
+      window.history.forward()
+      requestUnsavedNavigation(() => {
+        ignoreNextPopRef.current = true
+        window.history.back()
+      })
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [hasUnsavedChanges, requestUnsavedNavigation])
+
+  const handleBackNavigation = () => {
+    requestUnsavedNavigation(onBack)
+  }
+
   const handleSave = async () => {
     setSaveStatus(null)
     try {
@@ -624,6 +773,13 @@ function ProfileEditor({ profile, onBack, isNew = false }: { profile?: Profile; 
           is_default: isDefault,
           config: sanitizedConfig as Record<string, unknown>,
         })
+        setSavedSnapshot(
+          buildProfileSnapshot({
+            name: name || 'New Profile',
+            isDefault,
+            config: sanitizedConfig,
+          }),
+        )
         setSaveStatus({ type: 'success', message: 'Profile created successfully!' })
         setTimeout(() => onBack(), 1000) // Delay to show success message
       } else if (profile) {
@@ -637,11 +793,22 @@ function ProfileEditor({ profile, onBack, isNew = false }: { profile?: Profile; 
           },
         })
         // Update local state with the response from server
-        if (updatedProfile.config) {
-          setConfig(sanitizeProfileConfig(updatedProfile.config as ProfileConfig))
-        }
-        setName(updatedProfile.name)
-        setIsDefault(updatedProfile.is_default)
+        const nextConfig = updatedProfile.config
+          ? sanitizeProfileConfig(updatedProfile.config as ProfileConfig)
+          : sanitizedConfig
+        const nextName = updatedProfile.name
+        const nextIsDefault = updatedProfile.is_default
+
+        setConfig(nextConfig)
+        setName(nextName)
+        setIsDefault(nextIsDefault)
+        setSavedSnapshot(
+          buildProfileSnapshot({
+            name: nextName,
+            isDefault: nextIsDefault,
+            config: nextConfig,
+          }),
+        )
         setSaveStatus({ type: 'success', message: 'Profile saved successfully!' })
       }
     } catch (error) {
@@ -666,7 +833,15 @@ function ProfileEditor({ profile, onBack, isNew = false }: { profile?: Profile; 
     if (profile) {
       try {
         await setDefaultProfile.mutateAsync(profile.id)
-        setIsDefault(true)
+        const nextIsDefault = true
+        setIsDefault(nextIsDefault)
+        setSavedSnapshot(
+          buildProfileSnapshot({
+            name,
+            isDefault: nextIsDefault,
+            config,
+          }),
+        )
         setSaveStatus({ type: 'success', message: 'Profile set as default!' })
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Failed to set default'
@@ -693,12 +868,17 @@ function ProfileEditor({ profile, onBack, isNew = false }: { profile?: Profile; 
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <Button variant="ghost" onClick={onBack} className="gap-2">
+        <Button variant="ghost" onClick={handleBackNavigation} className="gap-2">
           <ArrowLeft className="h-4 w-4" />
           Back to Profiles
         </Button>
 
         <div className="flex items-center gap-2">
+          {hasUnsavedChanges && (
+            <Badge variant="outline" className="border-amber-500/50 text-amber-600 dark:text-amber-400">
+              Unsaved changes
+            </Badge>
+          )}
           <Button onClick={handleSave} disabled={isPending || !name.trim() || configHasErrors} variant="gold">
             {isPending ? (
               <>
@@ -804,6 +984,21 @@ function ProfileEditor({ profile, onBack, isNew = false }: { profile?: Profile; 
           <StreamFormatterConfig config={config} onChange={setConfig} />
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={isUnsavedDialogOpen} onOpenChange={(open) => !open && cancelPendingNavigation()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {unsavedChangesMessage} If you leave now, your edits will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={cancelPendingNavigation}>Stay on this page</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmPendingNavigation}>Leave without saving</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

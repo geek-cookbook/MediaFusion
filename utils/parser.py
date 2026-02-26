@@ -44,10 +44,43 @@ from utils.const import CERTIFICATION_MAPPING, STREAMING_PROVIDERS_SHORT_NAMES
 from utils.network import encode_mediaflow_proxy_url
 from utils.runtime_const import ADULT_PARSER, MANIFEST_TEMPLATE, TRACKERS
 from utils.template_engine import render_template as engine_render_template
+from utils.youtube import format_geo_restriction_label
 from utils.validation_helper import validate_m3u8_or_mpd_url_with_cache
 
 # Union type for all stream data types that go through parse_stream_data
 AnyStreamData = Union[TorrentStreamData, UsenetStreamData, TelegramStreamData, HTTPStreamData, YouTubeStreamData]
+
+MAX_STREAM_NAME_FILTER_PATTERNS = 10
+MAX_STREAM_NAME_FILTER_PATTERN_LENGTH = 120
+
+
+def _get_language_code(language: str | None) -> str | None:
+    if not language:
+        return None
+    letters_only = "".join(ch for ch in language if ch.isalpha())
+    if not letters_only:
+        return None
+    return letters_only[:2].upper()
+
+
+def _extract_year_from_text(text: str | None) -> str | None:
+    if not text:
+        return None
+    match = re.search(r"(19|20)\d{2}", text)
+    return match.group(0) if match else None
+
+
+def _calculate_age_fields(created_at: datetime | None) -> tuple[str | None, int | None]:
+    if not created_at:
+        return None, None
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=UTC)
+    age_hours = max(int((datetime.now(UTC) - created_at).total_seconds() // 3600), 0)
+    if age_hours < 24:
+        return f"{age_hours}h", age_hours
+    if age_hours < 24 * 30:
+        return f"{age_hours // 24}d", age_hours
+    return f"{age_hours // (24 * 30)}mo", age_hours
 
 
 async def filter_and_sort_streams(
@@ -69,15 +102,19 @@ async def filter_and_sort_streams(
     # Pre-compile stream name filter patterns
     stream_name_filter_mode = user_data.stream_name_filter_mode
     compiled_name_patterns: list[re.Pattern] | list[str] = []
-    if stream_name_filter_mode != "disabled" and user_data.stream_name_filter_patterns:
+    raw_filter_patterns = (user_data.stream_name_filter_patterns or [])[:MAX_STREAM_NAME_FILTER_PATTERNS]
+    safe_filter_patterns = [
+        p for p in raw_filter_patterns if isinstance(p, str) and len(p) <= MAX_STREAM_NAME_FILTER_PATTERN_LENGTH
+    ]
+    if stream_name_filter_mode != "disabled" and safe_filter_patterns:
         if user_data.stream_name_filter_use_regex:
-            for pattern in user_data.stream_name_filter_patterns:
+            for pattern in safe_filter_patterns:
                 try:
                     compiled_name_patterns.append(re.compile(pattern, re.IGNORECASE))
                 except re.error:
                     logging.warning(f"Invalid regex pattern ignored: {pattern}")
         else:
-            compiled_name_patterns = [p.lower() for p in user_data.stream_name_filter_patterns]
+            compiled_name_patterns = [p.lower() for p in safe_filter_patterns]
 
     # Step 1: Filter streams and add normalized attributes
     filtered_streams = []
@@ -724,6 +761,54 @@ def _build_stream_entries(
                 stream_type = "torrent"
 
             cached = getattr(stream_data, "cached", False)
+            geo_restriction_label = format_geo_restriction_label(
+                getattr(stream_data, "geo_restriction_type", None),
+                getattr(stream_data, "geo_restriction_countries", None),
+            )
+            file_extension = None
+            folder_name = None
+            if file_name:
+                if "." in file_name:
+                    folder_name, file_extension = file_name.rsplit(".", 1)
+                    file_extension = file_extension.lower()
+                else:
+                    folder_name = file_name
+
+            language_codes = [code for code in (_get_language_code(lang) for lang in display_languages) if code]
+            small_language_codes = [code.lower() for code in language_codes]
+            age, age_hours = _calculate_age_fields(getattr(stream_data, "created_at", None))
+            compatibility_year = _extract_year_from_text(stream_data.name)
+            compatibility_season = (
+                getattr(episode_data, "season_number", None)
+                if episode_data is not None
+                else (season if is_series else None)
+            )
+            compatibility_episode = (
+                getattr(episode_data, "episode_number", None)
+                if episode_data is not None
+                else (episode if is_series else None)
+            )
+            compatibility_duration = getattr(stream_data, "duration_seconds", None) or getattr(
+                stream_data, "duration", None
+            )
+            compatibility_bitrate = getattr(stream_data, "bitrate", None)
+            if compatibility_bitrate is None:
+                bitrate_kbps = getattr(stream_data, "bitrate_kbps", None)
+                if bitrate_kbps is not None:
+                    compatibility_bitrate = bitrate_kbps * 1000
+            provider_type = (
+                "direct"
+                if (is_telegram or is_http or is_youtube)
+                else ("debrid" if current_provider is not None else "p2p")
+            )
+            stream_is_private = getattr(stream_data, "torrent_type", TorrentType.PUBLIC) != TorrentType.PUBLIC
+            mediaflow_proxied = bool(
+                current_provider
+                and user_data.mediaflow_config
+                and user_data.mediaflow_config.proxy_url
+                and user_data.mediaflow_config.api_password
+                and current_provider.use_mediaflow
+            )
             stream_context = {
                 "name": stream_data.name,
                 "filename": file_name,
@@ -743,29 +828,71 @@ def _build_stream_entries(
                 "release_group": getattr(stream_data, "release_group", None),
                 "uploader": uploader,
                 "cached": cached,
+                "geo_restriction": geo_restriction_label,
+                # AIOStreams compatibility fields (best-effort)
+                "title": stream_data.name,
+                "year": compatibility_year,
+                "season": compatibility_season,
+                "episode": compatibility_episode,
+                "folderName": folder_name,
+                "folderSize": stream_size,
+                "library": False,
+                "languageEmojis": list(language_flags),
+                "languageCodes": language_codes,
+                "smallLanguageCodes": small_language_codes,
+                "uLanguages": [],
+                "uLanguageEmojis": [],
+                "uLanguageCodes": [],
+                "uSmallLanguageCodes": [],
+                "wedontknowwhatakilometeris": list(language_flags),
+                "uWedontknowwhatakilometeris": [],
+                "visualTags": list(hdr_formats),
+                "audioTags": list(audio_formats),
+                "releaseGroup": getattr(stream_data, "release_group", None),
+                "regexScore": None,
+                "nRegexScore": None,
+                "encode": getattr(stream_data, "codec", None),
+                "audioChannels": list(getattr(stream_data, "channels", []) or []),
+                "indexer": getattr(stream_data, "indexer", None) or stream_data.source,
+                "private": stream_is_private,
+                "duration": compatibility_duration,
+                "bitrate": compatibility_bitrate,
+                "infoHash": getattr(stream_data, "info_hash", None),
+                "age": age,
+                "ageHours": age_hours,
+                "message": None,
+                "proxied": mediaflow_proxied,
+                "edition": None,
+                "remastered": bool(getattr(stream_data, "is_remastered", False)),
+                "repack": bool(getattr(stream_data, "is_repack", False)),
+                "uncensored": False,
+                "unrated": False,
+                "upscaled": bool(getattr(stream_data, "is_upscaled", False)),
+                "network": None,
+                "container": file_extension,
+                "extension": file_extension,
+                "seadex": False,
+                "seadexBest": False,
+                "provider_type": provider_type,
             }
             service_context = {
-                "name": streaming_provider_name,
+                "name": current_provider.service if current_provider else streaming_provider_name,
                 "shortName": STREAMING_PROVIDERS_SHORT_NAMES.get(
-                    current_provider.service if current_provider else "", "P2P"
+                    current_provider.service if current_provider else streaming_provider_name, streaming_provider_name
                 ),
                 "cached": cached if has_streaming_provider else False,
             }
-            addon_context = {"name": settings.addon_name}
+            addon_context = {"name": addon_name}
 
-            # Get template (user's or default)
-            template = user_data.stream_template or StreamTemplate()
-
-            # Render title and description using templates
             try:
                 stream_name = render_stream_template(
-                    template.title,
+                    user_data.stream_template.title,
                     stream_context,
                     service=service_context,
                     addon=addon_context,
                 )
                 description = render_stream_template(
-                    template.description,
+                    user_data.stream_template.description,
                     stream_context,
                     service=service_context,
                     addon=addon_context,
@@ -777,6 +904,14 @@ def _build_stream_entries(
                     stream_name = f"{addon_name} {resolution} {streaming_provider_status}"
                 else:
                     stream_name = f"{addon_name} {resolution}"
+
+            # Geo-restricted YouTube streams should be clearly labeled so users
+            # in other countries can understand why playback may fail.
+            if is_youtube and geo_restriction_label:
+                if geo_restriction_label not in stream_name:
+                    stream_name = f"{stream_name} | {geo_restriction_label}"
+                if geo_restriction_label not in description:
+                    description = f"{geo_restriction_label}\n{description}" if description else geo_restriction_label
 
             # Create the Stremio Stream object
             stremio_stream = Stream(

@@ -4,7 +4,9 @@ Provides browsing, searching, and stream fetching capabilities.
 """
 
 import logging
+import re
 from datetime import datetime
+from os.path import basename
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -60,6 +62,34 @@ from utils.parser import render_stream_template
 from utils.profile_context import ProfileContext, ProfileDataProvider
 
 logger = logging.getLogger(__name__)
+
+
+def _get_language_code(language: str | None) -> str | None:
+    if not language:
+        return None
+    letters_only = "".join(ch for ch in language if ch.isalpha())
+    if not letters_only:
+        return None
+    return letters_only[:2].upper()
+
+
+def _extract_year_from_text(text: str | None) -> str | None:
+    if not text:
+        return None
+    match = re.search(r"(19|20)\d{2}", text)
+    return match.group(0) if match else None
+
+
+def _calculate_age_fields(created_at: datetime | None) -> tuple[str | None, int | None]:
+    if not created_at:
+        return None, None
+    now = datetime.utcnow() if created_at.tzinfo is None else datetime.now(created_at.tzinfo)
+    age_hours = max(int((now - created_at).total_seconds() // 3600), 0)
+    if age_hours < 24:
+        return f"{age_hours}h", age_hours
+    if age_hours < 24 * 30:
+        return f"{age_hours // 24}d", age_hours
+    return f"{age_hours // (24 * 30)}mo", age_hours
 
 
 def get_certification_category(certificates: list[str]) -> str | None:
@@ -1378,6 +1408,8 @@ async def get_catalog_item_streams(
     """
     # Get profile context with optional profile_id
     profile_ctx = await ProfileDataProvider.get_context(current_user.id, session, profile_id=profile_id)
+    template = profile_ctx.user_data.stream_template or StreamTemplate()
+    template_uses_filename = "stream.filename" in template.title or "stream.filename" in template.description
 
     # Validate series parameters
     if catalog_type == "series" and (season is None or episode is None):
@@ -1438,6 +1470,8 @@ async def get_catalog_item_streams(
         selectinload(Stream.channels),
         selectinload(Stream.hdr_formats),
     )
+    if template_uses_filename:
+        stream_query = stream_query.options(selectinload(Stream.files))
 
     # Increase limit to account for filtering (e.g., Usenet streams filtered for non-Usenet providers)
     stream_query = stream_query.order_by(Stream.created_at.desc()).limit(500)
@@ -1622,9 +1656,6 @@ async def get_catalog_item_streams(
                 except Exception as error:
                     logging.warning(f"Failed to check debrid cache status: {error}")
 
-    # Get template (user's or default)
-    template = profile_ctx.user_data.stream_template or StreamTemplate()
-
     # Check if selected provider supports Usenet
     provider_supports_usenet = (
         selected_provider_obj and selected_provider_obj.service in mapper.USENET_CAPABLE_PROVIDERS
@@ -1693,6 +1724,37 @@ async def get_catalog_item_streams(
 
         # Get episode links for this stream (series only)
         episode_links = stream_episode_links.get(stream.id, None) if catalog_type == "series" else None
+        stream_filename = None
+        if episode_links:
+            exact_episode_link = next(
+                (
+                    link
+                    for link in episode_links
+                    if link.get("season_number") == season and link.get("episode_number") == episode
+                ),
+                None,
+            )
+            selected_episode_link = exact_episode_link or (episode_links[0] if episode_links else None)
+            if selected_episode_link and selected_episode_link.get("file_name"):
+                stream_filename = basename(selected_episode_link["file_name"])
+        elif template_uses_filename:
+            stream_files = stream.files or []
+            if stream_files:
+                video_files = []
+                for stream_file in stream_files:
+                    file_type = (
+                        stream_file.file_type.value
+                        if hasattr(stream_file.file_type, "value")
+                        else str(stream_file.file_type)
+                    )
+                    if file_type.lower() == "video":
+                        video_files.append(stream_file)
+                candidate_files = video_files or stream_files
+                main_file = max(candidate_files, key=lambda file: file.size or 0)
+                if main_file.filename:
+                    stream_filename = basename(main_file.filename)
+        if not stream_filename and telegram and telegram.file_name:
+            stream_filename = basename(telegram.file_name)
 
         # Build language flags from language names
         language_flags = list(
@@ -1701,6 +1763,38 @@ async def get_catalog_item_streams(
                 [LANGUAGE_COUNTRY_FLAGS.get(lang) for lang in languages],
             )
         )
+        language_codes = [code for code in (_get_language_code(lang) for lang in languages) if code]
+        small_language_codes = [code.lower() for code in language_codes]
+        age, age_hours = _calculate_age_fields(stream.created_at)
+        file_extension = None
+        folder_name = None
+        if stream_filename:
+            if "." in stream_filename:
+                folder_name, file_extension = stream_filename.rsplit(".", 1)
+                file_extension = file_extension.lower()
+            else:
+                folder_name = stream_filename
+        provider_type = (
+            "direct"
+            if stream.stream_type in {StreamType.HTTP, StreamType.TELEGRAM, StreamType.YOUTUBE, StreamType.ACESTREAM}
+            else ("debrid" if selected_provider_obj else "p2p")
+        )
+        if torrent:
+            torrent_type_value = (
+                torrent.torrent_type.value if hasattr(torrent.torrent_type, "value") else str(torrent.torrent_type)
+            )
+        else:
+            torrent_type_value = "public"
+        stream_is_private = bool(torrent and torrent_type_value.lower() != "public")
+        mediaflow_cfg = profile_ctx.user_data.mediaflow_config
+        mediaflow_proxied = bool(
+            mediaflow_cfg
+            and mediaflow_cfg.proxy_url
+            and mediaflow_cfg.api_password
+            and selected_provider_obj
+            and selected_provider_obj.use_mediaflow
+        )
+        compatibility_bitrate = http_stream.bitrate_kbps * 1000 if http_stream and http_stream.bitrate_kbps else None
 
         # Get cached status for this stream
         is_cached = cached_statuses.get(torrent.info_hash, False) if torrent and torrent.info_hash else None
@@ -1708,6 +1802,7 @@ async def get_catalog_item_streams(
         # Build stream context for template rendering
         stream_context = {
             "name": stream.name,
+            "filename": stream_filename,
             "type": stream.stream_type.value,  # torrent, http, youtube, usenet, etc.
             "resolution": stream.resolution,
             "quality": stream.quality,
@@ -1724,11 +1819,57 @@ async def get_catalog_item_streams(
             "release_group": stream.release_group,
             "uploader": stream.uploader,
             "cached": is_cached,
+            # AIOStreams compatibility fields (best-effort)
+            "title": stream.name,
+            "year": _extract_year_from_text(stream.name),
+            "season": season if catalog_type == "series" else None,
+            "episode": episode if catalog_type == "series" else None,
+            "folderName": folder_name,
+            "folderSize": file_size,
+            "library": False,
+            "languageEmojis": list(language_flags),
+            "languageCodes": language_codes,
+            "smallLanguageCodes": small_language_codes,
+            "uLanguages": [],
+            "uLanguageEmojis": [],
+            "uLanguageCodes": [],
+            "uSmallLanguageCodes": [],
+            "wedontknowwhatakilometeris": list(language_flags),
+            "uWedontknowwhatakilometeris": [],
+            "visualTags": list(hdr_formats),
+            "audioTags": list(audio_formats),
+            "releaseGroup": stream.release_group,
+            "regexScore": None,
+            "nRegexScore": None,
+            "encode": stream.codec,
+            "audioChannels": list(channels),
+            "indexer": stream.source,
+            "private": stream_is_private,
+            "duration": None,
+            "bitrate": compatibility_bitrate,
+            "infoHash": torrent.info_hash if torrent else None,
+            "age": age,
+            "ageHours": age_hours,
+            "message": None,
+            "proxied": mediaflow_proxied,
+            "edition": None,
+            "remastered": bool(stream.is_remastered),
+            "repack": bool(stream.is_repack),
+            "uncensored": False,
+            "unrated": False,
+            "upscaled": bool(stream.is_upscaled),
+            "network": None,
+            "container": file_extension,
+            "extension": file_extension,
+            "seadex": False,
+            "seadexBest": False,
+            "provider_type": provider_type,
         }
 
         # Build service context for template
         service_context = {
-            "name": streaming_provider_name,
+            "id": selected_provider_obj.id if selected_provider_obj else None,
+            "name": selected_provider_obj.service if selected_provider_obj else "p2p",
             "shortName": STREAMING_PROVIDERS_SHORT_NAMES.get(
                 selected_provider_obj.service if selected_provider_obj else "", "P2P"
             ),
@@ -1736,7 +1877,7 @@ async def get_catalog_item_streams(
         }
 
         # Build addon context
-        addon_context = {"name": settings.addon_name}
+        addon_context = {"name": settings.addon_name, "addonName": settings.addon_name}
 
         # Format name and description using templates
         try:

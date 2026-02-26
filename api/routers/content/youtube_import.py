@@ -111,6 +111,8 @@ class YouTubeAnalyzeResponse(BaseModel):
     duration_seconds: int | None = None
     is_live: bool = False
     resolution: str | None = None
+    geo_restriction_type: str | None = None  # allowed | blocked
+    geo_restriction_countries: list[str] | None = None
     matches: list[dict[str, Any]] | None = None
     error: str | None = None
 
@@ -213,6 +215,11 @@ async def process_youtube_import(
     for attr in ("resolution", "quality", "codec"):
         if contribution_data.get(attr):
             stream_kwargs[attr] = contribution_data[attr]
+    geo_restriction_type = contribution_data.get("geo_restriction_type")
+    geo_restriction_countries = contribution_data.get("geo_restriction_countries", [])
+    if geo_restriction_type in {"allowed", "blocked"}:
+        stream_kwargs["geo_restriction_type"] = geo_restriction_type
+        stream_kwargs["geo_restriction_countries"] = geo_restriction_countries
 
     yt_stream = await create_youtube_stream(
         session,
@@ -291,6 +298,8 @@ async def analyze_youtube_url_endpoint(
             duration_seconds=video_info.duration,
             is_live=video_info.is_live,
             resolution=video_info.resolution,
+            geo_restriction_type=video_info.geo_restriction_type,
+            geo_restriction_countries=video_info.geo_restriction_countries,
         )
 
         # Search for matching content based on video title
@@ -327,6 +336,8 @@ async def import_youtube_video(
     quality: str = Form(None),
     codec: str = Form(None),
     languages: str = Form(None),
+    geo_restriction_type: str = Form(None),
+    geo_restriction_countries: str = Form(None),  # Comma-separated country names/codes
     catalogs: str = Form(None),
     force_import: bool = Form(False),
     is_anonymous: bool | None = Form(None),
@@ -363,6 +374,15 @@ async def import_youtube_video(
                     message=f"YouTube video {video_id} already exists in the database.",
                 )
 
+        normalized_geo_restriction_type = (geo_restriction_type or "").strip().lower() or None
+        if normalized_geo_restriction_type not in {"allowed", "blocked"}:
+            normalized_geo_restriction_type = None
+        parsed_geo_restriction_countries = (
+            [country.strip() for country in geo_restriction_countries.split(",") if country.strip()]
+            if geo_restriction_countries
+            else []
+        )
+
         # Build contribution data
         contribution_data = {
             "video_id": video_id,
@@ -376,6 +396,8 @@ async def import_youtube_video(
             "quality": quality,
             "codec": codec,
             "languages": [lang.strip() for lang in languages.split(",") if lang.strip()] if languages else [],
+            "geo_restriction_type": normalized_geo_restriction_type,
+            "geo_restriction_countries": parsed_geo_restriction_countries,
             "catalogs": [c.strip() for c in catalogs.split(",") if c.strip()] if catalogs else [],
             "is_anonymous": resolved_is_anonymous,
             "anonymous_display_name": normalized_anonymous_display_name,

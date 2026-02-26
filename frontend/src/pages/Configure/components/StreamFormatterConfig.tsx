@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -15,7 +15,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Code, Wand2, Eye, RotateCcw, Copy, Check, ArrowRightLeft, Sparkles } from 'lucide-react'
+import { Code, Wand2, Eye, RotateCcw, Copy, Check, ArrowRightLeft, Sparkles, Download, Upload } from 'lucide-react'
+import { renderTemplatePreview } from '@/lib/templatePreview'
 import { cn } from '@/lib/utils'
 import type { ConfigSectionProps } from './types'
 
@@ -75,6 +76,137 @@ const PRESETS = {
   },
 }
 
+const PREVIEW_CONTEXTS = {
+  movie: {
+    label: 'Movie (Torrent)',
+    context: {
+      addon: { name: 'MediaFusion' },
+      service: { name: 'Real-Debrid', shortName: 'RD', cached: true },
+      stream: {
+        name: 'Dune.Part.Two.2024.2160p.BluRay.DV.HDR.x265.Atmos',
+        filename: 'Dune.Part.Two.2024.2160p.BluRay.mkv',
+        folderName: 'Dune.Part.Two.2024.2160p.BluRay',
+        type: 'torrent',
+        provider_type: 'debrid',
+        season: null,
+        episode: null,
+        resolution: '2160p',
+        quality: 'BluRay',
+        codec: 'x265',
+        bit_depth: 10,
+        hdr_formats: ['DV', 'HDR10+'],
+        audio_formats: ['Dolby Atmos', 'TrueHD'],
+        channels: ['7.1'],
+        languages: ['English'],
+        language_flags: ['🇬🇧'],
+        languageCodes: ['EN'],
+        smallLanguageCodes: ['en'],
+        size: 26560123456,
+        seeders: 512,
+        source: 'TGx Movies',
+        release_group: 'FraMeSToR',
+        uploader: 'UploaderMovie',
+      },
+    },
+  },
+  series: {
+    label: 'Series (Torrent)',
+    context: {
+      addon: { name: 'MediaFusion' },
+      service: { name: 'Real-Debrid', shortName: 'RD', cached: true },
+      stream: {
+        name: 'Silo.S01E02.2160p.WEB-DL.DV.HDR.x265.Atmos',
+        filename: 'Silo.S01E02.2160p.WEB-DL.mkv',
+        folderName: 'Silo.S01E02.2160p.WEB-DL',
+        type: 'torrent',
+        provider_type: 'debrid',
+        season: 1,
+        episode: 2,
+        resolution: '2160p',
+        quality: 'WEB-DL',
+        codec: 'x265',
+        bit_depth: 10,
+        hdr_formats: ['DV', 'HDR10'],
+        audio_formats: ['Dolby Atmos', 'DDP5.1'],
+        channels: ['5.1'],
+        languages: ['English'],
+        language_flags: ['🇬🇧'],
+        languageCodes: ['EN'],
+        smallLanguageCodes: ['en'],
+        size: 14560123456,
+        seeders: 342,
+        source: 'TGx Series',
+        release_group: 'NTb',
+        uploader: 'UploaderOne',
+      },
+    },
+  },
+  usenet: {
+    label: 'Usenet',
+    context: {
+      addon: { name: 'MediaFusion' },
+      service: { name: 'NzbDAV', shortName: 'NZB', cached: false },
+      stream: {
+        name: 'The.Last.of.Us.S01E01.1080p.BluRay.x264',
+        filename: 'The.Last.of.Us.S01E01.1080p.mkv',
+        folderName: 'The.Last.of.Us.S01E01.1080p',
+        type: 'usenet',
+        provider_type: 'debrid',
+        season: 1,
+        episode: 1,
+        resolution: '1080p',
+        quality: 'BluRay',
+        codec: 'x264',
+        bit_depth: 8,
+        hdr_formats: [],
+        audio_formats: ['AAC'],
+        channels: ['2.0'],
+        languages: ['English', 'Spanish'],
+        language_flags: ['🇬🇧', '🇪🇸'],
+        languageCodes: ['EN', 'ES'],
+        smallLanguageCodes: ['en', 'es'],
+        size: 4123456789,
+        seeders: 0,
+        source: 'Prowlarr Series',
+        release_group: 'NOGRP',
+        uploader: 'ScenePoster',
+      },
+    },
+  },
+  http: {
+    label: 'Direct / HTTP',
+    context: {
+      addon: { name: 'MediaFusion' },
+      service: { name: 'Direct', shortName: 'WEB', cached: false },
+      stream: {
+        name: 'Live Sports Channel HD',
+        filename: 'live-sports.m3u8',
+        folderName: 'live-sports',
+        type: 'http',
+        provider_type: 'direct',
+        season: null,
+        episode: null,
+        resolution: '720p',
+        quality: 'HDTV',
+        codec: 'H.264',
+        bit_depth: 8,
+        hdr_formats: [],
+        audio_formats: ['AAC'],
+        channels: ['2.0'],
+        languages: ['English'],
+        language_flags: ['🇬🇧'],
+        languageCodes: ['EN'],
+        smallLanguageCodes: ['en'],
+        size: 0,
+        seeders: 0,
+        source: 'Live TV',
+        release_group: '',
+        uploader: '',
+      },
+    },
+  },
+} as const
+
 // Available fields organized by category
 const FIELD_GROUPS = {
   addon: {
@@ -120,6 +252,19 @@ const FIELD_GROUPS = {
       { field: 'stream.source', description: 'Source/catalog name' },
       { field: 'stream.release_group', description: 'Release group name' },
       { field: 'stream.uploader', description: 'Uploader name' },
+    ],
+  },
+  aioCompat: {
+    label: '🔁 AIO Compatibility',
+    fields: [
+      { field: 'stream.provider_type', description: 'Provider kind (debrid, p2p, direct)' },
+      { field: 'stream.folderName', description: 'Filename without extension' },
+      { field: 'stream.folderSize', description: 'Container/folder size in bytes' },
+      { field: 'stream.languageCodes', description: 'Language codes (EN, IT, ES)' },
+      { field: 'stream.smallLanguageCodes', description: 'Lowercase language codes (en, it)' },
+      { field: 'stream.infoHash', description: 'Torrent info hash when available' },
+      { field: 'stream.age', description: 'Age shorthand (10d, 8h)' },
+      { field: 'stream.ageHours', description: 'Age in hours' },
     ],
   },
 }
@@ -179,6 +324,7 @@ const MODIFIERS = [
  * This is a client-side implementation for the converter dialog
  */
 const AIO_FIELD_ALIASES: Record<string, string> = {
+  'config.addonName': 'addon.name',
   'stream.encode': 'stream.codec',
   'stream.visualTags': 'stream.hdr_formats',
   'stream.audioTags': 'stream.audio_formats',
@@ -186,6 +332,19 @@ const AIO_FIELD_ALIASES: Record<string, string> = {
   'stream.releaseGroup': 'stream.release_group',
   'stream.bitDepth': 'stream.bit_depth',
   'stream.fileName': 'stream.filename',
+  'stream.file_name': 'stream.filename',
+  'stream.folderName': 'stream.folderName',
+  'stream.folderSize': 'stream.folderSize',
+  'stream.languageCodes': 'stream.languageCodes',
+  'stream.uLanguageCodes': 'stream.uLanguageCodes',
+  'stream.title': 'stream.name',
+  'stream.languageEmojis': 'stream.language_flags',
+  'stream.language_emojis': 'stream.language_flags',
+  'stream.smallLanguageCodes': 'stream.smallLanguageCodes',
+  'stream.uSmallLanguageCodes': 'stream.uSmallLanguageCodes',
+  'stream.infoHash': 'stream.infoHash',
+  'stream.providerType': 'stream.provider_type',
+  'stream.typeName': 'stream.type',
 }
 
 function escapeRegex(value: string): string {
@@ -323,10 +482,24 @@ function applyMediaFusionAliases(template: string): string {
   return normalized
 }
 
+function normalizeLegacyAIOLogicTokens(template: string): string {
+  const normalized = template
+    .replace(/::or::/gi, ' or ')
+    .replace(/::and::/gi, ' and ')
+    .replace(/::not::/gi, ' not ')
+    .replace(/::(>=|<=|!=|=|>|<|~|\$|\^)/g, ' $1 ')
+
+  // AIOStreams used `stream.type` as provider kind (debrid/p2p).
+  return normalized.replace(
+    /\bstream\.type\b(?=\s*(?:=|!=|~|\^|\$)\s*(?:['"])?(?:debrid|p2p)(?:['"])?\b)/gi,
+    'stream.provider_type',
+  )
+}
+
 function convertAIOStreamsToMediaFusion(template: string): string {
   if (!template) return template
 
-  let result = template
+  let result = normalizeLegacyAIOLogicTokens(template)
 
   // Convert conditional blocks first: {var::check["true"||"false"]}
   let cursor = 0
@@ -442,8 +615,76 @@ function convertAIOImportInput(input: string): ConvertedAIOImport {
   return { preview: convertAIOStreamsToMediaFusion(input) }
 }
 
+function buildAiFormatterGuidePrompt(): string {
+  const fieldGroups = Object.values(FIELD_GROUPS)
+    .map((group) => `${group.label}: ${group.fields.map((field) => field.field).join(', ')}`)
+    .join('\n')
+
+  const modifiers = MODIFIERS.map((modifier) => modifier.modifier).join(', ')
+
+  return [
+    'You are helping me design MediaFusion stream formatter templates.',
+    '',
+    'Return only a valid JSON object with this exact shape:',
+    '{',
+    '  "title": "<template string>",',
+    '  "description": "<template string>"',
+    '}',
+    '',
+    'Important syntax rules:',
+    '- Variables: {stream.resolution}',
+    '- Conditionals: {if condition}...{elif condition}...{else}...{/if}',
+    '- Supported operators: =, !=, >, <, >=, <=, ~, and, or, not',
+    '- Modifiers: ' + modifiers,
+    '- Array fields should usually use |join(...) for readability.',
+    '',
+    'Available fields:',
+    fieldGroups,
+    '',
+    'Stream types are usually one of: torrent, usenet, telegram, http, youtube.',
+    '',
+    'Please optimize for readability in Stremio:',
+    '- Title should be compact and high-signal.',
+    '- Description should be informative but not noisy.',
+    '- Avoid unsupported fields and avoid legacy AIOStreams syntax (::or::, etc).',
+  ].join('\n')
+}
+
+type FormatterImportPayload = {
+  title?: string
+  description?: string
+}
+
+function parseFormatterImportPayload(input: string): FormatterImportPayload {
+  const parsed = JSON.parse(input) as unknown
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('Import must be a JSON object.')
+  }
+
+  const data = parsed as Record<string, unknown>
+  const hasTitle = typeof data.title === 'string' || typeof data.t === 'string'
+  const hasDescription = typeof data.description === 'string' || typeof data.d === 'string'
+
+  if (!hasTitle && !hasDescription) {
+    throw new Error('JSON must include at least one template: "title"/"t" or "description"/"d".')
+  }
+
+  return {
+    title: typeof data.title === 'string' ? data.title : typeof data.t === 'string' ? data.t : undefined,
+    description:
+      typeof data.description === 'string' ? data.description : typeof data.d === 'string' ? data.d : undefined,
+  }
+}
+
+function buildFormatterExportPayload(title: string, description: string): string {
+  return JSON.stringify({ title, description }, null, 2)
+}
+
 export function StreamFormatterConfig({ config, onChange }: ConfigSectionProps) {
   const [copied, setCopied] = useState<string | null>(null)
+  const [aiGuideCopied, setAiGuideCopied] = useState(false)
+  const [formatterExported, setFormatterExported] = useState(false)
+  const [previewPreset, setPreviewPreset] = useState<keyof typeof PREVIEW_CONTEXTS>('movie')
   const [converterOpen, setConverterOpen] = useState(false)
   const [aioInput, setAioInput] = useState('')
   const [convertedOutput, setConvertedOutput] = useState('')
@@ -451,9 +692,13 @@ export function StreamFormatterConfig({ config, onChange }: ConfigSectionProps) 
     title?: string
     description?: string
   } | null>(null)
+  const [formatterImportOpen, setFormatterImportOpen] = useState(false)
+  const [formatterImportInput, setFormatterImportInput] = useState('')
+  const [formatterImportError, setFormatterImportError] = useState<string | null>(null)
 
   const currentTitle = config.st?.t ?? DEFAULT_TITLE_TEMPLATE
   const currentDescription = config.st?.d ?? DEFAULT_DESCRIPTION_TEMPLATE
+  const selectedPreview = PREVIEW_CONTEXTS[previewPreset]
 
   const updateTemplate = (field: 't' | 'd', value: string) => {
     onChange({
@@ -475,6 +720,44 @@ export function StreamFormatterConfig({ config, onChange }: ConfigSectionProps) 
           d: preset.desc,
         },
       })
+    }
+  }
+
+  const copyAiGuide = async () => {
+    await navigator.clipboard.writeText(buildAiFormatterGuidePrompt())
+    setAiGuideCopied(true)
+    setTimeout(() => setAiGuideCopied(false), 2000)
+  }
+
+  const exportFormatter = () => {
+    const payload = buildFormatterExportPayload(currentTitle, currentDescription)
+    const blob = new Blob([payload], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = 'mediafusion-formatter.json'
+    anchor.click()
+    URL.revokeObjectURL(url)
+    setFormatterExported(true)
+    setTimeout(() => setFormatterExported(false), 2000)
+  }
+
+  const applyFormatterImport = () => {
+    try {
+      const imported = parseFormatterImportPayload(formatterImportInput)
+      onChange({
+        ...config,
+        st: {
+          ...config.st,
+          ...(imported.title !== undefined ? { t: imported.title } : {}),
+          ...(imported.description !== undefined ? { d: imported.description } : {}),
+        },
+      })
+      setFormatterImportError(null)
+      setFormatterImportInput('')
+      setFormatterImportOpen(false)
+    } catch (error) {
+      setFormatterImportError(error instanceof Error ? error.message : 'Invalid formatter import JSON.')
     }
   }
 
@@ -561,6 +844,22 @@ JSON example:
 {"name":"{stream.resolution::=2160p[\\"💎 4K\\"||\\"\\"]}","description":"{stream.size::>0[\\"📦 {stream.size::rbytes}\\"||\\"\\"]}"}
 `
 
+  const previewData = useMemo(() => {
+    try {
+      return {
+        title: renderTemplatePreview(currentTitle, selectedPreview.context),
+        description: renderTemplatePreview(currentDescription, selectedPreview.context),
+        error: null as string | null,
+      }
+    } catch (error) {
+      return {
+        title: '',
+        description: '',
+        error: error instanceof Error ? error.message : 'Unable to render preview with the current template.',
+      }
+    }
+  }, [currentTitle, currentDescription, selectedPreview.context])
+
   return (
     <Card>
       <CardHeader>
@@ -630,76 +929,176 @@ JSON example:
           />
         </div>
 
+        <Separator />
+
+        {/* Live Preview */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <Label className="text-sm font-medium">Live Preview</Label>
+            <Badge variant="outline" className="text-xs">
+              {selectedPreview.label}
+            </Badge>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(PREVIEW_CONTEXTS).map(([key, preview]) => (
+              <Button
+                key={key}
+                type="button"
+                size="sm"
+                variant={previewPreset === key ? 'default' : 'outline'}
+                onClick={() => setPreviewPreset(key as keyof typeof PREVIEW_CONTEXTS)}
+              >
+                {preview.label}
+              </Button>
+            ))}
+          </div>
+
+          <div className="rounded-lg border bg-muted/20 p-3 space-y-3">
+            {previewData.error ? (
+              <p className="text-sm text-destructive">{previewData.error}</p>
+            ) : (
+              <>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Title</p>
+                  <p className="text-sm font-medium break-words">{previewData.title || '(empty output)'}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">Description</p>
+                  <p className="text-sm whitespace-pre-wrap break-words">
+                    {previewData.description || '(empty output)'}
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
         {/* Action Buttons */}
         <div className="flex justify-between items-center">
-          {/* AIOStreams Converter */}
-          <Dialog open={converterOpen} onOpenChange={setConverterOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <ArrowRightLeft className="h-4 w-4" />
-                Import from AIOStreams
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-amber-500" />
-                  Convert AIOStreams Template
-                </DialogTitle>
-                <DialogDescription>
-                  Paste your AIOStreams template below to convert it to MediaFusion format
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="aio-input" className="text-sm font-medium">
-                    AIOStreams Template
-                  </Label>
-                  <Textarea
-                    id="aio-input"
-                    value={aioInput}
-                    onChange={(e) => setAioInput(e.target.value)}
-                    placeholder={converterPlaceholder}
-                    className="font-mono text-xs h-32 resize-none"
-                  />
-                </div>
-
-                <Button onClick={handleConvert} className="w-full gap-2">
-                  <ArrowRightLeft className="h-4 w-4" />
-                  Convert to MediaFusion
+          <div className="flex flex-wrap items-center gap-2">
+            <Dialog
+              open={formatterImportOpen}
+              onOpenChange={(open) => {
+                setFormatterImportOpen(open)
+                if (!open) {
+                  setFormatterImportError(null)
+                }
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <Upload className="h-4 w-4" />
+                  Import Formatter
                 </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[560px]">
+                <DialogHeader>
+                  <DialogTitle>Import Formatter Templates</DialogTitle>
+                  <DialogDescription>
+                    Paste formatter JSON with `title` and `description` keys (or `t` and `d`).
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-2 py-2">
+                  <Textarea
+                    value={formatterImportInput}
+                    onChange={(e) => {
+                      setFormatterImportInput(e.target.value)
+                      setFormatterImportError(null)
+                    }}
+                    placeholder={`{\n  "title": "{addon.name} {stream.resolution}",\n  "description": "{if stream.size > 0}{stream.size|bytes}{/if}"\n}`}
+                    className="font-mono text-xs h-44 resize-none"
+                  />
+                  {formatterImportError && <p className="text-xs text-destructive">{formatterImportError}</p>}
+                </div>
+                <DialogFooter className="gap-2">
+                  <Button variant="outline" onClick={() => setFormatterImportOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={applyFormatterImport}>Apply Import</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
-                {convertedOutput && (
+            {/* AIOStreams Converter */}
+            <Dialog open={converterOpen} onOpenChange={setConverterOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
+                  <ArrowRightLeft className="h-4 w-4" />
+                  Import from AIOStreams
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-amber-500" />
+                    Convert AIOStreams Template
+                  </DialogTitle>
+                  <DialogDescription>
+                    Paste your AIOStreams template below to convert it to MediaFusion format
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium text-emerald-600">{outputLabel}</Label>
+                    <Label htmlFor="aio-input" className="text-sm font-medium">
+                      AIOStreams Template
+                    </Label>
                     <Textarea
-                      value={convertedOutput}
-                      readOnly
-                      className="font-mono text-xs h-32 resize-none bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800"
+                      id="aio-input"
+                      value={aioInput}
+                      onChange={(e) => setAioInput(e.target.value)}
+                      placeholder={converterPlaceholder}
+                      className="font-mono text-xs h-32 resize-none"
                     />
                   </div>
-                )}
-              </div>
-              <DialogFooter className="gap-2">
-                <Button variant="outline" onClick={closeConverter}>
-                  Cancel
-                </Button>
-                {convertedOutput && (
-                  <>
-                    {canApplyBoth && (
-                      <Button variant="secondary" onClick={applyConvertedBoth}>
-                        Apply Both
+
+                  <Button onClick={handleConvert} className="w-full gap-2">
+                    <ArrowRightLeft className="h-4 w-4" />
+                    Convert to MediaFusion
+                  </Button>
+
+                  {convertedOutput && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium text-emerald-600">{outputLabel}</Label>
+                      <Textarea
+                        value={convertedOutput}
+                        readOnly
+                        className="font-mono text-xs h-32 resize-none bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800"
+                      />
+                    </div>
+                  )}
+                </div>
+                <DialogFooter className="gap-2">
+                  <Button variant="outline" onClick={closeConverter}>
+                    Cancel
+                  </Button>
+                  {convertedOutput && (
+                    <>
+                      {canApplyBoth && (
+                        <Button variant="secondary" onClick={applyConvertedBoth}>
+                          Apply Both
+                        </Button>
+                      )}
+                      <Button variant="secondary" onClick={applyConvertedTitle}>
+                        Apply as Title
                       </Button>
-                    )}
-                    <Button variant="secondary" onClick={applyConvertedTitle}>
-                      Apply as Title
-                    </Button>
-                    <Button onClick={applyConvertedDescription}>Apply as Description</Button>
-                  </>
-                )}
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                      <Button onClick={applyConvertedDescription}>Apply as Description</Button>
+                    </>
+                  )}
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <Button variant="outline" size="sm" onClick={exportFormatter} className="gap-2">
+              {formatterExported ? <Check className="h-4 w-4 text-emerald-500" /> : <Download className="h-4 w-4" />}
+              {formatterExported ? 'Exported' : 'Export Formatter'}
+            </Button>
+
+            <Button variant="outline" size="sm" onClick={copyAiGuide} className="gap-2">
+              {aiGuideCopied ? <Check className="h-4 w-4 text-emerald-500" /> : <Sparkles className="h-4 w-4" />}
+              {aiGuideCopied ? 'AI Guide Copied' : 'Copy AI Formatter Guide'}
+            </Button>
+          </div>
 
           <Button variant="outline" size="sm" onClick={resetToDefault} className="gap-2">
             <RotateCcw className="h-4 w-4" />

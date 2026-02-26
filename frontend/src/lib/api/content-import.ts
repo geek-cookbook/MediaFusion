@@ -301,6 +301,8 @@ export interface YouTubeAnalyzeResponse {
   duration_seconds?: number
   is_live?: boolean
   resolution?: string
+  geo_restriction_type?: 'allowed' | 'blocked'
+  geo_restriction_countries?: string[]
   matches?: TorrentMatch[]
   error?: string
 }
@@ -316,6 +318,8 @@ export interface YouTubeImportRequest {
   quality?: string
   codec?: string
   languages?: string
+  geo_restriction_type?: 'allowed' | 'blocked'
+  geo_restriction_countries?: string
   catalogs?: string
   is_anonymous?: boolean
   anonymous_display_name?: string
@@ -701,6 +705,8 @@ export const contentImportApi = {
     if (data.quality) formData.append('quality', data.quality)
     if (data.codec) formData.append('codec', data.codec)
     if (data.languages) formData.append('languages', data.languages)
+    if (data.geo_restriction_type) formData.append('geo_restriction_type', data.geo_restriction_type)
+    if (data.geo_restriction_countries) formData.append('geo_restriction_countries', data.geo_restriction_countries)
     if (data.catalogs) formData.append('catalogs', data.catalogs)
     if (data.force_import) formData.append('force_import', 'true')
     if (data.is_anonymous) formData.append('is_anonymous', 'true')

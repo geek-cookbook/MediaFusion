@@ -68,6 +68,7 @@ class Settings(BaseSettings):
     # External Service API Keys
     tmdb_api_key: str | None = None
     tvdb_api_key: str | None = None
+    youtube_api_key: str | None = None
 
     # Prowlarr Settings
     is_scrap_from_prowlarr: bool = True

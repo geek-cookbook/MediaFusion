@@ -455,6 +455,8 @@ export function ContentImportPage() {
           quality: formData.quality,
           codec: formData.codec,
           languages: formData.languages?.join(','),
+          geo_restriction_type: formData.geoRestrictionType,
+          geo_restriction_countries: formData.geoRestrictionCountries?.join(','),
           catalogs: formData.catalogs?.join(','),
           is_anonymous: formData.isAnonymous,
           anonymous_display_name: formData.anonymousDisplayName,

@@ -291,6 +291,21 @@ def handle_generic_exception(exception: Exception, info_hash: str) -> str:
     return f"{settings.host_url}/static/exceptions/api_error.mp4"
 
 
+def handle_http_exception(exception: HTTPException, usage: str) -> str:
+    """
+    Handles HTTPExceptions and maps user-facing failures to clearer videos.
+    """
+    detail = str(exception.detail) if exception.detail is not None else ""
+    detail_lower = detail.lower()
+
+    if "stream not found" in detail_lower:
+        logging.warning("HTTP exception occurred for %s: %s (%s)", usage, exception.status_code, detail)
+        return f"{settings.host_url}/static/exceptions/stream_not_found.mp4"
+
+    logging.error("HTTP exception occurred for %s: %s (%s)", usage, exception.status_code, detail)
+    return f"{settings.host_url}/static/exceptions/api_error.mp4"
+
+
 async def track_playback(
     info_hash: str,
     meta_id: str | None,
@@ -637,6 +652,8 @@ async def streaming_provider_endpoint(
                 profile_id=profile_id,
             )
         )
+    except HTTPException as error:
+        video_url = handle_http_exception(error, info_hash)
     except ProviderException as error:
         video_url = handle_provider_exception(error, info_hash)
     except Exception as e:
@@ -848,6 +865,8 @@ async def usenet_playback_endpoint(
                 stream_type="usenet",  # Indicate this is a usenet stream
             )
         )
+    except HTTPException as error:
+        video_url = handle_http_exception(error, nzb_guid)
     except ProviderException as error:
         video_url = handle_provider_exception(error, nzb_guid)
     except Exception as e:

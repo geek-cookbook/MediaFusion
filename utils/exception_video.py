@@ -33,6 +33,7 @@ def create_text_video(output_path, text, duration=30, resolution=(1280, 720), fo
 if __name__ == "__main__":
     videos = {
         "mediaflow_ip_error.mp4": "MediaFlow proxy IP lookup failed.\nPlease check your MediaFlow is working correctly.",
+        "stream_not_found.mp4": "Stream not found.\nThis stream may have been removed or expired.\nPlease refresh and try another stream.",
     }
     for name, text in videos.items():
         create_text_video(f"resources/exceptions/{name}", text)

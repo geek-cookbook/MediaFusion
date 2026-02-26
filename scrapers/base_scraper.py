@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import Any, Literal
+from urllib.error import URLError
 
 import httpx
 import PTT
@@ -793,7 +794,7 @@ class BaseScraper(abc.ABC):
         if download_url.startswith("magnet:"):
             try:
                 magnet = Magnet.from_string(download_url)
-            except MagnetError:
+            except (MagnetError, TypeError, URLError, ValueError):
                 return None, False
             return {"info_hash": magnet.infohash, "announce_list": magnet.tr}, True
 
@@ -931,18 +932,29 @@ class BaseScraper(abc.ABC):
                             episode_date.date(),
                         )
                         if imdb_episode and imdb_episode.season and imdb_episode.episode:
-                            self.logger.info(
-                                f"Episode found by {episode_date} date for {parsed_data.get('title')} ({imdb_id})"
-                            )
-                            files.append(
-                                StreamFileData(
-                                    file_index=0,
-                                    filename=imdb_episode.title or "",
-                                    file_type="video",
-                                    season_number=int(imdb_episode.season),
-                                    episode_number=int(imdb_episode.episode),
+                            try:
+                                season_number = int(str(imdb_episode.season).strip())
+                                episode_number = int(str(imdb_episode.episode).strip())
+                            except (TypeError, ValueError):
+                                self.logger.warning(
+                                    "Skipping IMDb episode with non-numeric season/episode for %s: season=%s episode=%s",
+                                    imdb_id,
+                                    imdb_episode.season,
+                                    imdb_episode.episode,
                                 )
-                            )
+                            else:
+                                self.logger.info(
+                                    f"Episode found by {episode_date} date for {parsed_data.get('title')} ({imdb_id})"
+                                )
+                                files.append(
+                                    StreamFileData(
+                                        file_index=0,
+                                        filename=imdb_episode.title or "",
+                                        file_type="video",
+                                        season_number=season_number,
+                                        episode_number=episode_number,
+                                    )
+                                )
                 else:
                     # Try to get torrent metadata from trackers
                     torrent_data = await info_hashes_to_torrent_metadata(

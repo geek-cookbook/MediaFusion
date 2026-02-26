@@ -98,6 +98,7 @@ def _create_fresh_engine() -> AsyncEngine:
         settings.postgres_uri,
         echo=False,
         poolclass=NullPool,
+        pool_pre_ping=True,
     )
 
 

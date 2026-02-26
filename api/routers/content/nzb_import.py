@@ -424,6 +424,12 @@ async def analyze_nzb_url(
             response.raise_for_status()
             content = response.content
 
+        if len(content) > settings.max_nzb_file_size:
+            return NZBAnalyzeResponse(
+                status="error",
+                error=f"NZB file too large. Maximum size is {settings.max_nzb_file_size // (1024 * 1024)} MB.",
+            )
+
         return await _analyze_nzb_content(content, data.meta_type)
 
     except httpx.HTTPError as e:
@@ -675,6 +681,12 @@ async def import_nzb_url(
             response = await client.get(data.nzb_url, timeout=30.0)
             response.raise_for_status()
             content = response.content
+
+        if len(content) > settings.max_nzb_file_size:
+            return NZBImportResponse(
+                status="error",
+                message=f"NZB file too large. Maximum size is {settings.max_nzb_file_size // (1024 * 1024)} MB.",
+            )
 
         nzb_data = parse_nzb_content(content)
 

@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import BinaryIO
 
+from db.config import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -115,6 +117,11 @@ def parse_nzb_content(nzb_content: bytes) -> NZBMetadata:
     Raises:
         ValueError: If the NZB content is invalid or cannot be parsed
     """
+    max_size = settings.max_nzb_file_size
+    if len(nzb_content) > max_size:
+        max_mb = max_size // (1024 * 1024)
+        raise ValueError(f"NZB file too large. Maximum size is {max_mb} MB.")
+
     try:
         # Parse XML
         root = ET.fromstring(nzb_content)
@@ -181,7 +188,7 @@ def parse_nzb_content(nzb_content: bytes) -> NZBMetadata:
                     if bytes_attr:
                         try:
                             file_size += int(bytes_attr)
-                        except ValueError:
+                        except (OverflowError, ValueError):
                             pass
 
             total_size += file_size
@@ -228,6 +235,8 @@ def parse_nzb_content(nzb_content: bytes) -> NZBMetadata:
 
     except ET.ParseError as e:
         raise ValueError(f"Invalid NZB XML: {e}") from e
+    except OverflowError as e:
+        raise ValueError("NZB XML is too large to parse safely.") from e
     except Exception as e:
         logger.exception("Error parsing NZB content")
         raise ValueError(f"Failed to parse NZB: {e}") from e

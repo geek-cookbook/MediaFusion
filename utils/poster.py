@@ -83,13 +83,19 @@ async def fetch_poster_image(url: str, max_retries: int = 1) -> bytes:
             async with aiohttp.ClientSession(connector=connector, timeout=timeout) as session:
                 async with session.get(url, headers=const.UA_HEADER) as response:
                     response.raise_for_status()
-                    content_type = response.headers.get("Content-Type", "")
-                    if not (
-                        content_type.lower().startswith("image/")
-                        or content_type.lower().startswith("application/octet-stream")
-                    ):
+                    content_type = response.headers.get("Content-Type", "").lower()
+                    is_image_content_type = content_type.startswith("image/")
+                    is_octet_stream = "octet-stream" in content_type
+                    if not (is_image_content_type or is_octet_stream):
                         raise ValueError(f"Unexpected content type: {content_type} for URL: {url}")
                     content = await response.read()
+
+                    if is_octet_stream:
+                        try:
+                            with Image.open(BytesIO(content)) as image:
+                                image.verify()
+                        except (OSError, UnidentifiedImageError, ValueError) as exc:
+                            raise ValueError(f"Unexpected non-image payload for URL: {url}") from exc
 
                     # Cache the image in Redis for 1 hour
                     logging.info(f"Caching image for URL: {url}")

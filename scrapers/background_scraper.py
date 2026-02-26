@@ -1,7 +1,10 @@
 import asyncio
 import logging
+from collections.abc import Awaitable, Callable
+from typing import TypeVar
 
 import dramatiq
+from sqlalchemy.exc import DBAPIError
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from db import crud
@@ -13,6 +16,7 @@ from scrapers.jackett import JackettScraper
 from scrapers.prowlarr import ProwlarrScraper
 
 logger = logging.getLogger(__name__)
+T = TypeVar("T")
 
 
 def _is_shutdown_runtime_error(exc: BaseException) -> bool:
@@ -42,6 +46,36 @@ def _is_expected_shutdown_error(exc: BaseException) -> bool:
     return _is_shutdown_runtime_error(exc)
 
 
+def _is_retryable_db_error(exc: BaseException) -> bool:
+    """Return True if exception chain indicates a transient DB disconnect."""
+    retryable_markers = (
+        "connection reset by peer",
+        "connection does not exist",
+        "connection was closed",
+        "closed in the middle of operation",
+        "server closed the connection unexpectedly",
+        "terminating connection due to administrator command",
+    )
+
+    current: BaseException | None = exc
+    visited: set[int] = set()
+    while current is not None and id(current) not in visited:
+        visited.add(id(current))
+        if isinstance(current, (BrokenPipeError, ConnectionError, TimeoutError)):
+            return True
+        if isinstance(current, DBAPIError) and current.connection_invalidated:
+            return True
+
+        message = str(current).lower()
+        if any(marker in message for marker in retryable_markers):
+            return True
+
+        next_exc = getattr(current, "__cause__", None) or getattr(current, "__context__", None)
+        current = next_exc if isinstance(next_exc, BaseException) else None
+
+    return False
+
+
 async def _safe_session_rollback(session: AsyncSession) -> None:
     """Rollback session without surfacing expected shutdown failures."""
     try:
@@ -50,6 +84,36 @@ async def _safe_session_rollback(session: AsyncSession) -> None:
         if _is_expected_shutdown_error(exc):
             return
         logger.warning("Rollback failed in background search worker: %s", exc, exc_info=exc)
+
+
+async def _run_with_db_retry(
+    operation: Callable[[], Awaitable[T]],
+    session: AsyncSession,
+    *,
+    operation_name: str,
+    max_attempts: int = 3,
+) -> T:
+    """Run a DB operation with retry on transient disconnect errors."""
+    delay_seconds = 0.5
+    for attempt in range(1, max_attempts + 1):
+        try:
+            return await operation()
+        except Exception as exc:
+            if not _is_retryable_db_error(exc) or attempt >= max_attempts:
+                raise
+
+            logger.warning(
+                "Retryable DB error during %s (attempt %d/%d): %s",
+                operation_name,
+                attempt,
+                max_attempts,
+                exc,
+            )
+            await _safe_session_rollback(session)
+            await asyncio.sleep(delay_seconds)
+            delay_seconds *= 2
+
+    raise RuntimeError(f"DB retry loop exhausted for {operation_name}")
 
 
 class BackgroundSearchWorker:
@@ -78,7 +142,11 @@ class BackgroundSearchWorker:
 
                 try:
                     metadata = None
-                    media = await crud.get_movie_data_by_id(session, meta_id, load_relations=True)
+                    media = await _run_with_db_retry(
+                        lambda: crud.get_movie_data_by_id(session, meta_id, load_relations=True),
+                        session,
+                        operation_name=f"loading movie metadata {meta_id}",
+                    )
                     if media:
                         metadata = MetadataData.from_db(media)
                     if not metadata:
@@ -124,7 +192,11 @@ class BackgroundSearchWorker:
                                 max_process=None,
                                 max_process_time=None,
                             ):
-                                await scraper.store_streams([stream], session=session)
+                                await _run_with_db_retry(
+                                    lambda: scraper.store_streams([stream], session=session),
+                                    session,
+                                    operation_name=f"storing movie stream {meta_id}",
+                                )
                         finally:
                             scraper.metrics.stop()
                             scraper.metrics.log_summary(scraper.logger)
@@ -169,7 +241,11 @@ class BackgroundSearchWorker:
 
                 try:
                     metadata = None
-                    media = await crud.get_series_data_by_id(session, meta_id, load_relations=True)
+                    media = await _run_with_db_retry(
+                        lambda: crud.get_series_data_by_id(session, meta_id, load_relations=True),
+                        session,
+                        operation_name=f"loading series metadata {meta_id}",
+                    )
                     if media:
                         # Convert to MetadataData while session is active
                         metadata = MetadataData.from_db(media)
@@ -221,7 +297,11 @@ class BackgroundSearchWorker:
                                 season=season,
                                 episode=episode,
                             ):
-                                await scraper.store_streams([stream], session=session)
+                                await _run_with_db_retry(
+                                    lambda: scraper.store_streams([stream], session=session),
+                                    session,
+                                    operation_name=f"storing series stream {meta_id} S{season}E{episode}",
+                                )
                         finally:
                             scraper.metrics.stop()
                             scraper.metrics.log_summary(scraper.logger)

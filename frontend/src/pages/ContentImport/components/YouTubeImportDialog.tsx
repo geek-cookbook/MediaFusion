@@ -220,8 +220,8 @@ export function YouTubeImportDialog({
       codec: codec || undefined,
       languages: languages.length > 0 ? languages : undefined,
       catalogs: selectedCatalogs.length > 0 ? selectedCatalogs : undefined,
-      geoRestrictionType: analysis.geo_restriction_type,
-      geoRestrictionCountries: analysis.geo_restriction_countries,
+      geoRestrictionType: analysis?.geo_restriction_type,
+      geoRestrictionCountries: analysis?.geo_restriction_countries,
       isAnonymous,
       anonymousDisplayName: isAnonymous ? normalizeAnonymousDisplayName(anonymousDisplayName) : undefined,
     }
@@ -236,8 +236,8 @@ export function YouTubeImportDialog({
     codec,
     languages,
     selectedCatalogs,
-    analysis.geo_restriction_type,
-    analysis.geo_restriction_countries,
+    analysis?.geo_restriction_type,
+    analysis?.geo_restriction_countries,
     isAnonymous,
     anonymousDisplayName,
   ])

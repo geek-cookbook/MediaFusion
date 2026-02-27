@@ -12,6 +12,7 @@ export type StreamSuggestionType =
   | 'other'
 
 export type StreamSuggestionStatus = 'pending' | 'approved' | 'rejected' | 'auto_approved'
+export type ModeratorStreamSuggestionStatus = StreamSuggestionStatus | 'all'
 
 export type StreamFieldName =
   | 'name'
@@ -165,7 +166,10 @@ export const streamSuggestionsApi = {
 
   // Get pending suggestions (moderator only)
   getPendingSuggestions: async (
-    params: StreamSuggestionListParams & { suggestion_type?: string } = {},
+    params: Omit<StreamSuggestionListParams, 'status'> & {
+      status?: ModeratorStreamSuggestionStatus
+      suggestion_type?: string
+    } = {},
   ): Promise<StreamSuggestionListResponse> => {
     const searchParams = new URLSearchParams()
     if (params.status) searchParams.set('status', params.status)

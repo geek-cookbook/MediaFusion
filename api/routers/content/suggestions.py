@@ -663,7 +663,9 @@ async def get_my_contribution_info(
 @router.get("/suggestions/pending", response_model=SuggestionListResponse)
 async def list_pending_suggestions(
     field_name: str | None = Query(None),
-    suggestion_status: SuggestionStatusLiteral | None = Query(None, alias="status"),
+    suggestion_status: Literal["pending", "approved", "rejected", "auto_approved", "all"] | None = Query(
+        None, alias="status"
+    ),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     current_user: User = Depends(require_role(UserRole.MODERATOR)),
@@ -679,10 +681,10 @@ async def list_pending_suggestions(
     base_query = select(MetadataSuggestion)
     count_query = select(func.count(MetadataSuggestion.id))
 
-    if suggestion_status:
+    if suggestion_status and suggestion_status != "all":
         base_query = base_query.where(MetadataSuggestion.status == suggestion_status)
         count_query = count_query.where(MetadataSuggestion.status == suggestion_status)
-    else:
+    elif suggestion_status is None:
         base_query = base_query.where(MetadataSuggestion.status == STATUS_PENDING)
         count_query = count_query.where(MetadataSuggestion.status == STATUS_PENDING)
 

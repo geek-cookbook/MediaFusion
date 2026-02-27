@@ -91,7 +91,7 @@ export interface SuggestionListParams {
 
 export interface PendingSuggestionParams {
   field_name?: string
-  status?: SuggestionStatus
+  status?: SuggestionStatus | 'all'
   page?: number
   page_size?: number
 }

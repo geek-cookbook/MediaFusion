@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -89,7 +89,9 @@ import {
   Hash,
 } from 'lucide-react'
 import { FileAnnotationDialog, type FileLink, type EditedFileLink } from '@/components/stream'
-import { catalogApi } from '@/lib/api'
+import { catalogApi, contributionsApi } from '@/lib/api'
+import { Poster } from '@/components/ui/poster'
+import { useRpdb } from '@/contexts/RpdbContext'
 
 // Simple relative time formatter
 function formatTimeAgo(dateString: string): string {
@@ -145,6 +147,56 @@ const statusConfig: Record<SuggestionStatus, { label: string; color: string; ico
 }
 
 type ReviewDecision = 'approve' | 'reject'
+type ModeratorTab = 'contributions' | 'annotations' | 'streams' | 'pending' | 'settings'
+type PosterCatalogType = 'movie' | 'series' | 'tv'
+
+interface ModeratorMediaPosterProps {
+  mediaType: string | null | undefined
+  mediaId: number | null | undefined
+  imdbId?: string | null
+  posterUrl?: string | null
+  title?: string | null
+  fallbackIconSizeClassName?: string
+}
+
+function ModeratorMediaPoster({
+  mediaType,
+  mediaId,
+  imdbId,
+  posterUrl,
+  title,
+  fallbackIconSizeClassName = 'h-5 w-5',
+}: ModeratorMediaPosterProps) {
+  const { rpdbApiKey } = useRpdb()
+
+  const catalogType: PosterCatalogType | null =
+    mediaType === 'movie' || mediaType === 'series' || mediaType === 'tv' ? mediaType : null
+  const normalizedImdbId = imdbId?.toLowerCase().startsWith('tt') ? imdbId : null
+  const metaId = normalizedImdbId ?? (mediaId ? `mf:${mediaId}` : null)
+
+  if (catalogType && metaId) {
+    return (
+      <Poster
+        metaId={metaId}
+        catalogType={catalogType}
+        poster={posterUrl ?? undefined}
+        rpdbApiKey={catalogType !== 'tv' ? rpdbApiKey : null}
+        title={title || 'Media poster'}
+        className="h-full w-full rounded-md"
+      />
+    )
+  }
+
+  if (posterUrl) {
+    return <img src={posterUrl} alt={title || 'Media poster'} className="h-full w-full object-cover" />
+  }
+
+  return (
+    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+      <Film className={fallbackIconSizeClassName} />
+    </div>
+  )
+}
 
 interface ReviewDialogProps {
   open: boolean
@@ -191,17 +243,13 @@ function ReviewDialog({ open, onOpenChange, suggestion, onReview, isReviewing }:
             <div className="rounded-lg border border-border/50 bg-muted/20 p-4">
               <div className="flex items-start gap-4">
                 <div className="h-24 w-16 shrink-0 overflow-hidden rounded-md border border-border/50 bg-muted">
-                  {suggestion.media_poster_url ? (
-                    <img
-                      src={suggestion.media_poster_url}
-                      alt={suggestion.media_title || 'Media poster'}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                      <Film className="h-5 w-5" />
-                    </div>
-                  )}
+                  <ModeratorMediaPoster
+                    mediaType={suggestion.media_type}
+                    mediaId={suggestion.media_id}
+                    posterUrl={suggestion.media_poster_url}
+                    title={suggestion.media_title}
+                    fallbackIconSizeClassName="h-5 w-5"
+                  />
                 </div>
                 <div className="min-w-0 flex-1 space-y-2">
                   <div className="flex items-start justify-between gap-3">
@@ -326,16 +374,21 @@ function ReviewDialog({ open, onOpenChange, suggestion, onReview, isReviewing }:
 }
 
 // Pending Suggestions Tab
-function PendingSuggestionsTab() {
+function PendingSuggestionsTab({
+  statusFilter,
+  onStatusFilterChange,
+}: {
+  statusFilter: SuggestionStatus | 'all'
+  onStatusFilterChange: (status: SuggestionStatus | 'all') => void
+}) {
   const [page, setPage] = useState(1)
-  const [statusFilter, setStatusFilter] = useState<SuggestionStatus | 'all'>('all')
   const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null)
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
 
   const { data, isLoading, refetch } = usePendingSuggestions({
     page,
     page_size: 20,
-    status: statusFilter === 'all' ? undefined : statusFilter,
+    status: statusFilter,
   })
   const reviewSuggestion = useReviewSuggestion()
 
@@ -380,7 +433,7 @@ function PendingSuggestionsTab() {
         <Select
           value={statusFilter}
           onValueChange={(v) => {
-            setStatusFilter(v as SuggestionStatus | 'all')
+            onStatusFilterChange(v as SuggestionStatus | 'all')
             setPage(1)
           }}
         >
@@ -422,17 +475,13 @@ function PendingSuggestionsTab() {
                 <TableCell>
                   <div className="flex max-w-sm items-center gap-3">
                     <div className="h-14 w-10 shrink-0 overflow-hidden rounded-md border border-border/50 bg-muted">
-                      {suggestion.media_poster_url ? (
-                        <img
-                          src={suggestion.media_poster_url}
-                          alt={suggestion.media_title || 'Media poster'}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                          <Film className="h-4 w-4" />
-                        </div>
-                      )}
+                      <ModeratorMediaPoster
+                        mediaType={suggestion.media_type}
+                        mediaId={suggestion.media_id}
+                        posterUrl={suggestion.media_poster_url}
+                        title={suggestion.media_title}
+                        fallbackIconSizeClassName="h-4 w-4"
+                      />
                     </div>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{suggestion.media_title || 'Unknown title'}</p>
@@ -565,15 +614,21 @@ function formatStreamSuggestionType(type: string): string {
 }
 
 // Stream Suggestions Tab
-function StreamSuggestionsTab() {
+function StreamSuggestionsTab({
+  statusFilter,
+  onStatusFilterChange,
+}: {
+  statusFilter: 'all' | StreamSuggestionStatus
+  onStatusFilterChange: (status: 'all' | StreamSuggestionStatus) => void
+}) {
   const [page, setPage] = useState(1)
   const [suggestionType, setSuggestionType] = useState<string>('all')
-  const [statusFilter, setStatusFilter] = useState<'all' | StreamSuggestionStatus>('all')
+
   const { data, isLoading, refetch } = usePendingStreamSuggestions({
     page,
     page_size: 20,
     suggestion_type: suggestionType === 'all' ? undefined : suggestionType,
-    status: statusFilter === 'all' ? undefined : statusFilter,
+    status: statusFilter,
   })
   const { data: stats } = useStreamSuggestionStats()
   const reviewSuggestion = useReviewStreamSuggestion()
@@ -658,7 +713,7 @@ function StreamSuggestionsTab() {
         <Select
           value={statusFilter}
           onValueChange={(value) => {
-            setStatusFilter(value as 'all' | StreamSuggestionStatus)
+            onStatusFilterChange(value as 'all' | StreamSuggestionStatus)
             setPage(1)
           }}
         >
@@ -1129,13 +1184,20 @@ function getContentDetailLink(preview: { metaType: string | null }, mediaId: num
 }
 
 // Contributions Tab (Torrent Imports)
-function ContributionsTab() {
+function ContributionsTab({
+  statusFilter,
+  onStatusFilterChange,
+}: {
+  statusFilter: 'all' | ContributionStatus
+  onStatusFilterChange: (status: 'all' | ContributionStatus) => void
+}) {
   const [page, setPage] = useState(1)
   const [typeFilter, setTypeFilter] = useState<string>('all')
-  const [statusFilter, setStatusFilter] = useState<'all' | ContributionStatus>('all')
   const [selectedContribution, setSelectedContribution] = useState<Contribution | null>(null)
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
   const [reviewNotes, setReviewNotes] = useState('')
+  const [bulkApproveDialogOpen, setBulkApproveDialogOpen] = useState(false)
+  const [isBulkApproving, setIsBulkApproving] = useState(false)
   const selectedContributionData = (selectedContribution?.data as Record<string, unknown> | undefined) ?? undefined
   const selectedMediaPreview = selectedContribution ? getContributionMediaPreview(selectedContribution) : null
   const selectedMediaId =
@@ -1159,6 +1221,7 @@ function ContributionsTab() {
     page_size: 20,
   })
   const reviewContribution = useReviewContribution()
+  const pendingContributions = (data?.items ?? []).filter((contribution) => contribution.status === 'pending')
 
   const handleReview = async (action: 'approved' | 'rejected') => {
     if (!selectedContribution) return
@@ -1173,6 +1236,44 @@ function ContributionsTab() {
       refetch()
     } catch {
       // Error handled by mutation
+    }
+  }
+
+  const handleApproveAllPending = async () => {
+    if (!pendingContributions.length) return
+    setIsBulkApproving(true)
+    try {
+      const pendingIds: string[] = []
+      let reviewPage = 1
+      let hasMore = true
+
+      while (hasMore) {
+        const response = await contributionsApi.list({
+          contribution_type: typeFilter === 'all' ? undefined : (typeFilter as ContributionType),
+          contribution_status: 'pending',
+          page: reviewPage,
+          page_size: 100,
+        })
+        pendingIds.push(...response.items.map((contribution) => contribution.id))
+        hasMore = response.has_more
+        reviewPage += 1
+      }
+
+      for (const contributionId of pendingIds) {
+        await reviewContribution.mutateAsync({
+          contributionId,
+          data: { status: 'approved' },
+        })
+      }
+      setBulkApproveDialogOpen(false)
+      setSelectedContribution(null)
+      setReviewDialogOpen(false)
+      setReviewNotes('')
+      refetch()
+    } catch {
+      // Error handled by mutation
+    } finally {
+      setIsBulkApproving(false)
     }
   }
 
@@ -1217,7 +1318,7 @@ function ContributionsTab() {
         <Select
           value={statusFilter}
           onValueChange={(value) => {
-            setStatusFilter(value as 'all' | ContributionStatus)
+            onStatusFilterChange(value as 'all' | ContributionStatus)
             setPage(1)
           }}
         >
@@ -1232,6 +1333,22 @@ function ContributionsTab() {
             <SelectItem value="rejected">Rejected</SelectItem>
           </SelectContent>
         </Select>
+
+        {pendingContributions.length > 0 && (
+          <Button
+            variant="outline"
+            className="rounded-xl"
+            onClick={() => setBulkApproveDialogOpen(true)}
+            disabled={isBulkApproving || reviewContribution.isPending}
+          >
+            {isBulkApproving ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-500" />
+            )}
+            Approve All Pending
+          </Button>
+        )}
       </div>
 
       {!data?.items.length ? (
@@ -1405,6 +1522,28 @@ function ContributionsTab() {
         </div>
       )}
 
+      <AlertDialog open={bulkApproveDialogOpen} onOpenChange={setBulkApproveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Approve all pending content imports?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This approves all pending content imports for the current type filter.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkApproving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleApproveAllPending}
+              disabled={isBulkApproving}
+              className="bg-emerald-600 text-white hover:bg-emerald-700"
+            >
+              {isBulkApproving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Approve All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Review Dialog */}
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
         <DialogContent className="sm:max-w-[700px] max-h-[90vh]">
@@ -1430,21 +1569,14 @@ function ContributionsTab() {
               <div className="rounded-lg border border-border/50 bg-muted/20 p-4">
                 <div className="flex items-start gap-4">
                   <div className="h-28 w-20 shrink-0 overflow-hidden rounded-md border border-border/50 bg-muted">
-                    {selectedMediaPreview?.posterUrl ? (
-                      <img
-                        src={selectedMediaPreview.posterUrl}
-                        alt={`${selectedMediaPreview.title} poster`}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                        {selectedMediaPreview?.metaType === 'series' ? (
-                          <Tv className="h-5 w-5" />
-                        ) : (
-                          <Film className="h-5 w-5" />
-                        )}
-                      </div>
-                    )}
+                    <ModeratorMediaPoster
+                      mediaType={selectedMediaPreview?.metaType}
+                      mediaId={selectedMediaId}
+                      imdbId={selectedImdbId}
+                      posterUrl={selectedMediaPreview?.posterUrl}
+                      title={selectedMediaPreview?.title}
+                      fallbackIconSizeClassName="h-5 w-5"
+                    />
                   </div>
                   <div className="min-w-0 flex-1 space-y-2">
                     <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Media to Review</p>
@@ -2215,7 +2347,7 @@ function AnnotationRequestsTab() {
 // Main Moderator Dashboard Page
 export function ModeratorDashboardPage() {
   const { user } = useAuth()
-  const [activeTab, setActiveTab] = useState('contributions')
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const { data: pendingData } = usePendingSuggestions({ page: 1, page_size: 1 })
   const { data: suggestionStats } = useSuggestionStats()
@@ -2234,6 +2366,66 @@ export function ModeratorDashboardPage() {
 
   // Check if user has moderator or admin role
   const isModerator = user?.role === 'moderator' || user?.role === 'admin'
+  const isAdmin = user?.role === 'admin'
+
+  const tabParam = searchParams.get('tab')
+  const activeTab: ModeratorTab =
+    tabParam === 'contributions' || tabParam === 'annotations' || tabParam === 'streams' || tabParam === 'pending'
+      ? tabParam
+      : tabParam === 'settings' && isAdmin
+        ? tabParam
+        : 'contributions'
+
+  const contributionStatusParam = searchParams.get('contentStatus')
+  const contributionStatusFilter: 'all' | ContributionStatus =
+    contributionStatusParam === 'all' ||
+    contributionStatusParam === 'pending' ||
+    contributionStatusParam === 'approved' ||
+    contributionStatusParam === 'rejected'
+      ? contributionStatusParam
+      : 'pending'
+
+  const streamStatusParam = searchParams.get('streamStatus')
+  const streamStatusFilter: 'all' | StreamSuggestionStatus =
+    streamStatusParam === 'all' ||
+    streamStatusParam === 'pending' ||
+    streamStatusParam === 'approved' ||
+    streamStatusParam === 'auto_approved' ||
+    streamStatusParam === 'rejected'
+      ? streamStatusParam
+      : 'all'
+
+  const metadataStatusParam = searchParams.get('metadataStatus')
+  const metadataStatusFilter: SuggestionStatus | 'all' =
+    metadataStatusParam === 'all' ||
+    metadataStatusParam === 'pending' ||
+    metadataStatusParam === 'approved' ||
+    metadataStatusParam === 'auto_approved' ||
+    metadataStatusParam === 'rejected'
+      ? metadataStatusParam
+      : 'all'
+
+  const updateModeratorParam = (key: string, value: string, defaultValue: string) => {
+    const next = new URLSearchParams(searchParams)
+    if (value === defaultValue) {
+      next.delete(key)
+    } else {
+      next.set(key, value)
+    }
+    setSearchParams(next, { replace: true })
+  }
+
+  const handleTabChange = (value: string) => {
+    const nextTab: ModeratorTab =
+      value === 'contributions' ||
+      value === 'annotations' ||
+      value === 'streams' ||
+      value === 'pending' ||
+      (value === 'settings' && isAdmin)
+        ? (value as ModeratorTab)
+        : 'contributions'
+    updateModeratorParam('tab', nextTab, 'contributions')
+  }
 
   if (!isModerator) {
     return (
@@ -2330,7 +2522,7 @@ export function ModeratorDashboardPage() {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <TabsList
           className={`h-auto p-1.5 bg-muted/50 rounded-xl grid grid-cols-2 ${
             user?.role === 'admin' ? 'sm:grid-cols-5' : 'sm:grid-cols-4'
@@ -2396,7 +2588,10 @@ export function ModeratorDashboardPage() {
         </TabsList>
 
         <TabsContent value="contributions">
-          <ContributionsTab />
+          <ContributionsTab
+            statusFilter={contributionStatusFilter}
+            onStatusFilterChange={(status) => updateModeratorParam('contentStatus', status, 'pending')}
+          />
         </TabsContent>
 
         <TabsContent value="annotations">
@@ -2404,11 +2599,17 @@ export function ModeratorDashboardPage() {
         </TabsContent>
 
         <TabsContent value="streams">
-          <StreamSuggestionsTab />
+          <StreamSuggestionsTab
+            statusFilter={streamStatusFilter}
+            onStatusFilterChange={(status) => updateModeratorParam('streamStatus', status, 'all')}
+          />
         </TabsContent>
 
         <TabsContent value="pending">
-          <PendingSuggestionsTab />
+          <PendingSuggestionsTab
+            statusFilter={metadataStatusFilter}
+            onStatusFilterChange={(status) => updateModeratorParam('metadataStatus', status, 'all')}
+          />
         </TabsContent>
 
         {user?.role === 'admin' && (

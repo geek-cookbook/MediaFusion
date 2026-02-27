@@ -4,6 +4,7 @@ import {
   type StreamSuggestionCreateRequest,
   type StreamSuggestionReviewRequest,
   type StreamSuggestionListParams,
+  type ModeratorStreamSuggestionStatus,
 } from '@/lib/api'
 
 // Query keys
@@ -33,7 +34,8 @@ export function useMyStreamSuggestions(params: StreamSuggestionListParams = {}) 
 }
 
 // Params for pending stream suggestions (includes suggestion_type filter)
-interface PendingStreamSuggestionParams extends StreamSuggestionListParams {
+type PendingStreamSuggestionParams = Omit<StreamSuggestionListParams, 'status'> & {
+  status?: ModeratorStreamSuggestionStatus
   suggestion_type?: string
 }
 

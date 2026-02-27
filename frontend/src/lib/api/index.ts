@@ -212,6 +212,7 @@ export {
   streamSuggestionsApi,
   type StreamSuggestionType,
   type StreamSuggestionStatus,
+  type ModeratorStreamSuggestionStatus,
   type StreamSuggestionCreateRequest,
   type StreamSuggestion,
   type StreamSuggestionListResponse,

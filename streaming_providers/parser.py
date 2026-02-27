@@ -153,6 +153,19 @@ class TorrentFileProcessor:
         self._episodes: list[StreamFileData] | None = None
         self._metadata = None  # SeriesMetadata
 
+    @staticmethod
+    def _get_metadata_seasons(metadata: Any) -> list[Any]:
+        """Support both legacy metadata.seasons and v5 metadata.series_metadata.seasons."""
+        if metadata is None:
+            return []
+        seasons = getattr(metadata, "seasons", None)
+        if seasons:
+            return seasons
+        series_metadata = getattr(metadata, "series_metadata", None)
+        if series_metadata is None:
+            return []
+        return getattr(series_metadata, "seasons", []) or []
+
     def _process_files(self) -> list[FileInfo]:
         """Process all files in the torrent and create FileInfo objects."""
         file_infos = []
@@ -215,9 +228,10 @@ class TorrentFileProcessor:
                 async for session in get_read_session():
                     self._metadata = await crud.get_series_data_by_id(session, meta_id, load_relations=True)
 
-            if self._metadata and self._metadata.seasons:
+            metadata_seasons = self._get_metadata_seasons(self._metadata)
+            if metadata_seasons:
                 # Search through all seasons and their episodes
-                for season in self._metadata.seasons:
+                for season in metadata_seasons:
                     for episode in season.episodes:
                         if episode.released and episode.released.strftime("%Y-%m-%d") == parsed_data["date"]:
                             return season.season_number, episode.episode_number
@@ -680,6 +694,19 @@ class UsenetFileProcessor:
         self._video_files: list[FileInfo] | None = None
         self._metadata = None
 
+    @staticmethod
+    def _get_metadata_seasons(metadata: Any) -> list[Any]:
+        """Support both legacy metadata.seasons and v5 metadata.series_metadata.seasons."""
+        if metadata is None:
+            return []
+        seasons = getattr(metadata, "seasons", None)
+        if seasons:
+            return seasons
+        series_metadata = getattr(metadata, "series_metadata", None)
+        if series_metadata is None:
+            return []
+        return getattr(series_metadata, "seasons", []) or []
+
     def _process_files(self) -> list[FileInfo]:
         """Process all files and create FileInfo objects."""
         file_infos = []
@@ -756,8 +783,9 @@ class UsenetFileProcessor:
                 async for session in get_read_session():
                     self._metadata = await crud.get_series_data_by_id(session, meta_id, load_relations=True)
 
-            if self._metadata and self._metadata.seasons:
-                for season_data in self._metadata.seasons:
+            metadata_seasons = self._get_metadata_seasons(self._metadata)
+            if metadata_seasons:
+                for season_data in metadata_seasons:
                     for episode_data in season_data.episodes:
                         if episode_data.released and episode_data.released.strftime("%Y-%m-%d") == parsed_data["date"]:
                             return season_data.season_number, episode_data.episode_number

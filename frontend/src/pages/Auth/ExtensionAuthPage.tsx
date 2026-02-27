@@ -8,6 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { useAuth } from '@/contexts/AuthContext'
 import { useInstance } from '@/contexts/InstanceContext'
 import { apiClient } from '@/lib/api'
+import { getStoredAnonymousDisplayName } from '@/lib/anonymousDisplayName'
 
 export function ExtensionAuthPage() {
   const { user, isAuthenticated, isLoading } = useAuth()
@@ -56,7 +57,7 @@ export function ExtensionAuthPage() {
       }
       document.body.appendChild(dataElement)
 
-      // Dispatch custom event for extension
+      // Dispatch custom event for extension (include contribution preferences from account)
       window.dispatchEvent(
         new CustomEvent('mediafusion-extension-auth-ready', {
           detail: {
@@ -68,6 +69,8 @@ export function ExtensionAuthPage() {
               role: user.role,
             },
             apiKey: apiKey || null,
+            contributeAnonymously: user.contribute_anonymously ?? false,
+            anonymousDisplayName: getStoredAnonymousDisplayName() || undefined,
           },
         }),
       )
@@ -88,7 +91,7 @@ export function ExtensionAuthPage() {
 
   const handleAuthorize = () => {
     setAuthorized(true)
-    // Dispatch event for extension to capture
+    // Dispatch event for extension to capture (include contribution preferences from account)
     window.dispatchEvent(
       new CustomEvent('mediafusion-extension-authorized', {
         detail: {
@@ -100,6 +103,8 @@ export function ExtensionAuthPage() {
             role: user?.role,
           },
           apiKey: apiKey || null,
+          contributeAnonymously: user?.contribute_anonymously ?? false,
+          anonymousDisplayName: getStoredAnonymousDisplayName() || undefined,
         },
       }),
     )

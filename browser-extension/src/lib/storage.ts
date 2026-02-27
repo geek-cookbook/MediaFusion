@@ -10,7 +10,7 @@ const DEFAULT_SETTINGS: ExtensionSettings = {
   instanceUrl: '',
   authToken: undefined,
   user: undefined,
-  defaultContentType: 'movie',
+  contributeAnonymously: false,
   anonymousDisplayName: '',
   autoAnalyze: true,
   showNotifications: true,
@@ -50,8 +50,9 @@ class Storage {
         return { ...DEFAULT_SETTINGS }
       }
 
-      // Merge with defaults to handle any new fields
-      return { ...DEFAULT_SETTINGS, ...stored }
+      // Strip legacy fields (e.g. defaultContentType) and merge with defaults
+      const { defaultContentType: _legacy, ...rest } = stored as Record<string, unknown>
+      return { ...DEFAULT_SETTINGS, ...rest } as ExtensionSettings
     } catch (error) {
       console.error('Failed to get settings:', error)
       return { ...DEFAULT_SETTINGS }

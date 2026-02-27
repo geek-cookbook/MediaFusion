@@ -147,7 +147,7 @@ function App() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[500px] min-w-[380px] bg-background">
+      <div className="flex items-center justify-center w-[380px] h-[500px] min-h-[500px] bg-background">
         <div className="animate-pulse text-muted-foreground">Loading...</div>
       </div>
     )
@@ -159,7 +159,7 @@ function App() {
   // If not configured, show settings only
   if (!isConfigured) {
     return (
-      <div className="min-h-[500px] min-w-[380px] bg-background p-4">
+      <div className="w-[380px] h-[500px] min-h-[500px] bg-background p-4 overflow-auto">
         <Header />
         <SettingsTab 
           settings={settings!} 
@@ -172,7 +172,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-[500px] min-w-[380px] bg-background">
+    <div className="w-[380px] h-[500px] min-h-[500px] bg-background overflow-auto">
       <div className="p-4 pb-2">
         <Header 
           user={settings?.user?.display_name} 
@@ -230,6 +230,7 @@ function App() {
             ) : (
               <BulkUploadTab 
                 bulkData={bulkData}
+                settings={settings!}
               />
             )}
           </TabsContent>

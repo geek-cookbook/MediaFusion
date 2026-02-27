@@ -78,6 +78,10 @@ class MediaFusionContentScript {
     }
 
     console.log('[MediaFusion Extension] Saving auth data for user:', authData.user?.email);
+    console.log('[MediaFusion Extension] Contribution prefs:', {
+      contributeAnonymously: authData.contributeAnonymously,
+      anonymousDisplayName: authData.anonymousDisplayName,
+    });
 
     try {
       // Send auth data to background script to save
@@ -87,7 +91,9 @@ class MediaFusionContentScript {
           token: authData.token,
           user: authData.user,
           apiKey: authData.apiKey,
-          instanceUrl: window.location.origin
+          instanceUrl: window.location.origin,
+          contributeAnonymously: authData.contributeAnonymously,
+          anonymousDisplayName: authData.anonymousDisplayName,
         }
       });
 

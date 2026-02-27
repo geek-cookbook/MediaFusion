@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
-import type { ContentType, TorrentSourceType, SportsCategory } from '@/lib/types'
+import type { ContentType, ExtensionSettings, TorrentSourceType, SportsCategory } from '@/lib/types'
 import {
   Upload,
   Check,
@@ -76,13 +76,14 @@ interface ProcessedItem {
 
 interface BulkUploadTabProps {
   bulkData: BulkUploadData
+  settings: ExtensionSettings
 }
 
 // Content type filter options
 type ContentFilter = 'all' | ContentType
 type SourceFilter = 'all' | TorrentSourceType
 
-export function BulkUploadTab({ bulkData }: BulkUploadTabProps) {
+export function BulkUploadTab({ bulkData, settings }: BulkUploadTabProps) {
   // Items state with content type detection
   const [items, setItems] = useState<ProcessedItem[]>([])
   
@@ -271,6 +272,11 @@ export function BulkUploadTab({ bulkData }: BulkUploadTabProps) {
         return match.id
       }
 
+      const isAnonymous = settings.contributeAnonymously
+      const anonymousDisplayName = isAnonymous
+        ? (settings.anonymousDisplayName?.trim() || undefined)
+        : undefined
+
       const result = await api.importMagnet({
         magnet_link: item.torrent.magnetLink,
         meta_type: item.contentType,
@@ -283,6 +289,8 @@ export function BulkUploadTab({ bulkData }: BulkUploadTabProps) {
         hdr: analysis.hdr?.join(','),
         languages: analysis.languages?.join(','),
         sports_category: item.sportsCategory,
+        is_anonymous: isAnonymous,
+        anonymous_display_name: anonymousDisplayName,
       })
 
       if (result.status === 'success' || result.status === 'processing') {
@@ -298,7 +306,7 @@ export function BulkUploadTab({ bulkData }: BulkUploadTabProps) {
         error: error instanceof Error ? error.message : 'Processing failed' 
       })
     }
-  }, [items, autoImport, bulkImdbId, updateItem])
+  }, [items, autoImport, bulkImdbId, settings, updateItem])
 
   const startProcessing = async () => {
     setIsProcessing(true)

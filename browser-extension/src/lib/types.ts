@@ -216,7 +216,7 @@ export interface ExtensionSettings {
   authToken?: string
   apiKey?: string  // X-API-Key for private instances
   user?: User
-  defaultContentType: ContentType
+  contributeAnonymously: boolean
   anonymousDisplayName?: string
   autoAnalyze: boolean
   showNotifications: boolean

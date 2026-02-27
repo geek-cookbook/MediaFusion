@@ -3,16 +3,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { api } from '@/lib/api'
-import type { ExtensionSettings, ContentType } from '@/lib/types'
+import type { ExtensionSettings } from '@/lib/types'
 import { Loader2, Check, ExternalLink, Server, LogIn, User, LogOut, Shield } from 'lucide-react'
 
 interface SettingsTabProps {
@@ -72,10 +66,6 @@ export function SettingsTab({ settings, onUpdate, onConfigured, onLogout }: Sett
     } else {
       window.open(authUrl, '_blank')
     }
-  }
-
-  function handleContentTypeChange(value: string) {
-    onUpdate({ defaultContentType: value as ContentType })
   }
 
   return (
@@ -207,51 +197,45 @@ export function SettingsTab({ settings, onUpdate, onConfigured, onLogout }: Sett
         </CardContent>
       </Card>
 
-      {/* Default Content Type */}
+      {/* Contribution Preferences */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Default Content Type</CardTitle>
+          <CardTitle className="text-sm">Contribution Preferences</CardTitle>
           <CardDescription className="text-xs">
-            Pre-selected type when analyzing torrents
+            Configure how your contributions are displayed
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Select 
-            value={settings.defaultContentType} 
-            onValueChange={handleContentTypeChange}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select content type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="movie">Movie</SelectItem>
-              <SelectItem value="series">Series</SelectItem>
-              <SelectItem value="sports">Sports</SelectItem>
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
-
-      {/* Anonymous Display Name */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Anonymous Display Name</CardTitle>
-          <CardDescription className="text-xs">
-            Used when your account contributes anonymously.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="contribute-anonymously" className="text-xs font-medium">
+                Contribute Anonymously
+              </Label>
+              <p className="text-[10px] text-muted-foreground">
+                When enabled, your imports will not show your username
+              </p>
+            </div>
+            <Switch
+              id="contribute-anonymously"
+              checked={settings.contributeAnonymously}
+              onCheckedChange={(checked) => onUpdate({ contributeAnonymously: checked })}
+            />
+          </div>
           <div className="space-y-2">
             <Label htmlFor="anonymousDisplayName" className="text-xs">
-              Custom Name (optional)
+              Anonymous Display Name
             </Label>
             <Input
               id="anonymousDisplayName"
               value={settings.anonymousDisplayName || ''}
               onChange={(e) => onUpdate({ anonymousDisplayName: e.target.value })}
-              placeholder="Anonymous Voyager"
+              placeholder="Anonymous"
               maxLength={32}
+              disabled={!settings.contributeAnonymously}
             />
+            <p className="text-[10px] text-muted-foreground">
+              Used when contributing anonymously. Stored locally in this browser.
+            </p>
           </div>
         </CardContent>
       </Card>

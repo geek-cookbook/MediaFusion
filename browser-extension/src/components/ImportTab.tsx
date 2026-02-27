@@ -62,9 +62,11 @@ export function ImportTab({ settings, prefilledData }: ImportTabProps) {
   // Input state
   const [magnetLink, setMagnetLink] = useState(prefilledData?.magnetLink || '')
   const [torrentFile, setTorrentFile] = useState<File | null>(null)
-  const [contentType, setContentType] = useState<ContentType>(
-    prefilledData?.contentType || settings.defaultContentType || 'movie'
-  )
+  const [contentType, setContentType] = useState<ContentType>(() => {
+    if (prefilledData?.contentType) return prefilledData.contentType
+    if (prefilledData?.magnetLink) return detectContentType(prefilledData.magnetLink)
+    return 'movie'
+  })
   const [sportsCategory, setSportsCategory] = useState<SportsCategory | ''>('')
   
   // Analysis state
@@ -237,11 +239,14 @@ export function ImportTab({ settings, prefilledData }: ImportTabProps) {
     setQuickImporting(true)
 
     try {
-      const anonymousDisplayName = settings.anonymousDisplayName?.trim() || undefined
+      const isAnonymous = settings.contributeAnonymously
+      const anonymousDisplayName = isAnonymous
+        ? (settings.anonymousDisplayName?.trim() || undefined)
+        : undefined
       const request = {
         meta_type: contentType,
-        // Let backend auto-detect everything
         sports_category: contentType === 'sports' ? sportsCategory : undefined,
+        is_anonymous: isAnonymous,
         anonymous_display_name: anonymousDisplayName,
       }
 
@@ -295,7 +300,10 @@ export function ImportTab({ settings, prefilledData }: ImportTabProps) {
 
     try {
       const annotationsToUse = annotations || fileAnnotations
-      const anonymousDisplayName = settings.anonymousDisplayName?.trim() || undefined
+      const isAnonymous = settings.contributeAnonymously
+      const anonymousDisplayName = isAnonymous
+        ? (settings.anonymousDisplayName?.trim() || undefined)
+        : undefined
       
       // Get the meta_id from the selected match in the correct format
       // IMDB IDs are used directly, others are prefixed with provider
@@ -333,6 +341,7 @@ export function ImportTab({ settings, prefilledData }: ImportTabProps) {
         poster: streamDetails.posterUrl,
         // Episode name parser
         episode_name_parser: streamDetails.episodeNameParser,
+        is_anonymous: isAnonymous,
         anonymous_display_name: anonymousDisplayName,
       }
       
@@ -408,7 +417,7 @@ export function ImportTab({ settings, prefilledData }: ImportTabProps) {
   function handleReset() {
     setMagnetLink('')
     setTorrentFile(null)
-    setContentType(settings.defaultContentType || 'movie')
+    setContentType('movie')
     setSportsCategory('')
     setAnalysisResult(null)
     setSelectedMatch(null)

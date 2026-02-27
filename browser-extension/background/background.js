@@ -26,7 +26,7 @@ class MediaFusionAPI {
       const defaultSettings = {
         instanceUrl: "",
         authToken: null,
-        defaultContentType: "movie",
+        contributeAnonymously: false,
         autoAnalyze: true,
       };
 
@@ -480,22 +480,41 @@ const handleMessage = async (message, sender, sendResponse) => {
       case "saveAuthFromWebsite":
         try {
           const authData = message.data;
-          
+          console.log('[MediaFusion Background] Received authData:', {
+            hasUser: !!authData.user,
+            contributeAnonymously: authData.contributeAnonymously,
+            anonymousDisplayName: authData.anonymousDisplayName,
+          });
+
           // Get current settings
           const currentSettings = await mediaFusionAPI.getSettings();
           
-          // Update settings with auth data
+          // Map user for extension (username -> display_name)
+          const user = authData.user
+            ? {
+                ...authData.user,
+                display_name: authData.user.display_name ?? authData.user.username ?? authData.user.email,
+              }
+            : undefined;
+
+          // Update settings with auth data (sync account's contribution preferences)
           const updatedSettings = {
             ...currentSettings,
             instanceUrl: authData.instanceUrl || currentSettings.instanceUrl,
             authToken: authData.token,
-            user: authData.user,
+            user,
           };
           
-          // If API key was provided, we might want to store it
-          // (though typically the website handles this)
           if (authData.apiKey) {
             updatedSettings.apiKey = authData.apiKey;
+          }
+          
+          // Sync contribution preferences from account
+          if (typeof authData.contributeAnonymously === "boolean") {
+            updatedSettings.contributeAnonymously = authData.contributeAnonymously;
+          }
+          if (authData.anonymousDisplayName !== undefined) {
+            updatedSettings.anonymousDisplayName = authData.anonymousDisplayName || "";
           }
           
           await mediaFusionAPI.saveSettings(updatedSettings);
@@ -503,6 +522,34 @@ const handleMessage = async (message, sender, sendResponse) => {
           // Update the API instance
           mediaFusionAPI.baseUrl = updatedSettings.instanceUrl;
           mediaFusionAPI.authToken = updatedSettings.authToken;
+          
+          // Fetch user preferences from API (source of truth for contribute_anonymously)
+          if (updatedSettings.instanceUrl && authData.token) {
+            try {
+              const meUrl = `${updatedSettings.instanceUrl.replace(/\/$/, "")}/api/v1/auth/me`;
+              const meRes = await fetch(meUrl, {
+                headers: { Authorization: `Bearer ${authData.token}` },
+              });
+              if (meRes.ok) {
+                const meData = await meRes.json();
+                const current = await mediaFusionAPI.getSettings();
+                const prefsUpdate = {};
+                if (typeof meData.contribute_anonymously === "boolean") {
+                  prefsUpdate.contributeAnonymously = meData.contribute_anonymously;
+                }
+                // anonymousDisplayName from web app localStorage (event) - API doesn't have it
+                if (authData.anonymousDisplayName !== undefined) {
+                  prefsUpdate.anonymousDisplayName = authData.anonymousDisplayName || "";
+                }
+                if (Object.keys(prefsUpdate).length > 0) {
+                  await mediaFusionAPI.saveSettings({ ...current, ...prefsUpdate });
+                  console.log("[MediaFusion Background] Synced contribution prefs:", prefsUpdate);
+                }
+              }
+            } catch (err) {
+              console.warn("[MediaFusion Background] Could not fetch user prefs from API:", err);
+            }
+          }
           
           console.log('[MediaFusion Background] Auth saved for user:', authData.user?.email);
           

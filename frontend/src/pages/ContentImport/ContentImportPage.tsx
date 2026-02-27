@@ -18,6 +18,7 @@ import {
   Radio,
   Send,
   HardDrive,
+  ExternalLink,
 } from 'lucide-react'
 import {
   useImportMagnet,
@@ -576,6 +577,29 @@ export function ContentImportPage() {
         </h1>
         <p className="text-muted-foreground mt-1">Import torrents and playlists to expand your content library</p>
       </div>
+
+      {/* Browser Extension */}
+      <Card className="glass border-border/50 overflow-hidden">
+        <CardContent className="p-0">
+          <a
+            href="https://addons.mozilla.org/en-US/firefox/addon/mediafusion-torrent-uploader/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-4 p-4 hover:bg-muted/30 transition-colors"
+          >
+            <div className="p-2.5 rounded-xl bg-orange-500/10 shrink-0">
+              <FileVideo className="h-5 w-5 text-orange-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-medium">MediaFusion Torrent Uploader</p>
+              <p className="text-sm text-muted-foreground">
+                Add torrents directly from torrent sites with our Firefox extension — one-click import while browsing
+              </p>
+            </div>
+            <ExternalLink className="h-4 w-4 text-muted-foreground shrink-0" />
+          </a>
+        </CardContent>
+      </Card>
 
       {/* Import Result Banner */}
       {importResult && <ImportResultBanner result={importResult} onDismiss={() => setImportResult(null)} />}

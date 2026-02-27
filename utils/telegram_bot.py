@@ -287,7 +287,7 @@ class TelegramNotifier:
     @staticmethod
     def _moderator_dashboard_url() -> str:
         """Frontend moderator dashboard URL."""
-        return f"{settings.host_url}/dashboard/moderator"
+        return f"{settings.host_url}/app/dashboard/moderator"
 
     @staticmethod
     def _format_pending_age(oldest_created_at: datetime | None) -> str:
@@ -425,7 +425,7 @@ class TelegramNotifier:
         message_lines.extend(
             [
                 "",
-                f"*Review Dashboard*: `{moderator_url}`",
+                f"*Review Dashboard*: [View]({moderator_url})",
             ]
         )
 
@@ -480,7 +480,7 @@ class TelegramNotifier:
                 message += f"*{key.title()}*: `{formatted_values}`\n"
 
         review_url = self._moderator_dashboard_url()
-        message += f"\n*Review Queue*: `{review_url}`"
+        message += f"\n*Review Queue*: [View]({review_url})"
 
         if info_hash:
             block_url = f"{settings.host_url}/scraper?action=block_torrent&info_hash={info_hash}"
@@ -526,7 +526,7 @@ class TelegramNotifier:
             message += f"*Reason*: `{self._value_text(reason)}`\n"
 
         review_url = self._moderator_dashboard_url()
-        message += f"\n*Review Queue*: `{review_url}`"
+        message += f"\n*Review Queue*: [View]({review_url})"
         await self._send_text_only_message(message)
 
     async def send_pending_metadata_suggestion_notification(self, payload: dict[str, Any]):
@@ -563,7 +563,7 @@ class TelegramNotifier:
             message += f"*Reason*: `{self._value_text(reason)}`\n"
 
         review_url = self._moderator_dashboard_url()
-        message += f"\n*Review Queue*: `{review_url}`"
+        message += f"\n*Review Queue*: [View]({review_url})"
         await self._send_text_only_message(message)
 
     async def send_pending_episode_suggestion_notification(self, payload: dict[str, Any]):
@@ -605,7 +605,7 @@ class TelegramNotifier:
             message += f"*Reason*: `{self._value_text(reason)}`\n"
 
         review_url = self._moderator_dashboard_url()
-        message += f"\n*Review Queue*: `{review_url}`"
+        message += f"\n*Review Queue*: [View]({review_url})"
         await self._send_text_only_message(message)
 
     async def send_block_notification(

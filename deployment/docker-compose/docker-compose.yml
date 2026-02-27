@@ -1,6 +1,6 @@
 services:
   mediafusion:
-    image: mhdzumair/mediafusion:5.0.0
+    image: mhdzumair/mediafusion:5.0.1
     ports:
       - "8000:8000"
     env_file: .env
@@ -169,7 +169,7 @@ services:
       - mediafusion-network
 
   dramatiq-worker:
-    image: mhdzumair/mediafusion:5.0.0latest
+    image: mhdzumair/mediafusion:5.0.1latest
     command: ["dramatiq", "api.task", "-p", "1", "-t", "4"]
     env_file: .env
     environment:

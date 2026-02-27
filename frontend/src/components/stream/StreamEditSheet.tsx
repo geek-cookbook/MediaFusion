@@ -384,6 +384,28 @@ export function StreamEditSheet({ streamId, streamName, currentValues, trigger, 
 
             <Separator />
 
+            {/* Stream Name Section */}
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Stream Name</Label>
+                  {fields.name.isModified && (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-emerald-500/20 text-emerald-400">
+                      Modified
+                    </Badge>
+                  )}
+                </div>
+                <Input
+                  value={fields.name.value}
+                  onChange={(e) => updateField('name', e.target.value)}
+                  placeholder="Enter corrected stream name"
+                  className={cn('rounded-xl', fields.name.isModified && 'border-emerald-500/50 bg-emerald-500/5')}
+                />
+              </div>
+            </div>
+
+            <Separator />
+
             {/* Video Section */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">

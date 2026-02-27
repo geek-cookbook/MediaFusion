@@ -58,6 +58,7 @@ export function StreamCard({
 }: StreamCardProps) {
   const hdrFormatsString = getHdrFormatsString(stream)
   const audioFormatsString = getAudioFormatsString(stream)
+  const rawStreamName = stream.stream_name || stream.name
   const { hasMinimumRole, isAuthenticated } = useAuth()
   const isModerator = hasMinimumRole('moderator')
   const isTorrentStream = stream.stream_type === 'torrent'
@@ -240,9 +241,9 @@ export function StreamCard({
             <DropdownMenuContent align="end" className="w-48">
               <StreamEditSheet
                 streamId={stream.id}
-                streamName={stream.name}
+                streamName={rawStreamName}
                 currentValues={{
-                  name: stream.name,
+                  name: rawStreamName,
                   resolution: stream.resolution,
                   quality: stream.quality,
                   codec: stream.codec,

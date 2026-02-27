@@ -126,6 +126,14 @@ class BackgroundSearchWorker:
         if settings.is_scrap_from_prowlarr:
             self.scrapers.append(ProwlarrScraper())
 
+    async def close(self) -> None:
+        """Close scraper HTTP clients to avoid file descriptor leaks."""
+        for scraper in self.scrapers:
+            try:
+                await scraper.close()
+            except Exception as exc:
+                logger.warning("Failed to close scraper client %s: %s", scraper.cache_key_prefix, exc)
+
     async def process_movie_batch(self):
         """Process a batch of pending movies with complete scraping"""
         if not self.scrapers:
@@ -330,9 +338,8 @@ class BackgroundSearchWorker:
 
 async def _run_background_search_async():
     """Async implementation of background search, run inside a fresh event loop."""
+    worker = BackgroundSearchWorker()
     try:
-        worker = BackgroundSearchWorker()
-
         # Clean up any stale processing items
         await worker.manager.cleanup_stale_processing()
 
@@ -360,6 +367,8 @@ async def _run_background_search_async():
             logger.warning("Background search aborted: event loop shutting down")
             return
         raise
+    finally:
+        await worker.close()
 
 
 @dramatiq.actor(
@@ -369,6 +378,6 @@ async def _run_background_search_async():
     min_backoff=600000,  # 10 minutes
     max_backoff=3600000,  # 1 hour
 )
-def run_background_search(**kwargs):
+async def run_background_search(**kwargs):
     """Scheduled task to run background searches"""
-    asyncio.run(_run_background_search_async())
+    await _run_background_search_async()

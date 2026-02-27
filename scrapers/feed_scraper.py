@@ -89,6 +89,10 @@ class FeedScraper(ABC):
             self.scraper.metrics.record_error("feed_scraping_error")
             logger.exception(f"Error scraping {self.name} feed: {e}")
         finally:
+            try:
+                await self.scraper.close()
+            except Exception as exc:
+                logger.warning("Failed to close %s feed scraper client: %s", self.name, exc)
             self.scraper.metrics.stop()
             self.scraper.metrics.log_summary(logger)
 
@@ -192,7 +196,9 @@ class FeedScraper(ABC):
         """Get or create metadata for item"""
         imdb_id = scraper.get_imdb_id(item)
         if imdb_id:
-            return await get_metadata_by_id(imdb_id, media_type)
+            normalized_imdb_id = normalize_imdb_id(imdb_id)
+            if normalized_imdb_id:
+                return await get_metadata_by_id(normalized_imdb_id, media_type)
 
         parsed_title_data["created_at"] = scraper.get_created_at(item)
 
@@ -241,12 +247,34 @@ class JackettFeedScraper(FeedScraper):
 
 async def get_metadata_by_id(imdb_id: str, media_type: str):
     """Get metadata by IMDB ID"""
+    normalized_imdb_id = normalize_imdb_id(imdb_id)
+    if not normalized_imdb_id:
+        return None
+
     async with get_background_session() as session:
         if media_type == "movie":
-            media = await crud.get_movie_data_by_id(session, imdb_id)
+            media = await crud.get_movie_data_by_id(session, normalized_imdb_id)
             return MetadataData.from_db(media) if media else None
-        media = await crud.get_series_data_by_id(session, imdb_id)
+        media = await crud.get_series_data_by_id(session, normalized_imdb_id)
         return MetadataData.from_db(media) if media else None
+
+
+def normalize_imdb_id(imdb_id: str | int | None) -> str | None:
+    """Normalize feed IMDb identifiers to canonical tt-prefixed form."""
+    if imdb_id is None:
+        return None
+
+    imdb_text = str(imdb_id).strip()
+    if not imdb_text:
+        return None
+
+    if imdb_text.startswith("tt"):
+        return imdb_text
+
+    if imdb_text.isdigit():
+        return f"tt{imdb_text}"
+
+    return None
 
 
 # Dramatiq actors for scheduling

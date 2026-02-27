@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from functools import partial
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -15,14 +16,34 @@ from scrapers.tv import validate_tv_streams_in_db
 from streaming_providers.cache_helpers import cleanup_expired_cache
 from utils.telegram_bot import telegram_notifier
 
+logger = logging.getLogger(__name__)
+
 
 async def async_send(actor_send_method, **kwargs):
     """
     Wrapper to run Dramatiq's synchronous .send() method in a thread pool
     to avoid blocking the asyncio event loop.
     """
-    # Run the synchronous .send() call in a thread pool
-    await asyncio.to_thread(partial(actor_send_method, **kwargs))
+    # Run the synchronous .send() call in a thread pool with small retry for transient Redis issues.
+    max_attempts = 3
+    delay_seconds = 1
+    actor_name = getattr(actor_send_method, "__qualname__", repr(actor_send_method))
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            await asyncio.to_thread(partial(actor_send_method, **kwargs))
+            return
+        except Exception as exc:
+            if attempt >= max_attempts:
+                logger.warning(
+                    "Failed to enqueue scheduler actor %s after %d attempts: %s",
+                    actor_name,
+                    max_attempts,
+                    exc,
+                )
+                return
+            await asyncio.sleep(delay_seconds)
+            delay_seconds *= 2
 
 
 def setup_scheduler(scheduler: AsyncIOScheduler):

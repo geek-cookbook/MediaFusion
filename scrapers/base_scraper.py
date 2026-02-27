@@ -420,6 +420,10 @@ class BaseScraper(abc.ABC):
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
+
+    async def close(self):
+        """Release scraper resources."""
         await self.http_client.aclose()
 
     async def scrape_and_parse(

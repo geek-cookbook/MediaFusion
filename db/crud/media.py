@@ -98,6 +98,13 @@ async def get_media_by_external_id(
     Falls back to direct external_id column lookup for backwards compatibility
     during migration period.
     """
+    if external_id is None:
+        return None
+
+    external_id = str(external_id).strip()
+    if not external_id:
+        return None
+
     # Parse the external ID format to determine provider
     provider = None
     provider_external_id = None

@@ -42,6 +42,7 @@ from db.models import (
     UsenetStream,
     YouTubeStream,
 )
+from db.retry_utils import run_db_operation_with_retry
 from db.redis_database import REDIS_ASYNC_CLIENT
 from db.schemas import (
     MetadataData,
@@ -66,6 +67,19 @@ STREAM_CACHE_PREFIX = "stream_data:"
 
 logger = logging.getLogger(__name__)
 _scraper_tasks_module = None
+
+
+def _log_db_retry_attempt(operation_name: str):
+    def _handler(attempt: int, max_attempts: int, exc: Exception):
+        logger.warning(
+            "Retryable DB error during %s (attempt %d/%d): %s",
+            operation_name,
+            attempt,
+            max_attempts,
+            exc,
+        )
+
+    return _handler
 
 
 def _get_scraper_tasks_module():
@@ -577,7 +591,11 @@ async def _get_cached_movie_streams(media_id: int, visibility_filter, user_id: i
 
     logger.debug(f"Stream cache MISS for movie media_id={media_id}")
     t0 = time.monotonic()
-    data = await _fetch_movie_raw_streams(media_id, visibility_filter)
+    data = await run_db_operation_with_retry(
+        lambda: _fetch_movie_raw_streams(media_id, visibility_filter),
+        operation_name=f"movie stream fetch media_id={media_id}",
+        on_retry=_log_db_retry_attempt(f"movie stream fetch media_id={media_id}"),
+    )
     elapsed = time.monotonic() - t0
     logger.info(f"DB fetch for movie media_id={media_id} took {elapsed:.3f}s")
 
@@ -795,7 +813,11 @@ async def _get_cached_series_streams(
 
     logger.debug(f"Stream cache MISS for series media_id={media_id} S{season}E{episode}")
     t0 = time.monotonic()
-    data = await _fetch_series_raw_streams(media_id, season, episode, visibility_filter)
+    data = await run_db_operation_with_retry(
+        lambda: _fetch_series_raw_streams(media_id, season, episode, visibility_filter),
+        operation_name=f"series stream fetch media_id={media_id} S{season}E{episode}",
+        on_retry=_log_db_retry_attempt(f"series stream fetch media_id={media_id} S{season}E{episode}"),
+    )
     elapsed = time.monotonic() - t0
     logger.info(f"DB fetch for series media_id={media_id} S{season}E{episode} took {elapsed:.3f}s")
 

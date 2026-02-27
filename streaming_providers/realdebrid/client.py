@@ -20,6 +20,8 @@ class RealDebrid(DebridClient):
         match error_code:
             case 9:
                 raise ProviderException("Real-Debrid Permission denied", "invalid_token.mp4")
+            case 7:
+                raise ProviderException("Real-Debrid resource not found", "api_error.mp4")
             case 22:
                 raise ProviderException("IP address not allowed", "ip_not_allowed.mp4")
             case 34:
@@ -176,6 +178,8 @@ class RealDebrid(DebridClient):
         if "error_code" in response:
             if response["error_code"] == 19:
                 raise ProviderException("Hoster temporarily unavailable", "debrid_service_down_error.mp4")
+            if response["error_code"] == 20:
+                raise ProviderException("Hoster not available for free users", "need_premium.mp4")
             if response["error_code"] == 23:
                 raise ProviderException("Exceed remote traffic limit", "exceed_remote_traffic_limit.mp4")
         raise ProviderException(f"Failed to create download link. response: {response}", "api_error.mp4")

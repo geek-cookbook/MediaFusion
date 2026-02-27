@@ -1147,9 +1147,14 @@ async def fetch_downloaded_info_hashes(
                 streaming_provider=target_provider, user_ip=user_ip
             )
             return downloaded_info_hashes
+        except ProviderException as error:
+            logging.warning(
+                "Failed to fetch downloaded info hashes for %s: %s",
+                target_provider.service,
+                error.message,
+            )
         except Exception as error:
             logging.exception(f"Failed to fetch downloaded info hashes for {target_provider.service}: {error}")
-            pass
 
     return []
 

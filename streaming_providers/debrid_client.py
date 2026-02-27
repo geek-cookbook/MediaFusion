@@ -1,5 +1,4 @@
 import asyncio
-import traceback
 from abc import abstractmethod
 from base64 import b64decode, b64encode
 from contextlib import AsyncContextDecorator
@@ -101,21 +100,29 @@ class DebridClient(AsyncContextDecorator):
             if is_expected_to_fail:
                 return
 
-            if response.headers.get("Content-Type") == "application/json":
-                error_content = await response.json()
-                await self._handle_service_specific_errors(error_content, error.status)
+            content_type = response.headers.get("Content-Type", "").lower()
+            error_content: dict | str
+            if "application/json" in content_type:
+                try:
+                    error_content = await response.json()
+                except (ValueError, ContentTypeError):
+                    error_content = await response.text()
+                if isinstance(error_content, dict):
+                    await self._handle_service_specific_errors(error_content, error.status)
             else:
                 error_content = await response.text()
 
             if error.status == 401:
                 raise ProviderException("Invalid token", "invalid_token.mp4")
 
+            if error.status == 429:
+                raise ProviderException("Too many requests", "too_many_requests.mp4")
+
             if error.status in [502, 503, 504]:
                 raise ProviderException("Debrid service is down.", "debrid_service_down_error.mp4")
 
-            formatted_traceback = "".join(traceback.format_exception(error))
             raise ProviderException(
-                f"API Error {error_content} \n{formatted_traceback}",
+                f"API Error {error_content}",
                 "api_error.mp4",
             )
 

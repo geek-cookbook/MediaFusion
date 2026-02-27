@@ -15,6 +15,11 @@ RD_TORRENT_LIST_MAX_PAGES = 100
 RD_TORRENT_DETAILS_CONCURRENCY = 6
 
 
+def _is_unknown_resource_error(error: ProviderException) -> bool:
+    message = (error.message or "").lower()
+    return "unknown_ressource" in message or "resource not found" in message
+
+
 async def _get_all_torrents(rd_client: RealDebrid) -> list[dict]:
     """Fetch all torrents with safe pagination fallback."""
     all_torrents: list[dict] = []
@@ -173,15 +178,40 @@ async def add_new_torrent(rd_client, magnet_link, info_hash, stream):
     if info_hash in response["list"]:
         raise ProviderException("Torrent is already being downloading", "torrent_not_downloaded.mp4")
 
-    if stream.torrent_file:
-        torrent_id = (await rd_client.add_torrent_file(stream.torrent_file)).get("id")
-    else:
-        torrent_id = (await rd_client.add_magnet_link(magnet_link)).get("id")
+    async def _create_torrent() -> str:
+        if stream.torrent_file:
+            torrent_id = (await rd_client.add_torrent_file(stream.torrent_file)).get("id")
+        else:
+            torrent_id = (await rd_client.add_magnet_link(magnet_link)).get("id")
+        if not torrent_id:
+            raise ProviderException("Failed to add magnet link to Real-Debrid", "transfer_error.mp4")
+        return torrent_id
 
-    if not torrent_id:
-        raise ProviderException("Failed to add magnet link to Real-Debrid", "transfer_error.mp4")
+    max_create_attempts = 2
+    max_info_retries = 3
+    for create_attempt in range(1, max_create_attempts + 1):
+        torrent_id = await _create_torrent()
+        for info_attempt in range(1, max_info_retries + 1):
+            try:
+                return await rd_client.get_torrent_info(torrent_id)
+            except ProviderException as error:
+                if not _is_unknown_resource_error(error):
+                    raise
+                if info_attempt < max_info_retries:
+                    await asyncio.sleep(0.5 * info_attempt)
+                    continue
+                if create_attempt < max_create_attempts:
+                    logger.warning(
+                        "Real-Debrid returned unknown resource for torrent_id=%s. Re-adding torrent (attempt %d/%d).",
+                        torrent_id,
+                        create_attempt + 1,
+                        max_create_attempts,
+                    )
+                    await asyncio.sleep(0.5)
+                    break
+                raise ProviderException("Failed to fetch torrent info from Real-Debrid", "transfer_error.mp4")
 
-    return await rd_client.get_torrent_info(torrent_id)
+    raise ProviderException("Failed to add magnet link to Real-Debrid", "transfer_error.mp4")
 
 
 async def update_rd_cache_status(

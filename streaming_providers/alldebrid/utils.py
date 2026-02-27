@@ -6,6 +6,40 @@ from streaming_providers.parser import (
 )
 
 
+def _normalize_alldebrid_items(data: dict, key: str) -> list[dict]:
+    items = data.get(key) or []
+    if isinstance(items, dict):
+        return [item for item in items.values() if isinstance(item, dict)]
+    if isinstance(items, list):
+        return [item for item in items if isinstance(item, dict)]
+    return []
+
+
+def _raise_for_alldebrid_item_error(item_error: dict) -> None:
+    error_code = str(item_error.get("code", "")).upper()
+    error_message = item_error.get("message") or str(item_error)
+    if error_code == "MAGNET_MUST_BE_PREMIUM":
+        raise ProviderException("Torrent must be premium on AllDebrid", "need_premium.mp4")
+    if error_code in {"MAGNET_TOO_MANY_ACTIVE", "MAGNET_TOO_MANY"}:
+        raise ProviderException("Too many active torrents on AllDebrid", "torrent_limit.mp4")
+    raise ProviderException(f"Failed to add torrent to AllDebrid: {error_message}", "transfer_error.mp4")
+
+
+def _extract_alldebrid_id(response_data: dict, item_key: str, id_name: str) -> str:
+    data = response_data.get("data") or {}
+    items = _normalize_alldebrid_items(data, item_key)
+    if not items:
+        raise ProviderException(f"Invalid AllDebrid response: missing {item_key}", "api_error.mp4")
+
+    first_item = items[0]
+    if isinstance(first_item.get("error"), dict):
+        _raise_for_alldebrid_item_error(first_item["error"])
+    item_id = first_item.get("id")
+    if item_id is None:
+        raise ProviderException(f"Invalid AllDebrid response: missing {id_name}", "api_error.mp4")
+    return str(item_id)
+
+
 async def get_torrent_info(ad_client, info_hash):
     torrent_info = await ad_client.get_available_torrent(info_hash)
     if torrent_info and torrent_info["statusCode"] == 7:
@@ -20,10 +54,10 @@ async def get_torrent_info(ad_client, info_hash):
 async def add_new_torrent(ad_client: AllDebrid, magnet_link: str, stream: TorrentStreamData):
     if stream.torrent_file:
         response_data = await ad_client.add_torrent_file(stream.torrent_file, stream.name or "torrent")
-        return response_data["data"]["files"][0]["id"]
+        return _extract_alldebrid_id(response_data, "files", "file id")
     else:
         response_data = await ad_client.add_magnet_link(magnet_link)
-        return response_data["data"]["magnets"][0]["id"]
+        return _extract_alldebrid_id(response_data, "magnets", "magnet id")
 
 
 def flatten_files(files):

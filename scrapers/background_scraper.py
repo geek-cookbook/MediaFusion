@@ -4,12 +4,12 @@ from collections.abc import Awaitable, Callable
 from typing import TypeVar
 
 import dramatiq
-from sqlalchemy.exc import DBAPIError
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from db import crud
 from db.config import settings
 from db.database import get_background_session
+from db.retry_utils import is_retryable_db_error
 from db.schemas import MetadataData
 from scrapers.base_scraper import BackgroundScraperManager, IndexerBaseScraper
 from scrapers.jackett import JackettScraper
@@ -46,36 +46,6 @@ def _is_expected_shutdown_error(exc: BaseException) -> bool:
     return _is_shutdown_runtime_error(exc)
 
 
-def _is_retryable_db_error(exc: BaseException) -> bool:
-    """Return True if exception chain indicates a transient DB disconnect."""
-    retryable_markers = (
-        "connection reset by peer",
-        "connection does not exist",
-        "connection was closed",
-        "closed in the middle of operation",
-        "server closed the connection unexpectedly",
-        "terminating connection due to administrator command",
-    )
-
-    current: BaseException | None = exc
-    visited: set[int] = set()
-    while current is not None and id(current) not in visited:
-        visited.add(id(current))
-        if isinstance(current, (BrokenPipeError, ConnectionError, TimeoutError)):
-            return True
-        if isinstance(current, DBAPIError) and current.connection_invalidated:
-            return True
-
-        message = str(current).lower()
-        if any(marker in message for marker in retryable_markers):
-            return True
-
-        next_exc = getattr(current, "__cause__", None) or getattr(current, "__context__", None)
-        current = next_exc if isinstance(next_exc, BaseException) else None
-
-    return False
-
-
 async def _safe_session_rollback(session: AsyncSession) -> None:
     """Rollback session without surfacing expected shutdown failures."""
     try:
@@ -99,7 +69,7 @@ async def _run_with_db_retry(
         try:
             return await operation()
         except Exception as exc:
-            if not _is_retryable_db_error(exc) or attempt >= max_attempts:
+            if not is_retryable_db_error(exc) or attempt >= max_attempts:
                 raise
 
             logger.warning(

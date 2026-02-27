@@ -24,6 +24,13 @@ async def get_video_url_from_easydebrid(
         user_ip=user_ip,
     ) as easydebrid_client:
         torrent_info = await easydebrid_client.create_download_link(magnet_link)
+        if isinstance(torrent_info, str):
+            if "too many requests" in torrent_info.lower():
+                raise ProviderException("Too many requests", "too_many_requests.mp4")
+            raise ProviderException("EasyDebrid returned invalid response format", "api_error.mp4")
+        if not isinstance(torrent_info, dict):
+            raise ProviderException("EasyDebrid returned invalid response payload", "api_error.mp4")
+
         # If create download link returns an error, we try to add the link for caching, the error returned is generally
         # {'error': 'Unsupported link for direct download.'}
         if torrent_info.get("error", ""):
@@ -32,6 +39,8 @@ async def get_video_url_from_easydebrid(
                 "Torrent did not reach downloaded status.",
                 "torrent_not_downloaded.mp4",
             )
+        if not isinstance(torrent_info.get("files"), list) or not torrent_info["files"]:
+            raise ProviderException("EasyDebrid response missing files", "transfer_error.mp4")
 
         file_index = await select_file_index_from_torrent(
             torrent_info=torrent_info,

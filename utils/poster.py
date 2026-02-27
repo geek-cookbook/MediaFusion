@@ -87,7 +87,7 @@ async def fetch_poster_image(url: str, max_retries: int = 1) -> bytes:
                     is_image_content_type = content_type.startswith("image/")
                     is_octet_stream = "octet-stream" in content_type
                     if not (is_image_content_type or is_octet_stream):
-                        raise ValueError(f"Unexpected content type: {content_type} for URL: {url}")
+                        raise PosterFetchError(f"Unexpected content type: {content_type} for URL: {url}")
                     content = await response.read()
 
                     if is_octet_stream:
@@ -95,14 +95,15 @@ async def fetch_poster_image(url: str, max_retries: int = 1) -> bytes:
                             with Image.open(BytesIO(content)) as image:
                                 image.verify()
                         except (OSError, UnidentifiedImageError, ValueError) as exc:
-                            raise ValueError(f"Unexpected non-image payload for URL: {url}") from exc
+                            raise PosterFetchError(f"Unexpected non-image payload for URL: {url}") from exc
 
                     # Cache the image in Redis for 1 hour
                     logging.info(f"Caching image for URL: {url}")
                     await REDIS_ASYNC_CLIENT.set(url, content, ex=3600)
                     return content
-        except ValueError:
-            raise
+        except PosterFetchError as e:
+            last_exception = e
+            break
         except (TimeoutError, OSError, aiohttp.ClientError) as e:
             last_exception = e
             if attempt < max_retries:

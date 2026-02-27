@@ -10,7 +10,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import Any, Literal
-from urllib.error import URLError
 
 import httpx
 import PTT
@@ -18,6 +17,7 @@ from ratelimit import limits, sleep_and_retry
 from sqlmodel.ext.asyncio.session import AsyncSession
 from tenacity import retry, stop_after_attempt, wait_exponential
 from torf import Magnet, MagnetError
+from torf._errors import URLError as TorfURLError
 
 from db import crud
 from db.config import settings
@@ -798,7 +798,7 @@ class BaseScraper(abc.ABC):
         if download_url.startswith("magnet:"):
             try:
                 magnet = Magnet.from_string(download_url)
-            except (MagnetError, TypeError, URLError, ValueError):
+            except (MagnetError, TorfURLError, TypeError, ValueError):
                 return None, False
             return {"info_hash": magnet.infohash, "announce_list": magnet.tr}, True
 

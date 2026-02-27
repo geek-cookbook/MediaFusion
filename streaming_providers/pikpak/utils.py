@@ -18,6 +18,11 @@ PIKPAK_TORRENT_DETAILS_CONCURRENCY = 6
 
 def _raise_pikpak_provider_exception(error: Exception) -> None:
     error_message = str(error).lower()
+    if "result:review" in error_message or 'value:"review"' in error_message:
+        raise ProviderException(
+            "PikPak account is under review. Please complete account verification in PikPak.",
+            "invalid_credentials.mp4",
+        )
     if "invalid username or password" in error_message:
         raise ProviderException("Invalid PikPak credentials", "invalid_credentials.mp4")
     if "invalid token" in error_message or "unauthorized" in error_message:

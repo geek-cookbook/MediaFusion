@@ -1,0 +1,596 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import {
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  ExternalLink,
+  Eye,
+  FileText as FileIcon,
+  HardDrive,
+  Library,
+  Loader2,
+  Magnet,
+  Tag,
+  XCircle,
+} from 'lucide-react'
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Textarea } from '@/components/ui/textarea'
+import { useContributions, useReviewContribution } from '@/hooks'
+import { contributionsApi } from '@/lib/api'
+import type { Contribution, ContributionStatus, ContributionType } from '@/lib/api'
+
+import {
+  formatBytes,
+  formatTimeAgo,
+  formatTorrentData,
+  getContentDetailLink,
+  getContributionMediaPreview,
+  getContributionUploaderLabel,
+  getInternalMediaId,
+  getLibraryBrowseLink,
+} from './helpers'
+import { ModeratorMediaPoster } from './ModeratorMediaPoster'
+
+interface ContributionsTabProps {
+  statusFilter: 'all' | ContributionStatus
+  onStatusFilterChange: (status: 'all' | ContributionStatus) => void
+}
+
+export function ContributionsTab({ statusFilter, onStatusFilterChange }: ContributionsTabProps) {
+  const [page, setPage] = useState(1)
+  const [typeFilter, setTypeFilter] = useState<string>('all')
+  const [selectedContribution, setSelectedContribution] = useState<Contribution | null>(null)
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false)
+  const [reviewNotes, setReviewNotes] = useState('')
+  const [bulkApproveDialogOpen, setBulkApproveDialogOpen] = useState(false)
+  const [isBulkApproving, setIsBulkApproving] = useState(false)
+
+  const selectedContributionData = (selectedContribution?.data as Record<string, unknown> | undefined) ?? undefined
+  const selectedMediaPreview = selectedContribution ? getContributionMediaPreview(selectedContribution) : null
+  const selectedMediaId =
+    getInternalMediaId(selectedContribution?.media_id) ??
+    getInternalMediaId(selectedContributionData?.media_id) ??
+    getInternalMediaId(selectedContribution?.mediafusion_id) ??
+    getInternalMediaId(selectedContributionData?.mediafusion_id)
+  const selectedContentLink = selectedMediaPreview ? getContentDetailLink(selectedMediaPreview, selectedMediaId) : null
+  const selectedLibraryLink = selectedMediaPreview
+    ? getLibraryBrowseLink(selectedMediaPreview)
+    : '/dashboard/library?tab=browse'
+  const selectedMediaOpenLink = selectedContentLink ?? selectedLibraryLink
+  const selectedMediaOpenLabel = selectedContentLink ? 'Open Content' : 'Open in Library'
+  const selectedImdbId =
+    selectedMediaPreview?.metaId?.toLowerCase().startsWith('tt') === true ? selectedMediaPreview.metaId : null
+
+  const { data, isLoading, refetch } = useContributions({
+    contribution_type: typeFilter === 'all' ? undefined : (typeFilter as ContributionType),
+    contribution_status: statusFilter === 'all' ? undefined : statusFilter,
+    page,
+    page_size: 20,
+  })
+  const reviewContribution = useReviewContribution()
+  const pendingContributions = (data?.items ?? []).filter((contribution) => contribution.status === 'pending')
+
+  const handleReview = async (action: 'approved' | 'rejected') => {
+    if (!selectedContribution) return
+    try {
+      await reviewContribution.mutateAsync({
+        contributionId: selectedContribution.id,
+        data: { status: action, review_notes: reviewNotes || undefined },
+      })
+      setReviewDialogOpen(false)
+      setSelectedContribution(null)
+      setReviewNotes('')
+      refetch()
+    } catch {
+      // Error handled by mutation
+    }
+  }
+
+  const handleApproveAllPending = async () => {
+    if (!pendingContributions.length) return
+    setIsBulkApproving(true)
+    try {
+      const pendingIds: string[] = []
+      let reviewPage = 1
+      let hasMore = true
+
+      while (hasMore) {
+        const response = await contributionsApi.list({
+          contribution_type: typeFilter === 'all' ? undefined : (typeFilter as ContributionType),
+          contribution_status: 'pending',
+          page: reviewPage,
+          page_size: 100,
+        })
+        pendingIds.push(...response.items.map((contribution) => contribution.id))
+        hasMore = response.has_more
+        reviewPage += 1
+      }
+
+      for (const contributionId of pendingIds) {
+        await reviewContribution.mutateAsync({
+          contributionId,
+          data: { status: 'approved' },
+        })
+      }
+      setBulkApproveDialogOpen(false)
+      setSelectedContribution(null)
+      setReviewDialogOpen(false)
+      setReviewNotes('')
+      refetch()
+    } catch {
+      // Error handled by mutation
+    } finally {
+      setIsBulkApproving(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {[...Array(5)].map((_, i) => (
+          <Skeleton key={i} className="h-24 rounded-xl" />
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-4">
+        <Select
+          value={typeFilter}
+          onValueChange={(value) => {
+            setTypeFilter(value)
+            setPage(1)
+          }}
+        >
+          <SelectTrigger className="w-[180px] rounded-xl">
+            <Clock className="mr-2 h-4 w-4" />
+            <SelectValue placeholder="Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="torrent">Torrent Imports</SelectItem>
+            <SelectItem value="stream">New Streams</SelectItem>
+            <SelectItem value="metadata">Metadata Fixes</SelectItem>
+            <SelectItem value="telegram">Telegram Uploads</SelectItem>
+            <SelectItem value="youtube">YouTube Imports</SelectItem>
+            <SelectItem value="nzb">NZB Imports</SelectItem>
+            <SelectItem value="http">HTTP Imports</SelectItem>
+            <SelectItem value="acestream">AceStream Imports</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={statusFilter}
+          onValueChange={(value) => {
+            onStatusFilterChange(value as 'all' | ContributionStatus)
+            setPage(1)
+          }}
+        >
+          <SelectTrigger className="w-[180px] rounded-xl">
+            <Clock className="mr-2 h-4 w-4" />
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="approved">Approved</SelectItem>
+            <SelectItem value="rejected">Rejected</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {pendingContributions.length > 0 && (
+          <Button
+            variant="outline"
+            className="rounded-xl"
+            onClick={() => setBulkApproveDialogOpen(true)}
+            disabled={isBulkApproving || reviewContribution.isPending}
+          >
+            {isBulkApproving ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : (
+              <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-500" />
+            )}
+            Approve All Pending
+          </Button>
+        )}
+      </div>
+
+      {!data?.items.length ? (
+        <div className="text-center py-12">
+          <Magnet className="h-16 w-16 mx-auto text-muted-foreground opacity-50" />
+          <p className="mt-4 text-muted-foreground">No content imports found</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {data.items.map((contribution) => {
+            const isTorrent = contribution.contribution_type === 'torrent'
+            const isStream = contribution.contribution_type === 'stream'
+            const isPending = contribution.status === 'pending'
+            const torrentData = contribution.data as Record<string, unknown>
+            const uploaderLabel = getContributionUploaderLabel(contribution)
+
+            return (
+              <Card key={contribution.id} className="glass border-border/50 hover:border-primary/30 transition-colors">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-4">
+                    <div
+                      className={`p-2 rounded-xl flex-shrink-0 ${isTorrent ? 'bg-orange-500/10' : isStream ? 'bg-blue-500/10' : 'bg-primary/10'}`}
+                    >
+                      {isTorrent ? (
+                        <Tag className="h-5 w-5 text-orange-500" />
+                      ) : isStream ? (
+                        <Magnet className="h-5 w-5 text-blue-500" />
+                      ) : (
+                        <FileIcon className="h-5 w-5 text-primary" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className="text-xs capitalize">
+                          {contribution.contribution_type}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className={`text-xs capitalize ${
+                            contribution.status === 'approved'
+                              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
+                              : contribution.status === 'rejected'
+                                ? 'bg-red-500/10 border-red-500/30 text-red-500'
+                                : 'bg-amber-500/10 border-amber-500/30 text-amber-500'
+                          }`}
+                        >
+                          {contribution.status}
+                        </Badge>
+                        {!!torrentData.meta_type && (
+                          <Badge variant="secondary" className="text-xs capitalize">
+                            {String(torrentData.meta_type)}
+                          </Badge>
+                        )}
+                        {!!torrentData.resolution && (
+                          <Badge variant="outline" className="text-xs bg-blue-500/10 border-blue-500/30">
+                            {String(torrentData.resolution)}
+                          </Badge>
+                        )}
+                        {!!torrentData.quality && (
+                          <Badge variant="outline" className="text-xs bg-emerald-500/10 border-emerald-500/30">
+                            {String(torrentData.quality)}
+                          </Badge>
+                        )}
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${
+                            torrentData.is_anonymous === true
+                              ? 'bg-gray-500/10 border-gray-500/30 text-gray-500'
+                              : 'bg-primary/10 border-primary/30 text-primary'
+                          }`}
+                          title={uploaderLabel}
+                        >
+                          {uploaderLabel}
+                        </Badge>
+                      </div>
+
+                      <p className="font-medium truncate" title={String(torrentData.name || torrentData.title || '')}>
+                        {String(torrentData.name || torrentData.title || 'Untitled')}
+                      </p>
+
+                      {contribution.target_id && (
+                        <p className="text-sm text-muted-foreground">
+                          <span className="font-medium">Target:</span>{' '}
+                          <span className="font-mono">{contribution.target_id}</span>
+                        </p>
+                      )}
+
+                      {!!torrentData.info_hash && (
+                        <p
+                          className="text-xs text-muted-foreground font-mono truncate"
+                          title={String(torrentData.info_hash)}
+                        >
+                          Hash: {String(torrentData.info_hash).slice(0, 16)}...
+                        </p>
+                      )}
+
+                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                        <span>{formatTimeAgo(contribution.created_at)}</span>
+                        {!!torrentData.total_size && (
+                          <>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <HardDrive className="h-3 w-3" />
+                              {formatBytes(torrentData.total_size as number)}
+                            </span>
+                          </>
+                        )}
+                        {!!torrentData.file_count && (
+                          <>
+                            <span>•</span>
+                            <span>{String(torrentData.file_count)} files</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="rounded-lg"
+                        onClick={() => {
+                          setSelectedContribution(contribution)
+                          setReviewDialogOpen(true)
+                        }}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        {isPending ? 'Review' : 'View'}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+
+      {data && data.total > 20 && (
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            disabled={page === 1}
+            onClick={() => setPage((p) => p - 1)}
+            className="rounded-xl"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="px-4 text-sm text-muted-foreground">
+            Page {page} of {Math.ceil(data.total / 20)}
+          </span>
+          <Button
+            variant="outline"
+            size="icon"
+            disabled={page >= Math.ceil(data.total / 20)}
+            onClick={() => setPage((p) => p + 1)}
+            className="rounded-xl"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
+      <AlertDialog open={bulkApproveDialogOpen} onOpenChange={setBulkApproveDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Approve all pending content imports?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This approves all pending content imports for the current type filter.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBulkApproving}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleApproveAllPending}
+              disabled={isBulkApproving}
+              className="bg-emerald-600 text-white hover:bg-emerald-700"
+            >
+              {isBulkApproving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Approve All
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-primary" />
+              Review Content Import
+            </DialogTitle>
+            <DialogDescription>
+              Review this{' '}
+              {selectedContribution?.contribution_type === 'torrent'
+                ? 'torrent import'
+                : selectedContribution?.contribution_type === 'stream'
+                  ? 'stream import'
+                  : 'content import'}{' '}
+              and approve or reject it.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedContribution && (
+            <div className="space-y-4 py-4">
+              <div className="rounded-lg border border-border/50 bg-muted/20 p-4">
+                <div className="flex items-start gap-4">
+                  <div className="h-28 w-20 shrink-0 overflow-hidden rounded-md border border-border/50 bg-muted">
+                    <ModeratorMediaPoster
+                      mediaType={selectedMediaPreview?.metaType}
+                      mediaId={selectedMediaId}
+                      imdbId={selectedImdbId}
+                      posterUrl={selectedMediaPreview?.posterUrl}
+                      title={selectedMediaPreview?.title}
+                      fallbackIconSizeClassName="h-5 w-5"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Media to Review</p>
+                    <p className="break-words text-base font-semibold">
+                      {selectedMediaPreview?.title || 'Untitled'}
+                      {selectedMediaPreview?.year ? (
+                        <span className="ml-2 text-sm font-normal text-muted-foreground">
+                          ({selectedMediaPreview.year})
+                        </span>
+                      ) : null}
+                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Button asChild variant="outline" size="sm" className="h-7 rounded-lg">
+                        <Link to={selectedMediaOpenLink}>
+                          <Library className="h-3.5 w-3.5 mr-1.5" />
+                          {selectedMediaOpenLabel}
+                        </Link>
+                      </Button>
+                      {selectedMediaPreview?.metaType && (
+                        <Badge variant="outline" className="capitalize">
+                          {selectedMediaPreview.metaType}
+                        </Badge>
+                      )}
+                      {selectedImdbId ? (
+                        <a
+                          href={`https://www.imdb.com/title/${selectedImdbId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-mono text-primary hover:underline inline-flex items-center gap-1"
+                        >
+                          {selectedImdbId}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ) : selectedMediaPreview?.metaId ? (
+                        <Badge variant="secondary" className="font-mono text-xs">
+                          {selectedMediaPreview.metaId}
+                        </Badge>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant="outline" className="capitalize">
+                  {selectedContribution.contribution_type}
+                </Badge>
+                {selectedContribution.target_id && (
+                  <Badge variant="secondary" className="font-mono">
+                    {selectedContribution.target_id}
+                  </Badge>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <h4 className="font-medium text-sm text-muted-foreground">Contribution Details</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  {formatTorrentData(selectedContributionData ?? {}).map((field, idx) => (
+                    <div
+                      key={idx}
+                      className={`p-3 rounded-lg bg-muted/50 ${field.type === 'text' && String(field.value).length > 30 ? 'col-span-2' : ''}`}
+                    >
+                      <p className="text-xs text-muted-foreground mb-1">{field.label}</p>
+                      {field.type === 'badge' ? (
+                        <Badge variant="outline">{field.value}</Badge>
+                      ) : field.type === 'link' ? (
+                        <a
+                          href={`https://www.imdb.com/title/${field.value}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-mono text-primary hover:underline flex items-center gap-1"
+                        >
+                          {field.value}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ) : field.type === 'size' ? (
+                        <p className="text-sm font-medium">{formatBytes(field.value)}</p>
+                      ) : (
+                        <p className="text-sm font-medium break-all">{field.value}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {!!selectedContributionData?.magnet_link && (
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm text-muted-foreground">Magnet Link</h4>
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <p className="text-xs font-mono break-all line-clamp-3">
+                      {String(selectedContributionData.magnet_link)}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span>By: {getContributionUploaderLabel(selectedContribution)}</span>
+                <span>•</span>
+                <span>Submitted: {formatTimeAgo(selectedContribution.created_at)}</span>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Review Notes (optional)</label>
+                <Textarea
+                  value={reviewNotes}
+                  onChange={(e) => setReviewNotes(e.target.value)}
+                  placeholder="Add notes about your decision..."
+                  rows={2}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setReviewDialogOpen(false)}
+              disabled={reviewContribution.isPending}
+            >
+              {selectedContribution?.status === 'pending' ? 'Cancel' : 'Close'}
+            </Button>
+            {selectedContribution?.status === 'pending' && (
+              <>
+                <Button
+                  variant="destructive"
+                  onClick={() => handleReview('rejected')}
+                  disabled={reviewContribution.isPending}
+                >
+                  {reviewContribution.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <XCircle className="h-4 w-4 mr-2" />
+                  )}
+                  Reject
+                </Button>
+                <Button
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                  onClick={() => handleReview('approved')}
+                  disabled={reviewContribution.isPending}
+                >
+                  {reviewContribution.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                  )}
+                  Approve
+                </Button>
+              </>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}

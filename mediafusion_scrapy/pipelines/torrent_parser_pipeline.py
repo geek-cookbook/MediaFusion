@@ -9,6 +9,67 @@ from db import crud
 from db.database import get_async_session
 from utils import torrent
 
+COMMON_TAMIL_SOURCES = {"TamilMV", "TamilBlasters"}
+
+
+def _has_episode_signals(item: dict) -> bool:
+    if item.get("seasons") or item.get("episodes"):
+        return True
+
+    file_data = item.get("file_data") or []
+    return any(
+        isinstance(file_info, dict)
+        and (file_info.get("season_number") is not None or file_info.get("episode_number") is not None)
+        for file_info in file_data
+    )
+
+
+def _reconcile_common_tamil_type(item: dict) -> None:
+    """Fix obvious movie/series misclassifications for common Tamil spiders."""
+    source = item.get("source")
+    declared_type = item.get("type")
+    if source not in COMMON_TAMIL_SOURCES or declared_type not in {"movie", "series"}:
+        return
+
+    file_data = item.get("file_data") or []
+    video_file_count = sum(1 for file_info in file_data if isinstance(file_info, dict))
+    has_episode_signals = _has_episode_signals(item)
+
+    corrected_type = None
+    reason = None
+
+    # Strong movie signal: tagged as series but no episode markers and tiny video set.
+    if declared_type == "series" and not has_episode_signals and video_file_count <= 2:
+        corrected_type = "movie"
+        reason = f"no episode signals and only {video_file_count} video file(s)"
+    # Strong series signal: tagged as movie but has episodes or many episodic files.
+    elif declared_type == "movie" and (has_episode_signals or video_file_count >= 4):
+        corrected_type = "series"
+        reason = (
+            "episode signals detected"
+            if has_episode_signals
+            else f"{video_file_count} video files suggest episodic content"
+        )
+
+    if not corrected_type or corrected_type == declared_type:
+        return
+
+    item["type"] = corrected_type
+    if corrected_type == "series":
+        item["video_type"] = "series"
+    elif item.get("video_type") == "series":
+        # Keep movie torrents out of series catalogs when forum placement is wrong.
+        item["video_type"] = "hdrip"
+
+    logging.warning(
+        "Reconciled %s type from %s to %s for '%s' (%s)",
+        source,
+        declared_type,
+        corrected_type,
+        item.get("torrent_name") or item.get("webpage_url"),
+        reason,
+    )
+
 
 class TorrentDownloadAndParsePipeline:
     @classmethod
@@ -45,6 +106,7 @@ class TorrentDownloadAndParsePipeline:
             return item
 
         item.update(torrent_metadata)
+        _reconcile_common_tamil_type(item)
         return item
 
 

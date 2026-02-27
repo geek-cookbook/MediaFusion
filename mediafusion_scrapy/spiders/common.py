@@ -190,14 +190,28 @@ class CommonTamilSpider(scrapy.Spider):
         torrent_links = response.css("a[data-fileext='torrent']::attr(href)").getall()
 
         if self.search_keyword:
-            forum_link = response.css("a[href*='forums/forum/']::attr(href)").get()
-            if not forum_link:
+            forum_links = response.css("a[href*='forums/forum/']::attr(href)").getall()
+            if not forum_links:
                 return
-            forum_id = re.search(r"forums/forum/([^/]+)/", forum_link).group(1)
-            language, video_type = self.supported_search_forums.get(
-                forum_id, {"language": None, "video_type": None}
-            ).values()
-            if not language:
+
+            forum_id = None
+            for forum_link in forum_links:
+                match = re.search(r"forums/forum/([^/]+)/", forum_link)
+                if not match:
+                    continue
+                candidate_forum_id = match.group(1)
+                if candidate_forum_id in self.supported_search_forums:
+                    forum_id = candidate_forum_id
+                    break
+
+            if not forum_id:
+                self.logger.error("Could not resolve supported forum for %s", response.url)
+                return
+
+            forum_config = self.supported_search_forums.get(forum_id, {})
+            language = forum_config.get("language")
+            video_type = forum_config.get("video_type") or forum_config.get("media_type")
+            if not language or not video_type:
                 self.logger.error(f"Unsupported forum {forum_id}")
                 return
             item.update({"language": language, "video_type": video_type})

@@ -47,13 +47,15 @@ export interface StreamNeedingAnnotation {
   size: number | null
   resolution: string | null
   info_hash: string | null
-  file_count: number
-  unmapped_count: number
+  file_count: number | null
+  unmapped_count: number | null
   created_at: string
   // Associated media info
   media_id: number
   media_title: string
   media_year: number | null
+  media_type: string
+  media_external_id: string | null
 }
 
 export interface StreamsNeedingAnnotationResponse {

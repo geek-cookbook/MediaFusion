@@ -44,6 +44,7 @@ interface StreamRelinkButtonProps {
   currentMediaTitle?: string
   variant?: 'button' | 'icon'
   className?: string
+  onSuccess?: () => void
 }
 
 // API to get existing links
@@ -59,6 +60,7 @@ export function StreamRelinkButton({
   currentMediaTitle,
   variant = 'button',
   className,
+  onSuccess,
 }: StreamRelinkButtonProps) {
   const { toast } = useToast()
   const createSuggestion = useCreateStreamSuggestion()
@@ -148,7 +150,7 @@ export function StreamRelinkButton({
     if (!selectedMedia || !selectedMedia.internal_id) return
 
     try {
-      await createSuggestion.mutateAsync({
+      const response = await createSuggestion.mutateAsync({
         streamId,
         data: {
           suggestion_type: linkAction === 'relink' ? 'relink_media' : 'add_media_link',
@@ -163,12 +165,13 @@ export function StreamRelinkButton({
       toast({
         title: 'Suggestion Submitted',
         description:
-          createSuggestion.data?.status === 'auto_approved'
+          response.status === 'auto_approved'
             ? 'Your change has been auto-approved and applied.'
             : 'Your suggestion has been submitted for moderator review.',
       })
 
       setOpen(false)
+      onSuccess?.()
     } catch (error) {
       toast({
         title: 'Error',
@@ -186,6 +189,7 @@ export function StreamRelinkButton({
     existingLinks,
     createSuggestion,
     toast,
+    onSuccess,
   ])
 
   return (

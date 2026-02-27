@@ -31,7 +31,9 @@ export function ModeratorDashboardPage() {
   const { data: suggestionStats } = useSuggestionStats()
   const { data: streamStats } = useStreamSuggestionStats()
   const { data: pendingContributions } = usePendingContributions({ page: 1, page_size: 1 })
-  const { data: annotationData } = useStreamsNeedingAnnotation({ page: 1, per_page: 1 })
+  // Match the default annotation tab query so React Query can reuse
+  // the same response and avoid duplicate heavy requests.
+  const { data: annotationData } = useStreamsNeedingAnnotation({ page: 1, per_page: 20 })
 
   const pendingCount = pendingData?.total ?? 0
   const pendingContributionsCount = pendingContributions?.total ?? 0

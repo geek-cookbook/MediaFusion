@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, FileVideo, HardDrive, Hash, Loader2, Search, Tv } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Copy, FileVideo, HardDrive, Hash, Loader2, Search, Tv } from 'lucide-react'
 
+import { StreamRelinkButton } from '@/components/stream'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -8,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { FileAnnotationDialog, type EditedFileLink, type FileLink } from '@/components/stream'
 import { useStreamsNeedingAnnotation, useUpdateFileLinks } from '@/hooks'
-import { catalogApi } from '@/lib/api'
+import { fileLinksApi } from '@/lib/api/fileLinks'
 
 import { formatBytes, formatTimeAgo } from './helpers'
 
@@ -28,11 +29,15 @@ export function AnnotationRequestsTab() {
     streamName: string
     mediaId: number
     mediaTitle: string
+    mediaYear: number | null
+    mediaType: string
+    mediaExternalId: string | null
   } | null>(null)
   const [annotationDialogOpen, setAnnotationDialogOpen] = useState(false)
   const [annotationFiles, setAnnotationFiles] = useState<FileLink[]>([])
   const [isLoadingFiles, setIsLoadingFiles] = useState(false)
   const [isSavingAnnotation, setIsSavingAnnotation] = useState(false)
+  const [copiedInfoHashStreamId, setCopiedInfoHashStreamId] = useState<number | null>(null)
 
   const handleSearch = () => {
     setSearch(searchInput)
@@ -44,12 +49,15 @@ export function AnnotationRequestsTab() {
     stream_name: string
     media_id: number
     media_title: string
+    media_year: number | null
+    media_type: string
+    media_external_id: string | null
   }) => {
     setIsLoadingFiles(true)
     try {
-      const files = await catalogApi.getStreamFiles(stream.stream_id)
+      const fileLinksResponse = await fileLinksApi.getStreamFileLinks(stream.stream_id, stream.media_id)
       setAnnotationFiles(
-        files.map((f) => ({
+        fileLinksResponse.files.map((f) => ({
           file_id: f.file_id,
           file_name: f.file_name,
           size: f.size,
@@ -63,6 +71,9 @@ export function AnnotationRequestsTab() {
         streamName: stream.stream_name,
         mediaId: stream.media_id,
         mediaTitle: stream.media_title,
+        mediaYear: stream.media_year,
+        mediaType: stream.media_type,
+        mediaExternalId: stream.media_external_id,
       })
       setAnnotationDialogOpen(true)
     } catch (error) {
@@ -100,6 +111,17 @@ export function AnnotationRequestsTab() {
       throw error
     } finally {
       setIsSavingAnnotation(false)
+    }
+  }
+
+  const handleCopyInfoHash = async (streamId: number, infoHash: string) => {
+    if (!navigator?.clipboard) return
+    try {
+      await navigator.clipboard.writeText(infoHash)
+      setCopiedInfoHashStreamId(streamId)
+      setTimeout(() => setCopiedInfoHashStreamId(null), 1500)
+    } catch (error) {
+      console.error('Failed to copy info hash:', error)
     }
   }
 
@@ -161,7 +183,9 @@ export function AnnotationRequestsTab() {
                   <div className="flex-1 min-w-0 space-y-2">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant="outline" className="text-xs bg-cyan-500/10 border-cyan-500/30">
-                        {stream.unmapped_count} / {stream.file_count} files need mapping
+                        {stream.unmapped_count != null && stream.file_count != null
+                          ? `${stream.unmapped_count} / ${stream.file_count} files need mapping`
+                          : 'Needs mapping'}
                       </Badge>
                       {stream.resolution && (
                         <Badge variant="outline" className="text-xs">
@@ -173,6 +197,9 @@ export function AnnotationRequestsTab() {
                           {stream.source}
                         </Badge>
                       )}
+                      <Badge variant="outline" className="text-xs">
+                        {stream.media_type}
+                      </Badge>
                     </div>
 
                     <p className="font-medium truncate" title={stream.stream_name}>
@@ -185,12 +212,29 @@ export function AnnotationRequestsTab() {
                         {stream.media_title}
                         {stream.media_year && ` (${stream.media_year})`}
                       </span>
+                      {stream.media_external_id && (
+                        <span className="font-mono text-xs truncate" title={stream.media_external_id}>
+                          {stream.media_external_id}
+                        </span>
+                      )}
                     </div>
 
                     {stream.info_hash && (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex items-start gap-2 text-xs text-muted-foreground">
                         <Hash className="h-3 w-3" />
-                        <span className="font-mono truncate">{stream.info_hash.slice(0, 16)}...</span>
+                        <span className="font-mono break-all">{stream.info_hash}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 flex-shrink-0"
+                          onClick={() => handleCopyInfoHash(stream.stream_id, stream.info_hash!)}
+                        >
+                          {copiedInfoHashStreamId === stream.stream_id ? (
+                            <Check className="h-3 w-3 text-emerald-500" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
                       </div>
                     )}
 
@@ -209,6 +253,16 @@ export function AnnotationRequestsTab() {
                   </div>
 
                   <div className="flex items-center gap-2 flex-shrink-0">
+                    <StreamRelinkButton
+                      streamId={stream.stream_id}
+                      streamName={stream.stream_name}
+                      currentMediaId={stream.media_id}
+                      currentMediaTitle={
+                        stream.media_year ? `${stream.media_title} (${stream.media_year})` : stream.media_title
+                      }
+                      className="rounded-lg"
+                      onSuccess={() => refetch()}
+                    />
                     <Button
                       size="sm"
                       className="rounded-lg bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500"
@@ -218,6 +272,9 @@ export function AnnotationRequestsTab() {
                           stream_name: stream.stream_name,
                           media_id: stream.media_id,
                           media_title: stream.media_title,
+                          media_year: stream.media_year,
+                          media_type: stream.media_type,
+                          media_external_id: stream.media_external_id,
                         })
                       }
                       disabled={isLoadingFiles}
@@ -270,7 +327,14 @@ export function AnnotationRequestsTab() {
             setAnnotationDialogOpen(open)
             if (!open) setSelectedStream(null)
           }}
-          streamName={`${selectedStream.streamName} (${selectedStream.mediaTitle})`}
+          streamName={`${selectedStream.streamName} (${[
+            selectedStream.mediaTitle,
+            selectedStream.mediaYear ? String(selectedStream.mediaYear) : null,
+            selectedStream.mediaType || null,
+            selectedStream.mediaExternalId || null,
+          ]
+            .filter(Boolean)
+            .join(' • ')})`}
           initialFiles={annotationFiles}
           onSave={handleSaveAnnotation}
           isLoading={isSavingAnnotation}

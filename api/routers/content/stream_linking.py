@@ -13,13 +13,14 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from api.routers.user.auth import require_auth, require_role
 from db.crud import (
     get_canonical_external_id,
+    get_canonical_external_ids_batch,
     get_media_by_id,
     get_stream_by_id,
     link_stream_to_media,
     unlink_stream_from_media,
 )
 from db.database import get_async_session
-from db.enums import UserRole
+from db.enums import MediaType, UserRole
 from db.models import Stream, StreamMediaLink, User
 
 router = APIRouter(prefix="/api/v1/stream-links", tags=["Stream Linking"])
@@ -423,14 +424,14 @@ class FileLinkUpdateResponse(BaseModel):
 @router.put("/files", response_model=FileLinkUpdateResponse)
 async def update_file_links(
     request: BulkFileLinkUpdate,
-    current_user: User = Depends(require_auth),
+    current_user: User = Depends(require_role(UserRole.MODERATOR)),
     session: AsyncSession = Depends(get_async_session),
 ):
     """
     Update file-to-media links for a stream.
 
     Used to correct season/episode numbers for series files.
-    All logged-in users can update file links.
+    Requires MODERATOR or ADMIN role.
     """
     from db.models import FileMediaLink, StreamFile, TorrentStream
 
@@ -446,6 +447,15 @@ async def update_file_links(
     if not stream:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stream not found")
 
+    media = await get_media_by_id(session, request.media_id)
+    if not media:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media not found")
+    if media.type != MediaType.SERIES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File annotation updates are only supported for series media",
+        )
+
     # Get torrent stream to access files
     torrent_query = select(TorrentStream).where(TorrentStream.stream_id == request.stream_id)
     torrent_result = await session.exec(torrent_query)
@@ -459,7 +469,7 @@ async def update_file_links(
             # Verify file belongs to this stream's torrent
             file_query = select(StreamFile).where(
                 StreamFile.id == update.file_id,
-                StreamFile.stream_id == torrent.id,
+                StreamFile.stream_id == request.stream_id,
             )
             file_result = await session.exec(file_query)
             file = file_result.first()
@@ -522,24 +532,31 @@ async def get_stream_file_links(
     """
     from sqlalchemy.orm import selectinload
 
-    from db.models import StreamFile, TorrentStream
+    from db.models import StreamFile
 
-    # Get torrent stream with files
-    torrent_query = (
-        select(TorrentStream)
-        .where(TorrentStream.stream_id == stream_id)
-        .options(selectinload(TorrentStream.files).selectinload(StreamFile.media_links))
+    # Load files from Stream relationship (TorrentStream has no direct files relation).
+    stream_query = (
+        select(Stream)
+        .where(Stream.id == stream_id)
+        .options(selectinload(Stream.files).selectinload(StreamFile.media_links))
     )
-    torrent_result = await session.exec(torrent_query)
-    torrent = torrent_result.first()
+    stream_result = await session.exec(stream_query)
+    stream = stream_result.first()
 
-    if not torrent:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Torrent stream not found")
+    if not stream:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Stream not found")
 
     files = []
-    for file in torrent.files:
+    for file in stream.files:
         # Find link for this media
         link = next((ml for ml in file.media_links if ml.media_id == media_id), None)
+        has_links = bool(file.media_links)
+
+        # Skip files that are already mapped to different media entries.
+        # The moderator annotation modal should only show unlinked files or files
+        # linked to the currently selected media.
+        if has_links and not link:
+            continue
 
         files.append(
             {
@@ -657,13 +674,15 @@ class StreamNeedingAnnotation(BaseModel):
     size: int | None = None
     resolution: str | None = None
     info_hash: str | None = None
-    file_count: int
-    unmapped_count: int  # Files without episode mapping
+    file_count: int | None = None
+    unmapped_count: int | None = None  # Files without episode mapping
     created_at: datetime
     # Associated media info
     media_id: int
     media_title: str
     media_year: int | None = None
+    media_type: str
+    media_external_id: str | None = None
 
     class Config:
         from_attributes = True
@@ -718,14 +737,45 @@ async def get_streams_needing_annotation(
         """
         params["search"] = f"%{search}%"
 
-    # Efficient query using CTEs
-    # First CTE: Get series streams with basic info
-    # Second CTE: Aggregate file counts
-    # This approach is much faster than multiple subqueries
-
-    count_sql = text(f"""
-        WITH series_streams AS (
-            SELECT DISTINCT
+    # Lightweight stream list query.
+    # We intentionally avoid precomputing per-file counts for all streams here;
+    # file-level details are fetched only when moderator clicks "Annotate".
+    data_sql = text(f"""
+        WITH unlinked_streams AS (
+            SELECT DISTINCT sf.stream_id
+            FROM stream_file sf
+            INNER JOIN stream s ON s.id = sf.stream_id
+            LEFT JOIN file_media_link fml_any ON fml_any.file_id = sf.id
+            WHERE s.is_active = true
+              AND s.is_blocked = false
+              AND fml_any.id IS NULL
+        ),
+        null_episode_pairs AS (
+            SELECT DISTINCT sf.stream_id, fml_series.media_id
+            FROM stream_file sf
+            INNER JOIN stream s ON s.id = sf.stream_id
+            INNER JOIN file_media_link fml_series ON fml_series.file_id = sf.id
+            INNER JOIN stream_media_link sml
+                ON sml.stream_id = sf.stream_id
+               AND sml.media_id = fml_series.media_id
+            INNER JOIN media m ON m.id = fml_series.media_id
+            WHERE s.is_active = true
+              AND s.is_blocked = false
+              AND m.type = 'SERIES'
+              AND fml_series.episode_number IS NULL
+        ),
+        unmapped_pairs AS (
+            SELECT DISTINCT us.stream_id, sml.media_id
+            FROM unlinked_streams us
+            INNER JOIN stream_media_link sml ON sml.stream_id = us.stream_id
+            INNER JOIN media m ON m.id = sml.media_id
+            WHERE m.type = 'SERIES'
+            UNION
+            SELECT nep.stream_id, nep.media_id
+            FROM null_episode_pairs nep
+        ),
+        annotated_streams AS (
+            SELECT
                 s.id as stream_id,
                 s.name as stream_name,
                 s.source,
@@ -735,29 +785,27 @@ async def get_streams_needing_annotation(
                 ts.info_hash,
                 m.id as media_id,
                 m.title as media_title,
-                m.year as media_year
-            FROM stream s
+                m.year as media_year,
+                m.type::text as media_type
+            FROM unmapped_pairs up
+            INNER JOIN stream s ON s.id = up.stream_id
             INNER JOIN torrent_stream ts ON ts.stream_id = s.id
-            INNER JOIN stream_media_link sml ON sml.stream_id = s.id
-            INNER JOIN media m ON sml.media_id = m.id
-            WHERE m.type = 'SERIES'
-              AND s.is_active = true
-              AND s.is_blocked = false
-              AND EXISTS (
-                  SELECT 1 FROM stream_file sf
-                  LEFT JOIN file_media_link fml ON fml.file_id = sf.id
-                  WHERE sf.stream_id = s.id
-                    AND (fml.id IS NULL OR fml.episode_number IS NULL)
-              )
+            INNER JOIN media m ON m.id = up.media_id
+            WHERE 1=1
               {search_condition}
         )
-        SELECT COUNT(*) FROM series_streams
+        SELECT
+            ast.*,
+            COUNT(*) OVER() as total_count
+        FROM annotated_streams ast
+        ORDER BY ast.created_at DESC
+        LIMIT :limit OFFSET :offset
     """)
 
-    count_result = await session.exec(count_sql, params=params)
-    total = count_result.one()[0]
+    result = await session.exec(data_sql, params=params)
+    rows = result.all()
 
-    if total == 0:
+    if not rows:
         return StreamsNeedingAnnotationResponse(
             items=[],
             total=0,
@@ -766,63 +814,18 @@ async def get_streams_needing_annotation(
             pages=1,
         )
 
-    # Main query with file counts
-    data_sql = text(f"""
-        WITH series_streams AS (
-            SELECT DISTINCT
-                s.id as stream_id,
-                s.name as stream_name,
-                s.source,
-                ts.total_size as size,
-                s.resolution,
-                s.created_at,
-                ts.info_hash,
-                m.id as media_id,
-                m.title as media_title,
-                m.year as media_year
-            FROM stream s
-            INNER JOIN torrent_stream ts ON ts.stream_id = s.id
-            INNER JOIN stream_media_link sml ON sml.stream_id = s.id
-            INNER JOIN media m ON sml.media_id = m.id
-            WHERE m.type = 'SERIES'
-              AND s.is_active = true
-              AND s.is_blocked = false
-              AND EXISTS (
-                  SELECT 1 FROM stream_file sf
-                  LEFT JOIN file_media_link fml ON fml.file_id = sf.id
-                  WHERE sf.stream_id = s.id
-                    AND (fml.id IS NULL OR fml.episode_number IS NULL)
-              )
-              {search_condition}
-        ),
-        file_counts AS (
-            SELECT
-                ss.stream_id,
-                COUNT(sf.id) as file_count,
-                COUNT(sf.id) FILTER (
-                    WHERE fml.id IS NULL OR fml.episode_number IS NULL
-                ) as unmapped_count
-            FROM series_streams ss
-            INNER JOIN stream_file sf ON sf.stream_id = ss.stream_id
-            LEFT JOIN file_media_link fml ON fml.file_id = sf.id
-            GROUP BY ss.stream_id
-        )
-        SELECT
-            ss.*,
-            COALESCE(fc.file_count, 0) as file_count,
-            COALESCE(fc.unmapped_count, 0) as unmapped_count
-        FROM series_streams ss
-        LEFT JOIN file_counts fc ON fc.stream_id = ss.stream_id
-        ORDER BY ss.created_at DESC
-        LIMIT :limit OFFSET :offset
-    """)
+    total = int(rows[0].total_count or 0)
 
-    result = await session.exec(data_sql, params=params)
-    rows = result.all()
+    media_external_id_map = await get_canonical_external_ids_batch(
+        session,
+        [row.media_id for row in rows],
+    )
 
     # Build response items
     items = []
     for row in rows:
+        raw_media_type = row.media_type if row.media_type is not None else MediaType.SERIES.value
+        media_type = raw_media_type.lower() if isinstance(raw_media_type, str) else str(raw_media_type).lower()
         items.append(
             StreamNeedingAnnotation(
                 stream_id=row.stream_id,
@@ -831,12 +834,14 @@ async def get_streams_needing_annotation(
                 size=row.size,
                 resolution=row.resolution,
                 info_hash=row.info_hash,
-                file_count=row.file_count or 0,
-                unmapped_count=row.unmapped_count or 0,
+                file_count=None,
+                unmapped_count=None,
                 created_at=row.created_at,
                 media_id=row.media_id,
                 media_title=row.media_title,
                 media_year=row.media_year,
+                media_type=media_type,
+                media_external_id=media_external_id_map.get(row.media_id),
             )
         )
 

@@ -346,28 +346,50 @@ class TelegramNotifier:
 
                 annotation_result = await session.exec(
                     text("""
-                        WITH series_streams AS (
+                        WITH unlinked_streams AS (
+                            SELECT DISTINCT sf.stream_id
+                            FROM stream_file sf
+                            INNER JOIN stream s ON s.id = sf.stream_id
+                            LEFT JOIN file_media_link fml_any ON fml_any.file_id = sf.id
+                            WHERE s.is_active = true
+                              AND s.is_blocked = false
+                              AND fml_any.id IS NULL
+                        ),
+                        null_episode_pairs AS (
+                            SELECT DISTINCT sf.stream_id, fml_series.media_id
+                            FROM stream_file sf
+                            INNER JOIN stream s ON s.id = sf.stream_id
+                            INNER JOIN file_media_link fml_series ON fml_series.file_id = sf.id
+                            INNER JOIN stream_media_link sml
+                                ON sml.stream_id = sf.stream_id
+                               AND sml.media_id = fml_series.media_id
+                            INNER JOIN media m ON m.id = fml_series.media_id
+                            WHERE s.is_active = true
+                              AND s.is_blocked = false
+                              AND m.type = 'SERIES'
+                              AND fml_series.episode_number IS NULL
+                        ),
+                        unmapped_pairs AS (
                             SELECT DISTINCT
-                                s.id as stream_id,
-                                s.created_at
-                            FROM stream s
-                            INNER JOIN torrent_stream ts ON ts.stream_id = s.id
-                            INNER JOIN stream_media_link sml ON sml.stream_id = s.id
+                                us.stream_id as stream_id,
+                                m.id as media_id
+                            FROM unlinked_streams us
+                            INNER JOIN stream_media_link sml ON sml.stream_id = us.stream_id
                             INNER JOIN media m ON sml.media_id = m.id
                             WHERE m.type = 'SERIES'
-                              AND s.is_active = true
-                              AND s.is_blocked = false
-                              AND EXISTS (
-                                  SELECT 1 FROM stream_file sf
-                                  LEFT JOIN file_media_link fml ON fml.file_id = sf.id
-                                  WHERE sf.stream_id = s.id
-                                    AND (fml.id IS NULL OR fml.episode_number IS NULL)
-                              )
+                            UNION
+                            SELECT nep.stream_id, nep.media_id
+                            FROM null_episode_pairs nep
+                        ),
+                        annotated_streams AS (
+                            SELECT DISTINCT s.id as stream_id, s.created_at
+                            FROM unmapped_pairs up
+                            INNER JOIN stream s ON s.id = up.stream_id
                         )
                         SELECT
                             COUNT(*) AS total,
                             MIN(created_at) AS oldest_created_at
-                        FROM series_streams
+                        FROM annotated_streams
                     """)
                 )
                 annotation_count, annotation_oldest = annotation_result.one()

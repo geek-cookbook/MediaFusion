@@ -81,12 +81,16 @@ export function StreamLinkingDialog({ open, onOpenChange, stream, onSuccess }: S
   // New link state
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchYear, setSearchYear] = useState('')
   const [selectedMedia, setSelectedMedia] = useState<CombinedSearchResult | null>(null)
   const [fileIndex, setFileIndex] = useState<string>('')
   const [season, setSeason] = useState<string>('')
   const [episode, setEpisode] = useState<string>('')
 
   const debouncedQuery = useDebounce(searchQuery, 300)
+  const trimmedSearchYear = searchYear.trim()
+  const parsedSearchYear = trimmedSearchYear ? Number(trimmedSearchYear) : undefined
+  const validSearchYear = Number.isFinite(parsedSearchYear) ? parsedSearchYear : undefined
 
   // Use combined search but only allow linking to internal results (they have media_id)
   const {
@@ -98,6 +102,7 @@ export function StreamLinkingDialog({ open, onOpenChange, stream, onSuccess }: S
       query: debouncedQuery,
       type: 'all',
       limit: 20,
+      year: validSearchYear,
     },
     { enabled: debouncedQuery.length >= 2 && open },
   )
@@ -130,6 +135,7 @@ export function StreamLinkingDialog({ open, onOpenChange, stream, onSuccess }: S
     if (!open) {
       // Reset state when closing
       setSearchQuery('')
+      setSearchYear('')
       setSelectedMedia(null)
       setFileIndex('')
       setSeason('')
@@ -147,6 +153,7 @@ export function StreamLinkingDialog({ open, onOpenChange, stream, onSuccess }: S
     setSelectedMedia(result)
     setSearchOpen(false)
     setSearchQuery('')
+    setSearchYear('')
   }, [])
 
   // Create new link
@@ -362,13 +369,26 @@ export function StreamLinkingDialog({ open, onOpenChange, stream, onSuccess }: S
                 </PopoverTrigger>
                 <PopoverContent className="w-[400px] p-0" align="start">
                   <div className="p-2 border-b">
-                    <Input
-                      placeholder="Search movies, series, or user metadata..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="h-9"
-                      autoFocus
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Search movies, series, or user metadata..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="h-9"
+                        autoFocus
+                      />
+                      <Input
+                        type="number"
+                        inputMode="numeric"
+                        min={1878}
+                        max={9999}
+                        step={1}
+                        placeholder="Year"
+                        value={searchYear}
+                        onChange={(e) => setSearchYear(e.target.value)}
+                        className="h-9 w-24 shrink-0"
+                      />
+                    </div>
                   </div>
                   <ScrollArea className="max-h-[300px]">
                     {isSearching && searchResults.length === 0 && (

@@ -272,6 +272,8 @@ class StreamInfo(BaseModel):
     torrent_stream_id: int | None = None  # TorrentStream ID (for torrent admin actions)
     info_hash: str | None = None  # Torrent info hash
     nzb_guid: str | None = None  # Usenet/NZB GUID
+    yt_id: str | None = None  # YouTube video ID
+    ytId: str | None = None  # Legacy/camelCase compatibility
 
     # Stremio-compatible fields
     name: str  # Formatted name with provider, resolution, status
@@ -1464,6 +1466,7 @@ async def get_catalog_item_streams(
     stream_query = stream_query.options(
         selectinload(Stream.torrent_stream),
         selectinload(Stream.http_stream),
+        selectinload(Stream.youtube_stream),
         selectinload(Stream.usenet_stream),
         selectinload(Stream.telegram_stream),
         selectinload(Stream.acestream_stream),
@@ -1689,6 +1692,7 @@ async def get_catalog_item_streams(
         # Get type-specific data
         torrent = stream.torrent_stream
         http_stream = stream.http_stream
+        youtube_stream = stream.youtube_stream
         usenet = stream.usenet_stream
         telegram = stream.telegram_stream
         acestream = stream.acestream_stream
@@ -1933,6 +1937,9 @@ async def get_catalog_item_streams(
         elif http_stream:
             # HTTP streams (TV channels, direct links) - use the URL directly
             playback_url = http_stream.url
+        elif youtube_stream and youtube_stream.video_id:
+            # YouTube streams - expose canonical watch URL for frontend playback/embed
+            playback_url = f"https://www.youtube.com/watch?v={youtube_stream.video_id}"
         elif secret_str and usenet and usenet.nzb_guid:
             # Usenet streams with debrid
             if catalog_type == "series" and season is not None and episode is not None:
@@ -1953,6 +1960,8 @@ async def get_catalog_item_streams(
                 torrent_stream_id=torrent.id if torrent else None,
                 info_hash=torrent.info_hash if torrent else None,
                 nzb_guid=usenet.nzb_guid if usenet else None,
+                yt_id=youtube_stream.video_id if youtube_stream else None,
+                ytId=youtube_stream.video_id if youtube_stream else None,
                 # Display fields - now formatted!
                 name=formatted_name,
                 description=formatted_description,

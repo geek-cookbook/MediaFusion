@@ -41,6 +41,7 @@ export interface UseCombinedSearchOptions {
   type?: 'movie' | 'series' | 'all'
   sources?: ('internal' | 'external')[] // Default: both
   limit?: number
+  year?: number
 }
 
 // Convert internal search result to combined format
@@ -124,7 +125,8 @@ function sortResults(results: CombinedSearchResult[]): CombinedSearchResult[] {
 export const combinedSearchKeys = {
   all: ['combined-metadata-search'] as const,
   internal: (query: string, type?: string) => [...combinedSearchKeys.all, 'internal', { query, type }] as const,
-  external: (query: string, type?: string) => [...combinedSearchKeys.all, 'external', { query, type }] as const,
+  external: (query: string, type?: string, year?: number) =>
+    [...combinedSearchKeys.all, 'external', { query, type, year }] as const,
 }
 
 /**
@@ -132,7 +134,7 @@ export const combinedSearchKeys = {
  * Results appear progressively as each source completes
  */
 export function useCombinedMetadataSearch(params: UseCombinedSearchOptions, options?: { enabled?: boolean }) {
-  const { query, type = 'all', sources = ['internal', 'external'], limit = 15 } = params
+  const { query, type = 'all', sources = ['internal', 'external'], limit = 15, year } = params
   const searchInternal = sources.includes('internal')
   const searchExternal = sources.includes('external')
   const isEnabled = options?.enabled !== false && query.length >= 2
@@ -159,10 +161,10 @@ export function useCombinedMetadataSearch(params: UseCombinedSearchOptions, opti
 
   // External search query (movie)
   const externalMovieQuery = useQuery({
-    queryKey: combinedSearchKeys.external(query, 'movie'),
+    queryKey: combinedSearchKeys.external(query, 'movie', year),
     queryFn: async (): Promise<CombinedSearchResult[]> => {
       try {
-        const response = await metadataApi.searchExternal(query, 'movie')
+        const response = await metadataApi.searchExternal(query, 'movie', year)
         return (response.results || []).map((r) => externalToCombined(r, 'movie'))
       } catch {
         return []
@@ -174,10 +176,10 @@ export function useCombinedMetadataSearch(params: UseCombinedSearchOptions, opti
 
   // External search query (series)
   const externalSeriesQuery = useQuery({
-    queryKey: combinedSearchKeys.external(query, 'series'),
+    queryKey: combinedSearchKeys.external(query, 'series', year),
     queryFn: async (): Promise<CombinedSearchResult[]> => {
       try {
-        const response = await metadataApi.searchExternal(query, 'series')
+        const response = await metadataApi.searchExternal(query, 'series', year)
         return (response.results || []).map((r) => externalToCombined(r, 'series'))
       } catch {
         return []

@@ -138,8 +138,10 @@ export function RefreshMetadataButton({
   const [newExternalId, setNewExternalId] = useState('')
   const [selectedProvider, setSelectedProvider] = useState<ExternalProvider>('imdb')
   const [searchQuery, setSearchQuery] = useState(title)
+  const [searchYear, setSearchYear] = useState(year ? String(year) : '')
   const [searchResults, setSearchResults] = useState<ExternalSearchResult[]>([])
   const [selectedResult, setSelectedResult] = useState<ExternalSearchResult | null>(null)
+  const [failedPosterKeys, setFailedPosterKeys] = useState<Record<string, boolean>>({})
   const [selectedProviders, setSelectedProviders] = useState<MetadataProvider[]>([])
   const [providerDropdownOpen, setProviderDropdownOpen] = useState(false)
   const [fetchMetadataOnLink, setFetchMetadataOnLink] = useState(true)
@@ -180,8 +182,14 @@ export function RefreshMetadataButton({
 
   // Search mutation
   const searchMutation = useMutation({
-    mutationFn: () => metadataApi.searchExternal(searchQuery, mediaType, year),
+    mutationFn: () => {
+      const trimmedSearchYear = searchYear.trim()
+      const parsedSearchYear = trimmedSearchYear ? Number(trimmedSearchYear) : undefined
+      const validSearchYear = Number.isFinite(parsedSearchYear) ? parsedSearchYear : undefined
+      return metadataApi.searchExternal(searchQuery, mediaType, validSearchYear)
+    },
     onSuccess: (data) => {
+      setFailedPosterKeys({})
       setSearchResults(data.results)
     },
     onError: (error: Error) => {
@@ -266,7 +274,9 @@ export function RefreshMetadataButton({
 
   const handleOpenLinkDialog = () => {
     setSearchQuery(title)
+    setSearchYear(year ? String(year) : '')
     setSearchResults([])
+    setFailedPosterKeys({})
     setSelectedResult(null)
     setNewExternalId('')
     setSelectedProvider('imdb')
@@ -486,18 +496,30 @@ export function RefreshMetadataButton({
                 {/* Search section */}
                 <div className="space-y-3">
                   <Label className="text-sm font-medium">Search External Providers</Label>
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-[1fr_132px_auto] gap-2">
                     <Input
                       placeholder="Search by title..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                      className="flex-1 rounded-xl"
+                      className="rounded-xl min-w-0"
+                    />
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min={1878}
+                      max={9999}
+                      step={1}
+                      placeholder="Year (optional)"
+                      value={searchYear}
+                      onChange={(e) => setSearchYear(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                      className="w-[132px] rounded-xl"
                     />
                     <Button
                       onClick={handleSearch}
                       disabled={searchMutation.isPending || !searchQuery.trim()}
-                      className="rounded-xl"
+                      className="rounded-xl shrink-0"
                     >
                       {searchMutation.isPending ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -520,6 +542,8 @@ export function RefreshMetadataButton({
                           const newIdsCount = availableIds.filter(
                             (item) => !externalIds?.[item.provider as keyof ExternalIds],
                           ).length
+                          const posterKey = `${result.provider}-${result.id}-${result.poster || 'no-poster'}`
+                          const canShowPoster = !!result.poster && !failedPosterKeys[posterKey]
                           return (
                             <div
                               key={`${result.id}-${idx}`}
@@ -531,29 +555,36 @@ export function RefreshMetadataButton({
                               )}
                               onClick={() => handleSelectResult(result)}
                             >
-                              {result.poster ? (
+                              {canShowPoster ? (
                                 <img
                                   src={result.poster}
-                                  alt={result.title}
-                                  className="w-12 h-18 object-cover rounded"
+                                  alt=""
+                                  className="w-12 h-[72px] object-cover rounded shrink-0"
+                                  loading="lazy"
+                                  onError={() =>
+                                    setFailedPosterKeys((prev) => ({
+                                      ...prev,
+                                      [posterKey]: true,
+                                    }))
+                                  }
                                 />
                               ) : (
-                                <div className="w-12 h-18 bg-muted rounded flex items-center justify-center">
+                                <div className="w-12 h-[72px] bg-muted rounded flex items-center justify-center shrink-0">
                                   <Film className="h-6 w-6 text-muted-foreground" />
                                 </div>
                               )}
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <p className="font-medium text-sm truncate">{result.title}</p>
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <p className="font-medium text-sm truncate min-w-0 flex-1">{result.title}</p>
                                   {providerConfig && (
-                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0">
                                       {providerConfig.icon} {providerConfig.name}
                                     </Badge>
                                   )}
                                   {newIdsCount > 0 && (
                                     <Badge
                                       variant="outline"
-                                      className="text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+                                      className="text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/30 shrink-0"
                                     >
                                       +{newIdsCount} new
                                     </Badge>

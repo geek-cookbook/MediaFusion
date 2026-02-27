@@ -236,6 +236,10 @@ class Stream(TimestampMixin, table=True):
         back_populates="stream",
         sa_relationship_kwargs={"uselist": False},
     )
+    youtube_stream: Optional["YouTubeStream"] = Relationship(
+        back_populates="stream",
+        sa_relationship_kwargs={"uselist": False},
+    )
     usenet_stream: Optional["UsenetStream"] = Relationship(
         back_populates="stream",
         sa_relationship_kwargs={"uselist": False},
@@ -436,7 +440,10 @@ class YouTubeStream(SQLModel, table=True):
     geo_restriction_countries: list[str] | None = Field(default=None, sa_type=JSONB)
 
     # Relationships
-    stream: Stream = Relationship(sa_relationship_kwargs={"uselist": False})
+    stream: Stream = Relationship(
+        back_populates="youtube_stream",
+        sa_relationship_kwargs={"uselist": False},
+    )
 
 
 class UsenetStream(SQLModel, table=True):

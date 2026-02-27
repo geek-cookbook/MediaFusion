@@ -154,6 +154,8 @@ export interface StreamInfo {
   id?: number // Stream database ID
   torrent_stream_id?: number // TorrentStream ID for torrent admin actions
   info_hash?: string // For torrent streams
+  yt_id?: string // YouTube video ID
+  ytId?: string // Legacy/camelCase compatibility
 
   // Stremio-compatible fields
   name: string // Formatted name with provider, resolution, status

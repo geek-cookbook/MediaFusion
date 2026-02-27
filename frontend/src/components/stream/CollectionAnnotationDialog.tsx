@@ -109,14 +109,18 @@ function MediaSearchPopover({
 }) {
   const [open, setOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState(initialQuery || '')
+  const [searchYear, setSearchYear] = useState('')
   const debouncedQuery = useDebounce(searchQuery, 300)
+  const trimmedSearchYear = searchYear.trim()
+  const parsedSearchYear = trimmedSearchYear ? Number(trimmedSearchYear) : undefined
+  const validSearchYear = Number.isFinite(parsedSearchYear) ? parsedSearchYear : undefined
 
   const {
     data: results = [],
     isLoading,
     isFetching,
   } = useCombinedMetadataSearch(
-    { query: debouncedQuery, type: 'all', limit: 15 },
+    { query: debouncedQuery, type: 'all', limit: 15, year: validSearchYear },
     { enabled: debouncedQuery.length >= 2 && open },
   )
 
@@ -137,6 +141,7 @@ function MediaSearchPopover({
       onSelect(result)
       setOpen(false)
       setSearchQuery('')
+      setSearchYear('')
     },
     [onSelect],
   )
@@ -180,13 +185,26 @@ function MediaSearchPopover({
       </PopoverTrigger>
       <PopoverContent className="w-[350px] p-0" align="start">
         <div className="p-2 border-b">
-          <Input
-            placeholder="Search movies, series..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-8 text-sm"
-            autoFocus
-          />
+          <div className="flex gap-2">
+            <Input
+              placeholder="Search movies, series..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 text-sm"
+              autoFocus
+            />
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={1878}
+              max={9999}
+              step={1}
+              placeholder="Year"
+              value={searchYear}
+              onChange={(e) => setSearchYear(e.target.value)}
+              className="h-8 w-24 shrink-0 text-sm"
+            />
+          </div>
         </div>
         <ScrollArea className="max-h-[250px]">
           {isLoading && results.length === 0 && (

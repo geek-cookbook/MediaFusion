@@ -544,6 +544,7 @@ export function TorrentImportDialog({
                     metaId={metaId}
                     onMetaIdChange={setMetaId}
                     contentType={contentType === 'sports' ? 'movie' : contentType === 'tv' ? 'movie' : contentType}
+                    initialYear={analysis.year}
                   />
                 </div>
               )}

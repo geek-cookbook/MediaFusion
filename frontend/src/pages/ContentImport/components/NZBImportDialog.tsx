@@ -358,6 +358,7 @@ export function NZBImportDialog({
                   metaId={metaId}
                   onMetaIdChange={setMetaId}
                   contentType={contentType === 'series' ? 'series' : 'movie'}
+                  initialYear={analysis.year}
                 />
               </div>
             )}

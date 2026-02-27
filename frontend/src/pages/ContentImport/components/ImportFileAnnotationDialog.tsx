@@ -168,12 +168,16 @@ function MetadataSearchPopover({
 }) {
   const [open, setOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchYear, setSearchYear] = useState('')
   const [showManualId, setShowManualId] = useState(false)
   const [manualProvider, setManualProvider] = useState<ImportProvider>('imdb')
   const [manualId, setManualId] = useState('')
   const [isLoadingPreview, setIsLoadingPreview] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
   const debouncedQuery = useDebounce(searchQuery, 300)
+  const trimmedSearchYear = searchYear.trim()
+  const parsedSearchYear = trimmedSearchYear ? Number(trimmedSearchYear) : undefined
+  const validSearchYear = Number.isFinite(parsedSearchYear) ? parsedSearchYear : undefined
 
   const {
     data: searchResults = [],
@@ -184,6 +188,7 @@ function MetadataSearchPopover({
       query: debouncedQuery,
       type: metaType,
       limit: 15,
+      year: validSearchYear,
     },
     { enabled: debouncedQuery.length >= 2 && !showManualId },
   )
@@ -193,6 +198,7 @@ function MetadataSearchPopover({
       onSelect(result)
       setOpen(false)
       setSearchQuery('')
+      setSearchYear('')
       setShowManualId(false)
     },
     [onSelect],
@@ -373,13 +379,26 @@ function MetadataSearchPopover({
           // Search mode
           <>
             <div className="p-2 border-b space-y-1.5">
-              <Input
-                placeholder="Search metadata..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-8 text-sm"
-                autoFocus
-              />
+              <div className="flex gap-1.5">
+                <Input
+                  placeholder="Search metadata..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-8 text-sm"
+                  autoFocus
+                />
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={1878}
+                  max={9999}
+                  step={1}
+                  placeholder="Year"
+                  value={searchYear}
+                  onChange={(e) => setSearchYear(e.target.value)}
+                  className="h-8 w-20 text-sm shrink-0"
+                />
+              </div>
               <Button
                 variant="ghost"
                 size="sm"

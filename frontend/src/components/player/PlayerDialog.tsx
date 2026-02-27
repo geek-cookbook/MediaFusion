@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import {
   Dialog,
   DialogClose,
@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { X, Copy, Check, Download, AlertTriangle, Volume2 } from 'lucide-react'
+import { X, Copy, Check, Download, AlertTriangle, Volume2, MonitorPlay } from 'lucide-react'
 import { VideoPlayer, type VideoSource } from './VideoPlayer'
 import { ExternalPlayerMenu } from './ExternalPlayerMenu'
 
@@ -72,11 +72,48 @@ function getUnsupportedCodecName(audioInfo?: string): string | null {
   return null
 }
 
+const YOUTUBE_URL_PATTERNS = [
+  /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/u,
+  /(?:https?:\/\/)?youtu\.be\/([a-zA-Z0-9_-]{11})/u,
+  /(?:https?:\/\/)?(?:www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/u,
+  /(?:https?:\/\/)?(?:www\.)?youtube\.com\/v\/([a-zA-Z0-9_-]{11})/u,
+  /(?:https?:\/\/)?(?:www\.)?youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/u,
+]
+
+function extractYouTubeVideoId(url: string): string | null {
+  for (const pattern of YOUTUBE_URL_PATTERNS) {
+    const match = url.match(pattern)
+    if (match) return match[1]
+  }
+  if (/^[a-zA-Z0-9_-]{11}$/u.test(url)) return url
+  return null
+}
+
+function buildYouTubeEmbedUrl(videoId: string, startTime?: number): string {
+  const params = new URLSearchParams({
+    autoplay: '1',
+    rel: '0',
+    playsinline: '1',
+  })
+
+  if (startTime && startTime > 0) {
+    params.set('start', String(Math.floor(startTime)))
+  }
+
+  return `https://www.youtube.com/embed/${videoId}?${params.toString()}`
+}
+
+function buildYouTubeWatchUrl(videoId: string): string {
+  return `https://www.youtube.com/watch?v=${videoId}`
+}
+
 export interface StreamInfo {
   id?: string
   name: string
   title?: string
   url?: string
+  ytId?: string
+  streamType?: string
   quality?: string
   resolution?: string
   size?: string
@@ -90,6 +127,10 @@ export interface PlayerDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   stream: StreamInfo | null
+  externalStreamUrl?: string
+  transcodeStreamUrl?: string | null
+  isTranscodedPlayback?: boolean
+  onSwitchToTranscode?: () => void
   contentTitle?: string
   poster?: string
   startTime?: number
@@ -101,6 +142,10 @@ export function PlayerDialog({
   open,
   onOpenChange,
   stream,
+  externalStreamUrl,
+  transcodeStreamUrl,
+  isTranscodedPlayback = false,
+  onSwitchToTranscode,
   contentTitle,
   poster,
   startTime,
@@ -111,12 +156,35 @@ export function PlayerDialog({
   const [dismissedWarning, setDismissedWarning] = useState(false)
   const [runtimeAudioIssue, setRuntimeAudioIssue] = useState(false)
 
+  const youtubeVideoId = useMemo(
+    () => stream?.ytId || extractYouTubeVideoId(externalStreamUrl || stream?.url || ''),
+    [stream?.ytId, externalStreamUrl, stream?.url],
+  )
+  const actionableExternalStreamUrl =
+    externalStreamUrl || stream?.url || (youtubeVideoId ? buildYouTubeWatchUrl(youtubeVideoId) : '')
+  const canSwitchToTranscode = Boolean(transcodeStreamUrl && !isTranscodedPlayback && onSwitchToTranscode)
+  const isYouTubePlayback = stream?.streamType === 'youtube' || Boolean(youtubeVideoId)
+  const youtubeEmbedUrl = useMemo(
+    () => (youtubeVideoId ? buildYouTubeEmbedUrl(youtubeVideoId, startTime) : null),
+    [youtubeVideoId, startTime],
+  )
+
+  useEffect(() => {
+    if (!open) return
+
+    // Remove global grain overlay while video player is open.
+    document.body.classList.add('video-player-open')
+    return () => {
+      document.body.classList.remove('video-player-open')
+    }
+  }, [open])
+
   const handleCopy = useCallback(async () => {
-    if (!stream?.url) return
-    await navigator.clipboard.writeText(stream.url)
+    if (!actionableExternalStreamUrl) return
+    await navigator.clipboard.writeText(actionableExternalStreamUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }, [stream])
+  }, [actionableExternalStreamUrl])
 
   // Check for unsupported audio codec based on stream metadata
   const audioWarning = useMemo(() => {
@@ -143,7 +211,8 @@ export function PlayerDialog({
     setRuntimeAudioIssue(false)
   }
 
-  if (!stream?.url) return null
+  if (!stream) return null
+  if (!stream.url && !isYouTubePlayback) return null
 
   // Extract headers from behaviorHints if available
   const proxyHeaders = stream.behaviorHints?.proxyHeaders as { request?: Record<string, string> } | undefined
@@ -151,12 +220,16 @@ export function PlayerDialog({
 
   // Prepare video sources
   const sources: VideoSource[] = [
-    {
-      src: stream.url,
-      label: stream.quality || stream.resolution || 'Default',
-      quality: stream.quality || stream.resolution,
-      headers,
-    },
+    ...(stream.url
+      ? [
+          {
+            src: stream.url,
+            label: stream.quality || stream.resolution || 'Default',
+            quality: stream.quality || stream.resolution,
+            headers,
+          },
+        ]
+      : []),
   ]
 
   // Show warning if we have metadata-based warning OR runtime-detected issue
@@ -211,7 +284,13 @@ export function PlayerDialog({
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <ExternalPlayerMenu streamUrl={stream.url} variant="prominent" />
+                {canSwitchToTranscode && (
+                  <Button variant="outline" size="sm" className="h-8" onClick={onSwitchToTranscode}>
+                    <MonitorPlay className="mr-1 h-3 w-3" />
+                    Play via MediaFlow Transcode
+                  </Button>
+                )}
+                <ExternalPlayerMenu streamUrl={actionableExternalStreamUrl} variant="prominent" />
                 <Button
                   variant="ghost"
                   size="sm"
@@ -226,16 +305,28 @@ export function PlayerDialog({
         )}
 
         {/* Video Player */}
-        <VideoPlayer
-          sources={sources}
-          poster={poster}
-          autoPlay
-          startTime={startTime}
-          onTimeUpdate={onTimeUpdate}
-          onEnded={onEnded}
-          onAudioIssue={handleAudioIssue}
-          className="w-full"
-        />
+        {isYouTubePlayback && youtubeEmbedUrl ? (
+          <div className="relative aspect-video w-full bg-black">
+            <iframe
+              src={youtubeEmbedUrl}
+              title={contentTitle || stream.title || stream.name}
+              className="absolute inset-0 w-full h-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        ) : (
+          <VideoPlayer
+            sources={sources}
+            poster={poster}
+            autoPlay
+            startTime={startTime}
+            onTimeUpdate={onTimeUpdate}
+            onEnded={onEnded}
+            onAudioIssue={handleAudioIssue}
+            className="w-full"
+          />
+        )}
 
         {/* Bottom Info Bar */}
         <div className="p-4 bg-black/90 border-t border-white/10">
@@ -299,10 +390,10 @@ export function PlayerDialog({
                 )}
               </Button>
 
-              <ExternalPlayerMenu streamUrl={stream.url} />
+              <ExternalPlayerMenu streamUrl={actionableExternalStreamUrl} />
 
               <Button variant="ghost" size="sm" className="text-white/70 hover:text-white hover:bg-white/10" asChild>
-                <a href={stream.url} download target="_blank" rel="noopener noreferrer">
+                <a href={actionableExternalStreamUrl} download target="_blank" rel="noopener noreferrer">
                   <Download className="mr-2 h-4 w-4" />
                   Download
                 </a>

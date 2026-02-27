@@ -16,6 +16,7 @@ interface MatchSearchSectionProps {
   metaId: string
   onMetaIdChange: (id: string) => void
   contentType: 'movie' | 'series'
+  initialYear?: number
   gridClassName?: string
 }
 
@@ -27,9 +28,11 @@ export function MatchSearchSection({
   metaId,
   onMetaIdChange,
   contentType,
+  initialYear,
   gridClassName = 'h-[250px]',
 }: MatchSearchSectionProps) {
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchYear, setSearchYear] = useState(initialYear ? String(initialYear) : '')
   const [customMatches, setCustomMatches] = useState<ExtendedMatch[] | null>(null)
   const [customSelectedIndex, setCustomSelectedIndex] = useState<number | null>(null)
 
@@ -39,7 +42,8 @@ export function MatchSearchSection({
   const activeSelectedIndex = isCustom ? customSelectedIndex : selectedIndex
 
   const searchMutation = useMutation({
-    mutationFn: (query: string) => metadataApi.searchExternal(query, contentType),
+    mutationFn: ({ query, searchYear }: { query: string; searchYear?: number }) =>
+      metadataApi.searchExternal(query, contentType, searchYear),
     onSuccess: (result) => {
       if (result.status === 'success' && result.results.length > 0) {
         const mapped: ExtendedMatch[] = result.results.map((r) => ({
@@ -62,14 +66,18 @@ export function MatchSearchSection({
 
   const handleSearch = useCallback(() => {
     if (!searchQuery.trim()) return
-    searchMutation.mutate(searchQuery.trim())
-  }, [searchQuery, searchMutation])
+    const trimmedSearchYear = searchYear.trim()
+    const parsedSearchYear = trimmedSearchYear ? Number(trimmedSearchYear) : undefined
+    const validSearchYear = Number.isFinite(parsedSearchYear) ? parsedSearchYear : undefined
+    searchMutation.mutate({ query: searchQuery.trim(), searchYear: validSearchYear })
+  }, [searchQuery, searchYear, searchMutation])
 
   const handleReset = useCallback(() => {
     setCustomMatches(null)
     setCustomSelectedIndex(null)
     setSearchQuery('')
-  }, [])
+    setSearchYear(initialYear ? String(initialYear) : '')
+  }, [initialYear])
 
   const handleSelectMatch = useCallback(
     (match: ExtendedMatch, index: number) => {
@@ -85,7 +93,7 @@ export function MatchSearchSection({
     <div className="space-y-3">
       {/* Search Input */}
       <div className="space-y-2">
-        <Label className="text-xs text-muted-foreground">Search by title</Label>
+        <Label className="text-xs text-muted-foreground">Search by title (optional year filter)</Label>
         <div className="flex gap-2">
           <Input
             placeholder="Enter a title to search..."
@@ -95,6 +103,20 @@ export function MatchSearchSection({
               if (e.key === 'Enter' && searchQuery.trim()) handleSearch()
             }}
             className="rounded-lg text-sm"
+          />
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={1878}
+            max={9999}
+            step={1}
+            placeholder="Year"
+            value={searchYear}
+            onChange={(e) => setSearchYear(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && searchQuery.trim()) handleSearch()
+            }}
+            className="rounded-lg text-sm w-24 shrink-0"
           />
           <Button
             variant="outline"

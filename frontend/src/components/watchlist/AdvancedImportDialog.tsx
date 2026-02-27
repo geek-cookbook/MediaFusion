@@ -106,6 +106,7 @@ export function AdvancedImportDialog({
   const [contentType, setContentType] = useState<'movie' | 'series'>(inferInitialContentType(torrent))
   const [importMode, setImportMode] = useState<ImportMode>('single')
   const [searchQuery, setSearchQuery] = useState(torrent.parsed_title || '')
+  const [searchYear, setSearchYear] = useState(torrent.parsed_year ? String(torrent.parsed_year) : '')
   const [selectedMedia, setSelectedMedia] = useState<CombinedSearchResult | null>(null)
   const [fileAnnotations, setFileAnnotations] = useState<FileAnnotation[]>([])
   const [annotationDialogOpen, setAnnotationDialogOpen] = useState(false)
@@ -121,6 +122,9 @@ export function AdvancedImportDialog({
   } | null>(null)
 
   const debouncedQuery = useDebounce(searchQuery, 300)
+  const trimmedSearchYear = searchYear.trim()
+  const parsedSearchYear = trimmedSearchYear ? Number(trimmedSearchYear) : undefined
+  const validSearchYear = Number.isFinite(parsedSearchYear) ? parsedSearchYear : undefined
   const advancedImport = useAdvancedImport()
 
   // Check if in multi-content mode
@@ -136,6 +140,7 @@ export function AdvancedImportDialog({
       query: debouncedQuery,
       type: contentType,
       limit: 15,
+      year: validSearchYear,
     },
     { enabled: debouncedQuery.length >= 2 && !isMultiContentMode },
   )
@@ -544,13 +549,26 @@ export function AdvancedImportDialog({
                   {/* Metadata Search */}
                   <div className="space-y-2">
                     <Label>Search Metadata</Label>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="Search for title..."
+                          className="pl-9"
+                        />
+                      </div>
                       <Input
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search for title..."
-                        className="pl-9"
+                        type="number"
+                        inputMode="numeric"
+                        min={1878}
+                        max={9999}
+                        step={1}
+                        placeholder="Year"
+                        value={searchYear}
+                        onChange={(e) => setSearchYear(e.target.value)}
+                        className="w-24 shrink-0"
                       />
                     </div>
                   </div>

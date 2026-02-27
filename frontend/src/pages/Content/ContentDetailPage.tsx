@@ -102,7 +102,7 @@ interface StreamActionDialogProps {
   selectedProvider?: string | null // Currently selected provider service name
   hasMediaflowProxy: boolean // Whether MediaFlow proxy is configured for in-browser playback
   onStreamDeleted?: () => void
-  onWatch?: (stream: CatalogStreamInfo, streamUrl: string) => void // Callback to open player at page level
+  onWatch?: (stream: CatalogStreamInfo, streamUrl: string, options?: { useTranscode?: boolean }) => void // Callback to open player at page level
 }
 
 const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
@@ -121,6 +121,63 @@ const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   sabnzbd: 'SABnzbd',
   nzbget: 'NZBGet',
   p2p: 'P2P',
+}
+
+function buildTranscodeStreamUrl(streamUrl: string): string {
+  const [urlWithoutHash, hash] = streamUrl.split('#', 2)
+  const [baseUrl, queryString = ''] = urlWithoutHash.split('?', 2)
+  const queryParams = new URLSearchParams(queryString)
+
+  const isTelegramProxyStream = /\/proxy\/telegram\/stream(?:\/[^?#]*)?$/u.test(baseUrl)
+  const isGenericProxyStream = /\/proxy\/stream(?:\/[^?#]*)?$/u.test(baseUrl)
+
+  let transcodeBaseUrl = baseUrl
+  if (isTelegramProxyStream) {
+    transcodeBaseUrl = baseUrl.replace(
+      /\/proxy\/telegram\/stream(?:\/[^?#]*)?$/u,
+      '/proxy/telegram/transcode/playlist.m3u8',
+    )
+    queryParams.delete('transcode')
+  } else if (isGenericProxyStream) {
+    transcodeBaseUrl = baseUrl.replace(/\/proxy\/stream(?:\/[^?#]*)?$/u, '/proxy/transcode/playlist.m3u8')
+    queryParams.delete('transcode')
+  } else {
+    queryParams.set('transcode', 'true')
+  }
+
+  const serializedQuery = queryParams.toString()
+  const rebuiltUrl = serializedQuery ? `${transcodeBaseUrl}?${serializedQuery}` : transcodeBaseUrl
+  return hash ? `${rebuiltUrl}#${hash}` : rebuiltUrl
+}
+
+function canUseTranscode(streamUrl: string): boolean {
+  const [urlWithoutHash] = streamUrl.split('#', 1)
+  const [baseUrl] = urlWithoutHash.split('?', 1)
+
+  // Prefer explicit MediaFlow proxy routes when available.
+  if (/\/proxy\/(stream|telegram\/stream|acestream\/stream)(?:\/[^?#]*)?$/u.test(baseUrl)) {
+    return true
+  }
+
+  // Fallback for addon playback endpoints that support transcode query param.
+  if (/\/(telegram|acestream)\//u.test(baseUrl)) {
+    return true
+  }
+
+  return false
+}
+
+function canOfferTranscodeForStream(stream: CatalogStreamInfo, streamUrl: string): boolean {
+  // Torrent playback can benefit from MediaFlow transcode in browsers.
+  if (stream.stream_type === 'torrent') {
+    return true
+  }
+
+  return canUseTranscode(streamUrl)
+}
+
+function buildYouTubeWatchUrl(videoId: string): string {
+  return `https://www.youtube.com/watch?v=${videoId}`
 }
 
 function StreamActionDialog({
@@ -172,17 +229,30 @@ function StreamActionDialog({
     onStreamDeleted?.()
   }
 
-  // Stream URL is pre-resolved from the Stremio endpoint
-  const streamUrl = stream?.url
+  const isYoutubeStream = stream?.stream_type === 'youtube'
+  const youtubeVideoId = stream?.yt_id || stream?.ytId || null
+
+  // Stream URL is pre-resolved from the API; YouTube streams may only provide yt_id/ytId
+  const streamUrl =
+    stream?.url || (isYoutubeStream && youtubeVideoId ? buildYouTubeWatchUrl(youtubeVideoId) : undefined)
 
   // Check if this is a Telegram stream (doesn't require debrid)
   const isTelegramStream = stream?.stream_type === 'telegram'
 
   // Check if this is an AceStream stream (doesn't require debrid, uses MediaFlow proxy)
   const isAceStreamStream = stream?.stream_type === 'acestream'
+  const isUsenetStream = stream?.stream_type === 'usenet'
 
   // Streams that use MediaFlow proxy directly (no debrid needed)
   const isDirectProxyStream = isTelegramStream || isAceStreamStream
+  const shouldShowDebridProviderName = Boolean(
+    isDebridProvider && (isTorrentStream || isUsenetStream) && providerDisplayName,
+  )
+  const providerSuffix = shouldShowDebridProviderName ? ` + ${providerDisplayName}` : ''
+  const primaryPlayLabel = isYoutubeStream ? 'Play via YouTube' : `Stream via MediaFlow${providerSuffix}`
+  const transcodePlayLabel = `Play via MediaFlow Transcode${providerSuffix}`
+  const canShowTranscodeOption = Boolean(stream && streamUrl && canOfferTranscodeForStream(stream, streamUrl))
+  const transcodeStreamUrl = canShowTranscodeOption && streamUrl ? buildTranscodeStreamUrl(streamUrl) : null
 
   const handleAction = async (action: 'download' | 'queue' | 'copy') => {
     if (!stream) return
@@ -215,10 +285,10 @@ function StreamActionDialog({
     }
   }
 
-  const handleWatch = () => {
+  const handleWatch = (useTranscode = false) => {
     if (stream && streamUrl && onWatch) {
       onOpenChange(false) // Close stream action dialog
-      onWatch(stream, streamUrl) // Open player at page level
+      onWatch(stream, streamUrl, { useTranscode }) // Open player at page level
     }
   }
 
@@ -514,21 +584,35 @@ function StreamActionDialog({
 
               {/* Actions */}
               <div className="grid gap-3">
-                {streamUrl && (isDebridProvider || isDirectProxyStream) ? (
+                {streamUrl && (isDebridProvider || isDirectProxyStream || isYoutubeStream) ? (
                   <>
                     {/* In-browser playback - requires MediaFlow proxy AND debrid for all streams */}
-                    {hasMediaflowProxy || isDirectProxyStream ? (
+                    {hasMediaflowProxy || isDirectProxyStream || isYoutubeStream ? (
                       <>
-                        <Button
-                          onClick={handleWatch}
-                          className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 min-w-0"
-                          disabled={trackAction.isPending}
-                        >
-                          <MonitorPlay className="mr-2 h-4 w-4 shrink-0" />
-                          <span className="truncate">
-                            Stream via MediaFlow{providerDisplayName ? ` + ${providerDisplayName}` : ''}
-                          </span>
-                        </Button>
+                        <div className={canShowTranscodeOption ? 'grid grid-cols-1 sm:grid-cols-2 gap-2' : ''}>
+                          <Button
+                            onClick={() => handleWatch(false)}
+                            className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 min-w-0 w-full"
+                            disabled={trackAction.isPending}
+                            title={primaryPlayLabel}
+                          >
+                            <MonitorPlay className="mr-2 h-4 w-4 shrink-0" />
+                            <span className="truncate">{primaryPlayLabel}</span>
+                          </Button>
+
+                          {canShowTranscodeOption && transcodeStreamUrl && (
+                            <Button
+                              variant="outline"
+                              onClick={() => handleWatch(true)}
+                              className="rounded-xl min-w-0 w-full"
+                              disabled={trackAction.isPending}
+                              title={transcodePlayLabel}
+                            >
+                              <MonitorPlay className="mr-2 h-4 w-4 shrink-0" />
+                              <span className="truncate">{transcodePlayLabel}</span>
+                            </Button>
+                          )}
+                        </div>
 
                         {/* External Players */}
                         <ExternalPlayerMenu streamUrl={streamUrl} className="rounded-xl justify-center w-full" />
@@ -597,16 +681,29 @@ function StreamActionDialog({
                     {/* Telegram/AceStream streams don't need debrid - show play button */}
                     {isDirectProxyStream && streamUrl ? (
                       <>
-                        <Button
-                          onClick={handleWatch}
-                          className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 min-w-0"
-                          disabled={trackAction.isPending}
-                        >
-                          <MonitorPlay className="mr-2 h-4 w-4 shrink-0" />
-                          <span className="truncate">
-                            Stream via MediaFlow{providerDisplayName ? ` + ${providerDisplayName}` : ''}
-                          </span>
-                        </Button>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <Button
+                            onClick={() => handleWatch(false)}
+                            className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 min-w-0 w-full"
+                            disabled={trackAction.isPending}
+                            title={primaryPlayLabel}
+                          >
+                            <MonitorPlay className="mr-2 h-4 w-4 shrink-0" />
+                            <span className="truncate">{primaryPlayLabel}</span>
+                          </Button>
+                          {transcodeStreamUrl && (
+                            <Button
+                              variant="outline"
+                              onClick={() => handleWatch(true)}
+                              className="rounded-xl min-w-0 w-full"
+                              disabled={trackAction.isPending}
+                              title={transcodePlayLabel}
+                            >
+                              <MonitorPlay className="mr-2 h-4 w-4 shrink-0" />
+                              <span className="truncate">{transcodePlayLabel}</span>
+                            </Button>
+                          )}
+                        </div>
 
                         {/* External Players */}
                         <ExternalPlayerMenu streamUrl={streamUrl} className="rounded-xl justify-center w-full" />
@@ -715,13 +812,15 @@ function StreamActionDialog({
               <div className="flex items-start gap-2 p-3 rounded-xl bg-muted/50 text-sm text-muted-foreground">
                 <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <p>
-                  {streamUrl && (isDebridProvider || isDirectProxyStream)
-                    ? hasMediaflowProxy || isDirectProxyStream
-                      ? isDirectProxyStream
-                        ? isAceStreamStream
-                          ? "Click 'Stream via MediaFlow' to play via MediaFlow Proxy (AceStream)."
-                          : "Click 'Stream via MediaFlow' to play via MediaFlow Proxy (using your Telegram session)."
-                        : "Click 'Stream via MediaFlow' to play in browser, or 'Download' to open in a new tab."
+                  {streamUrl && (isDebridProvider || isDirectProxyStream || isYoutubeStream)
+                    ? hasMediaflowProxy || isDirectProxyStream || isYoutubeStream
+                      ? isYoutubeStream
+                        ? "Click 'Play via YouTube' to watch in embedded YouTube player."
+                        : isDirectProxyStream
+                          ? isAceStreamStream
+                            ? "Click 'Stream via MediaFlow' to play via MediaFlow Proxy (AceStream)."
+                            : "Click 'Stream via MediaFlow' to play via MediaFlow Proxy (using your Telegram session)."
+                          : "Click 'Stream via MediaFlow' to play in browser, or 'Download' to open in a new tab."
                       : "Use 'Download' to open in a new tab or use an external player. Enable 'Web Browser Playback' in External Services for in-browser playback."
                     : isTorrentStream
                       ? isDebridProvider
@@ -823,6 +922,9 @@ export function ContentDetailPage() {
   const [playerOpen, setPlayerOpen] = useState(false)
   const [playerStream, setPlayerStream] = useState<CatalogStreamInfo | null>(null)
   const [playerStreamUrl, setPlayerStreamUrl] = useState<string | null>(null)
+  const [playerExternalStreamUrl, setPlayerExternalStreamUrl] = useState<string | null>(null)
+  const [playerTranscodeStreamUrl, setPlayerTranscodeStreamUrl] = useState<string | null>(null)
+  const [isPlayingTranscodedStream, setIsPlayingTranscodedStream] = useState(false)
 
   // Watch history tracking for resume playback
   const [watchHistoryId, setWatchHistoryId] = useState<number | null>(null)
@@ -1153,18 +1255,16 @@ export function ContentDetailPage() {
 
   // Handle watch action - opens player at page level (outside of StreamActionDialog)
   const handleWatchStream = useCallback(
-    async (stream: CatalogStreamInfo, streamUrl: string) => {
-      // For Telegram and AceStream streams, enable transcoding for browser playback.
-      // This tells MediaFlow to convert MPEG-TS / unsupported codecs (DTS, AC3, EAC3)
-      // into browser-compatible formats (HLS with AAC audio).
-      let finalStreamUrl = streamUrl
-      if (stream.stream_type === 'telegram' || stream.stream_type === 'acestream') {
-        const separator = streamUrl.includes('?') ? '&' : '?'
-        finalStreamUrl = `${streamUrl}${separator}transcode=true`
-      }
+    async (stream: CatalogStreamInfo, streamUrl: string, options?: { useTranscode?: boolean }) => {
+      const transcodeUrl = canOfferTranscodeForStream(stream, streamUrl) ? buildTranscodeStreamUrl(streamUrl) : null
+      const shouldUseTranscode = Boolean(options?.useTranscode && transcodeUrl)
+      const finalStreamUrl = shouldUseTranscode && transcodeUrl ? transcodeUrl : streamUrl
 
       setPlayerStream(stream)
       setPlayerStreamUrl(finalStreamUrl)
+      setPlayerExternalStreamUrl(streamUrl)
+      setPlayerTranscodeStreamUrl(transcodeUrl)
+      setIsPlayingTranscodedStream(shouldUseTranscode)
       setWatchHistoryId(null) // Reset history ID
       setStartTime(0) // Reset start time
       lastProgressUpdateRef.current = 0 // Reset progress throttle
@@ -1212,6 +1312,13 @@ export function ContentDetailPage() {
     [item, mediaId, catalogType, selectedSeason, selectedEpisode, trackAction, getLastPlayedKey],
   )
 
+  const handleSwitchToTranscode = useCallback(() => {
+    if (!playerTranscodeStreamUrl || isPlayingTranscodedStream) return
+
+    setPlayerStreamUrl(playerTranscodeStreamUrl)
+    setIsPlayingTranscodedStream(true)
+  }, [playerTranscodeStreamUrl, isPlayingTranscodedStream])
+
   // Throttled progress update handler (every 10 seconds)
   const handleTimeUpdate = useCallback(
     (currentTime: number, duration: number) => {
@@ -1245,6 +1352,9 @@ export function ContentDetailPage() {
       setTimeout(() => {
         setPlayerStream(null)
         setPlayerStreamUrl(null)
+        setPlayerExternalStreamUrl(null)
+        setPlayerTranscodeStreamUrl(null)
+        setIsPlayingTranscodedStream(false)
       }, 300)
     } else {
       setPlayerOpen(open)
@@ -1811,6 +1921,8 @@ export function ContentDetailPage() {
             name: playerStream.name,
             title: playerStream.stream_name,
             url: playerStreamUrl,
+            ytId: playerStream.yt_id || playerStream.ytId,
+            streamType: playerStream.stream_type,
             quality: playerStream.quality,
             resolution: playerStream.resolution,
             size: playerStream.size,
@@ -1819,6 +1931,10 @@ export function ContentDetailPage() {
             audio: playerStream.audio_formats,
             behaviorHints: playerStream.behavior_hints,
           }}
+          externalStreamUrl={playerExternalStreamUrl || playerStreamUrl}
+          transcodeStreamUrl={playerTranscodeStreamUrl}
+          isTranscodedPlayback={isPlayingTranscodedStream}
+          onSwitchToTranscode={handleSwitchToTranscode}
           contentTitle={item.title}
           startTime={startTime}
           onTimeUpdate={handleTimeUpdate}

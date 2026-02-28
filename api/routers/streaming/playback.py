@@ -82,9 +82,15 @@ async def get_cached_stream_payload(
     """Get cached stream URL and optional filename from Redis with minimal round-trips."""
     if include_filename:
         pipeline = REDIS_ASYNC_CLIENT.pipeline(transaction=False)
-        pipeline.getex(cached_stream_url_key, ex=URL_CACHE_EXP)
-        pipeline.getex(f"{cached_stream_url_key}:filename", ex=URL_CACHE_EXP)
-        cached_stream_url_value, cached_filename_value = await pipeline.execute()
+        if pipeline is not None:
+            pipeline.getex(cached_stream_url_key, ex=URL_CACHE_EXP)
+            pipeline.getex(f"{cached_stream_url_key}:filename", ex=URL_CACHE_EXP)
+            cached_stream_url_value, cached_filename_value = await pipeline.execute()
+        else:
+            cached_stream_url_value = await REDIS_ASYNC_CLIENT.getex(cached_stream_url_key, ex=URL_CACHE_EXP)
+            cached_filename_value = await REDIS_ASYNC_CLIENT.getex(
+                f"{cached_stream_url_key}:filename", ex=URL_CACHE_EXP
+            )
     else:
         cached_stream_url_value = await REDIS_ASYNC_CLIENT.getex(cached_stream_url_key, ex=URL_CACHE_EXP)
         cached_filename_value = None
@@ -229,10 +235,16 @@ async def cache_stream_url(cached_stream_url_key: str, video_url: str, filename:
     Caches the streaming URL in Redis for future use.
     """
     pipeline = REDIS_ASYNC_CLIENT.pipeline(transaction=False)
-    pipeline.set(cached_stream_url_key, video_url.encode("utf-8"), ex=URL_CACHE_EXP)
+    if pipeline is not None:
+        pipeline.set(cached_stream_url_key, video_url.encode("utf-8"), ex=URL_CACHE_EXP)
+        if filename:
+            pipeline.set(f"{cached_stream_url_key}:filename", filename.encode("utf-8"), ex=URL_CACHE_EXP)
+        await pipeline.execute()
+        return
+
+    await REDIS_ASYNC_CLIENT.set(cached_stream_url_key, video_url.encode("utf-8"), ex=URL_CACHE_EXP)
     if filename:
-        pipeline.set(f"{cached_stream_url_key}:filename", filename.encode("utf-8"), ex=URL_CACHE_EXP)
-    await pipeline.execute()
+        await REDIS_ASYNC_CLIENT.set(f"{cached_stream_url_key}:filename", filename.encode("utf-8"), ex=URL_CACHE_EXP)
 
 
 def apply_mediaflow_proxy_if_needed(

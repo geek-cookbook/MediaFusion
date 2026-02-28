@@ -398,7 +398,11 @@ class RedisWrapper:
 
     def pipeline(self, transaction: bool = False):
         """Redis PIPELINE operation."""
-        return self._create_method("pipeline", None)(transaction)
+        try:
+            return self.client.pipeline(transaction=transaction)
+        except Exception as e:
+            logger.warning(f"Redis pipeline creation failed: {e}")
+            return None
 
     def execute(self, *args, **kwargs):
         """Redis EXECUTE operation."""

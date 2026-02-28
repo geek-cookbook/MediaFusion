@@ -26,6 +26,7 @@ from api.routers.user.auth import require_auth
 from db.database import get_read_session, get_async_session
 from db.enums import ContributionStatus, MediaType, UserRole
 from db.redis_database import REDIS_ASYNC_CLIENT
+from db.retry_utils import run_db_operation_with_retry
 from db.models import (
     Contribution,
     Media,
@@ -578,7 +579,12 @@ async def find_missing_external_match_in_db(
         .order_by(Media.popularity.desc().nullslast())
         .limit(12)
     )
-    result = await session.exec(query)
+    operation_name = f"watchlist external match lookup title={title}"
+    result = await run_db_operation_with_retry(
+        lambda: session.exec(query),
+        operation_name=operation_name,
+        before_retry=lambda _attempt, _max_attempts, _exc: session.rollback(),
+    )
     media_candidates = result.all()
 
     if not media_candidates:
@@ -1086,6 +1092,7 @@ async def get_missing_torrents(
                     missing_items[item_index].matched_title = matched_title
             except Exception:
                 logger.exception("Failed to resolve external IDs for missing torrent title=%s", title)
+                await session.rollback()
 
     return MissingTorrentsResponse(
         items=missing_items,

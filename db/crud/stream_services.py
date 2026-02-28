@@ -82,6 +82,15 @@ def _log_db_retry_attempt(operation_name: str):
     return _handler
 
 
+def _session_rollback_on_retry(
+    session: AsyncSession,
+):
+    async def _handler(_attempt: int, _max_attempts: int, _exc: Exception):
+        await session.rollback()
+
+    return _handler
+
+
 def _get_scraper_tasks_module():
     """Lazy-load scraper_tasks to avoid import cycles during app startup."""
     global _scraper_tasks_module
@@ -887,7 +896,13 @@ async def get_movie_streams(
     live_search_enabled = user_data.live_search_streams and video_id.startswith("tt")
 
     # Resolve video_id to media
-    media = await get_media_by_external_id(session, video_id, MediaType.MOVIE)
+    media_lookup_name = f"movie media lookup video_id={video_id}"
+    media = await run_db_operation_with_retry(
+        lambda: get_media_by_external_id(session, video_id, MediaType.MOVIE),
+        operation_name=media_lookup_name,
+        before_retry=_session_rollback_on_retry(session),
+        on_retry=_log_db_retry_attempt(media_lookup_name),
+    )
     scraper_metadata = _build_scraper_metadata(media, video_id, MediaType.MOVIE)
 
     if not media and live_search_enabled:
@@ -1098,7 +1113,13 @@ async def get_series_streams(
     live_search_enabled = user_data.live_search_streams and video_id.startswith("tt")
 
     # Resolve video_id to media
-    media = await get_media_by_external_id(session, video_id, MediaType.SERIES)
+    media_lookup_name = f"series media lookup video_id={video_id}"
+    media = await run_db_operation_with_retry(
+        lambda: get_media_by_external_id(session, video_id, MediaType.SERIES),
+        operation_name=media_lookup_name,
+        before_retry=_session_rollback_on_retry(session),
+        on_retry=_log_db_retry_attempt(media_lookup_name),
+    )
     scraper_metadata = _build_scraper_metadata(media, video_id, MediaType.SERIES)
 
     if not media and live_search_enabled:
@@ -1303,7 +1324,13 @@ async def get_tv_streams_formatted(
     TV channels use HTTPStream or YouTubeStream, not TorrentStream.
     """
     # Get media by external_id
-    media = await get_media_by_external_id(session, video_id, MediaType.TV)
+    media_lookup_name = f"tv media lookup video_id={video_id}"
+    media = await run_db_operation_with_retry(
+        lambda: get_media_by_external_id(session, video_id, MediaType.TV),
+        operation_name=media_lookup_name,
+        before_retry=_session_rollback_on_retry(session),
+        on_retry=_log_db_retry_attempt(media_lookup_name),
+    )
     if not media:
         logger.warning(f"TV channel not found for video_id: {video_id}")
         return []

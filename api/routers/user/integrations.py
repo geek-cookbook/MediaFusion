@@ -29,6 +29,7 @@ from api.services.sync import (
 from db.database import get_async_session, get_read_session
 from db.enums import IntegrationType, SyncDirection
 from db.models import ProfileIntegration, User, UserProfile
+from db.schemas.config import SimklConfig, TraktConfig
 from utils.profile_crypto import profile_crypto
 
 logger = logging.getLogger(__name__)
@@ -555,6 +556,7 @@ async def trigger_sync_all(
     )
     result = await session.exec(query)
     enabled_integrations = result.all()
+    enabled_integration_ids = [integration.id for integration in enabled_integrations]
 
     if not enabled_integrations:
         return SyncTriggerResponse(
@@ -566,14 +568,16 @@ async def trigger_sync_all(
     async def run_all_syncs():
         from db.database import get_async_session_context
 
-        async with get_async_session_context() as sync_session:
-            for integration in enabled_integrations:
+        for integration_id in enabled_integration_ids:
+            async with get_async_session_context() as sync_session:
+                integration = await sync_session.get(ProfileIntegration, integration_id)
+                if not integration or not integration.is_enabled:
+                    continue
+
                 try:
                     credentials = decrypt_credentials(integration.encrypted_credentials)
 
                     if integration.platform == IntegrationType.TRAKT:
-                        from db.schemas.config import TraktConfig
-
                         config = TraktConfig(
                             access_token=credentials.get("access_token", ""),
                             refresh_token=credentials.get("refresh_token"),
@@ -586,8 +590,6 @@ async def trigger_sync_all(
                         )
                         service = TraktSyncService(config, profile_id)
                     elif integration.platform == IntegrationType.SIMKL:
-                        from db.schemas.config import SimklConfig
-
                         config = SimklConfig(
                             access_token=credentials.get("access_token", ""),
                             refresh_token=credentials.get("refresh_token"),
@@ -603,21 +605,25 @@ async def trigger_sync_all(
                     result = await service.sync(sync_session)
                     logger.info(f"Sync completed for {integration.platform}: {result.to_dict()}")
 
-                    # Update sync state
                     integration.last_sync_at = datetime.utcnow()
                     integration.last_sync_status = "success"
                     integration.last_sync_error = None
                     integration.last_sync_stats = result.to_dict()
-                    sync_session.add(integration)
-
                 except Exception as e:
-                    logger.exception(f"Sync failed for {integration.platform}: {e}")
+                    logger.exception(f"Sync failed for integration_id={integration_id}: {e}")
+                    await sync_session.rollback()
+
+                    integration = await sync_session.get(ProfileIntegration, integration_id)
+                    if not integration:
+                        continue
+
                     integration.last_sync_at = datetime.utcnow()
                     integration.last_sync_status = "failed"
                     integration.last_sync_error = str(e)
-                    sync_session.add(integration)
+                    integration.last_sync_stats = None
 
-            await sync_session.commit()
+                sync_session.add(integration)
+                await sync_session.commit()
 
     background_tasks.add_task(run_all_syncs)
 

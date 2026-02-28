@@ -2,7 +2,7 @@ import logging
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from os.path import basename
 from re import Pattern
 from typing import Any, TypedDict
@@ -101,6 +101,26 @@ ANIME_PATTERNS: dict[str, tuple[Pattern, Callable[[re.Match, int], tuple[int, in
         lambda m, s: (s, int(m.group(1))),  # Default to season s
     ),
 }
+
+
+def _normalize_episode_date(value: Any) -> str | None:
+    """Normalize supported episode date fields to YYYY-MM-DD."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date().isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    return None
+
+
+def _get_episode_date(episode_data: Any) -> str | None:
+    """Support both legacy and v5 episode date field names."""
+    for field_name in ("released", "air_date", "release_date"):
+        normalized = _normalize_episode_date(getattr(episode_data, field_name, None))
+        if normalized:
+            return normalized
+    return None
 
 
 class TorrentFile(TypedDict):
@@ -233,7 +253,7 @@ class TorrentFileProcessor:
                 # Search through all seasons and their episodes
                 for season in metadata_seasons:
                     for episode in season.episodes:
-                        if episode.released and episode.released.strftime("%Y-%m-%d") == parsed_data["date"]:
+                        if _get_episode_date(episode) == parsed_data["date"]:
                             return season.season_number, episode.episode_number
 
             # if we have date in the title but no metadata, return None to avoid false detection
@@ -787,7 +807,7 @@ class UsenetFileProcessor:
             if metadata_seasons:
                 for season_data in metadata_seasons:
                     for episode_data in season_data.episodes:
-                        if episode_data.released and episode_data.released.strftime("%Y-%m-%d") == parsed_data["date"]:
+                        if _get_episode_date(episode_data) == parsed_data["date"]:
                             return season_data.season_number, episode_data.episode_number
 
             return None, None

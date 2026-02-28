@@ -36,6 +36,11 @@ class Torbox(DebridClient):
                     "Download limit exceeded",
                     "daily_download_limit.mp4",
                 )
+            case "PLAN_RESTRICTED_FEATURE":
+                raise ProviderException(
+                    "Need premium TorBox account to access this API feature",
+                    "need_premium.mp4",
+                )
             case "DOWNLOAD_SERVER_ERROR" | "DATABASE_ERROR":
                 raise ProviderException(
                     "Torbox server error",
@@ -132,8 +137,13 @@ class Torbox(DebridClient):
             "GET",
             "/queued/getqueued",
             params={"type": "torrent", "bypass_cache": "true"},
+            is_expected_to_fail=True,
         )
-        return response
+        if isinstance(response, dict) and response.get("error") == "PLAN_RESTRICTED_FEATURE":
+            await self._handle_service_specific_errors(response, 403)
+        if isinstance(response, dict) and response.get("success"):
+            return response
+        return {"data": []}
 
     async def create_download_link(self, torrent_id: int, file_id: int, user_ip: str | None) -> dict:
         params = {

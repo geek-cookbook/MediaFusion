@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from datetime import UTC, date, datetime
 
 import aiohttp
 import pytest
@@ -10,6 +11,8 @@ from streaming_providers.exceptions import ProviderException
 from streaming_providers.pikpak import utils as pikpak_utils
 from streaming_providers.realdebrid.client import RealDebrid
 from streaming_providers.realdebrid import utils as realdebrid_utils
+from streaming_providers.parser import _get_episode_date
+from streaming_providers.torbox.client import Torbox
 
 
 class _DummyDebridClient(DebridClient):
@@ -193,3 +196,33 @@ def test_pikpak_review_error_mapping():
     with pytest.raises(ProviderException) as exc:
         pikpak_utils._raise_pikpak_provider_exception(Exception('meta:{key:"result" value:"review"} result:review'))
     assert exc.value.video_file_name == "invalid_credentials.mp4"
+
+
+@pytest.mark.asyncio
+async def test_torbox_maps_plan_restricted_queue_error_to_need_premium():
+    client = Torbox(token="token")
+
+    async def fake_make_request(*args, **kwargs):
+        return {
+            "success": False,
+            "error": "PLAN_RESTRICTED_FEATURE",
+            "detail": "API feature not available on your plan. Please upgrade to a paid plan to access the API.",
+            "data": None,
+        }
+
+    client._make_request = fake_make_request
+
+    with pytest.raises(ProviderException) as exc:
+        await client.get_queued_torrents()
+
+    assert exc.value.video_file_name == "need_premium.mp4"
+
+
+def test_episode_date_helper_supports_legacy_and_v5_fields():
+    legacy_episode = SimpleNamespace(released=datetime(2026, 1, 15, tzinfo=UTC))
+    v5_episode = SimpleNamespace(air_date=date(2026, 1, 16))
+    missing_date_episode = SimpleNamespace(title="Episode")
+
+    assert _get_episode_date(legacy_episode) == "2026-01-15"
+    assert _get_episode_date(v5_episode) == "2026-01-16"
+    assert _get_episode_date(missing_date_episode) is None

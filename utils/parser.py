@@ -582,6 +582,7 @@ def _build_stream_entries(
 ) -> list[Stream] | list[RichStream]:
     """Build Stremio stream entries for a single provider from filtered streams."""
     stream_list = []
+    stream_template = user_data.stream_template or StreamTemplate()
 
     for stream_data in filtered_streams:
         # Get episode file variants for series content
@@ -886,13 +887,13 @@ def _build_stream_entries(
 
             try:
                 stream_name = render_stream_template(
-                    user_data.stream_template.title,
+                    stream_template.title,
                     stream_context,
                     service=service_context,
                     addon=addon_context,
                 )
                 description = render_stream_template(
-                    user_data.stream_template.description,
+                    stream_template.description,
                     stream_context,
                     service=service_context,
                     addon=addon_context,

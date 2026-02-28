@@ -607,7 +607,7 @@ class UserData(BaseModel):
     rpdb_config: RPDBConfig | None = Field(default=None, alias="rpc")
     live_search_streams: bool = Field(default=False, alias="lss")
     mdblist_config: MDBListConfig | None = Field(default=None, alias="mdb")
-    stream_template: StreamTemplate | None = Field(default=None, alias="st")
+    stream_template: StreamTemplate | None = Field(default_factory=StreamTemplate, alias="st")
     # Indexer configuration for user-level scraping (Prowlarr/Jackett/Torznab/Newznab)
     indexer_config: IndexerConfig | None = Field(default=None, alias="ic")
     # Telegram channel configuration for user-level Telegram scraping
@@ -735,6 +735,12 @@ class UserData(BaseModel):
                 normalized_patterns.append(pattern)
 
         return normalized_patterns
+
+    @field_validator("stream_template", mode="before")
+    def validate_stream_template(cls, v):
+        if v is None:
+            return StreamTemplate()
+        return v
 
     @model_validator(mode="after")
     def validate_stream_name_filter_regex_safety(self) -> "UserData":

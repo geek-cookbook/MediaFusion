@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urljoin
@@ -21,6 +22,14 @@ CACHE_CHECK_TTL = 1800  # 30 minutes
 # Providers that check service-level instant availability (global cache check).
 # All others use user's personal torrent list (per-user cache check).
 GLOBAL_CACHE_CHECK_PROVIDERS = {"torbox", "stremthru", "offcloud", "premiumize"}
+
+
+def _log_background_submission_result(task: asyncio.Task) -> None:
+    """Log submit_cached_hashes failures for fire-and-forget sync tasks."""
+    try:
+        task.result()
+    except Exception as e:
+        logging.error("Error submitting cache status to MediaFusion: %s", e)
 
 
 def get_cache_service_name(streaming_provider: StreamingProvider):
@@ -117,7 +126,8 @@ async def store_cached_info_hashes(
 
         # Submit to MediaFusion
         if settings.sync_debrid_cache_streams:
-            await mediafusion_client.submit_cached_hashes(streaming_provider, info_hashes)
+            submit_task = asyncio.create_task(mediafusion_client.submit_cached_hashes(streaming_provider, info_hashes))
+            submit_task.add_done_callback(_log_background_submission_result)
 
     except Exception as e:
         logging.error(f"Error storing cached info hashes for {service}: {e}")

@@ -5,6 +5,7 @@ import secrets
 import time
 import zlib
 from base64 import urlsafe_b64decode, urlsafe_b64encode
+from threading import Lock
 
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
@@ -28,6 +29,8 @@ REDIS_PREFIX = "R-"  # Prefix for Redis-stored data
 UUID_PREFIX = "U-"  # Prefix for UUID-based dynamic config resolution
 UUID_CACHE_PREFIX = "user_profile:"  # Redis key prefix for UUID-cached profile data
 UUID_CACHE_TTL = 2592000  # 30 days in seconds (same as R- expiry)
+DECRYPT_CACHE_TTL_SECONDS = 120  # in-process cache TTL for decrypted secret strings
+DECRYPT_CACHE_MAX_ENTRIES = 2048  # bounded cache size to avoid unbounded memory growth
 
 
 def make_urlsafe(data: bytes) -> str:
@@ -46,6 +49,61 @@ def from_urlsafe(urlsafe_str: str) -> bytes:
 class CryptoUtils:
     def __init__(self):
         self.secret_key = settings.secret_key.encode("utf-8").ljust(32)[:32]
+        self._decrypted_user_data_cache: dict[str, tuple[float, UserData]] = {}
+        self._decrypted_user_data_cache_mu = Lock()
+
+    def _get_cached_decrypted_user_data(self, secret_str: str) -> UserData | None:
+        """Return cached decrypted UserData for secret_str if still valid."""
+        if not secret_str:
+            return None
+
+        now = time.monotonic()
+        with self._decrypted_user_data_cache_mu:
+            cache_item = self._decrypted_user_data_cache.get(secret_str)
+            if not cache_item:
+                return None
+
+            expires_at, cached_user_data = cache_item
+            if expires_at <= now:
+                self._decrypted_user_data_cache.pop(secret_str, None)
+                return None
+
+            # Return a defensive copy so request-level code cannot mutate shared cache state.
+            return cached_user_data.model_copy(deep=True)
+
+    def _evict_expired_decrypt_cache_entries(self, now: float) -> None:
+        expired_keys = [
+            cache_key for cache_key, (expires_at, _) in self._decrypted_user_data_cache.items() if expires_at <= now
+        ]
+        for cache_key in expired_keys:
+            self._decrypted_user_data_cache.pop(cache_key, None)
+
+    def _cache_decrypted_user_data(self, secret_str: str, user_data: UserData) -> None:
+        """Cache decrypted UserData for a short duration to reduce repeated decrypt CPU cost."""
+        if not secret_str:
+            return
+
+        now = time.monotonic()
+        with self._decrypted_user_data_cache_mu:
+            self._evict_expired_decrypt_cache_entries(now)
+
+            if len(self._decrypted_user_data_cache) >= DECRYPT_CACHE_MAX_ENTRIES:
+                # Pop oldest inserted entry (dict preserves insertion order in modern Python).
+                oldest_key = next(iter(self._decrypted_user_data_cache), None)
+                if oldest_key is not None:
+                    self._decrypted_user_data_cache.pop(oldest_key, None)
+
+            self._decrypted_user_data_cache[secret_str] = (
+                now + DECRYPT_CACHE_TTL_SECONDS,
+                user_data.model_copy(deep=True),
+            )
+
+    def _invalidate_decrypt_cache_prefix(self, secret_prefix: str) -> None:
+        """Invalidate cached decrypted payloads for all keys with the given prefix."""
+        with self._decrypted_user_data_cache_mu:
+            matching_keys = [key for key in self._decrypted_user_data_cache if key.startswith(secret_prefix)]
+            for key in matching_keys:
+                self._decrypted_user_data_cache.pop(key, None)
 
     def _generate_storage_key(self, data_hash: str, random_chars: str) -> str:
         """Generate Redis storage key with prefix"""
@@ -133,6 +191,10 @@ class CryptoUtils:
         if not secret_str:
             return UserData()
 
+        cached_user_data = self._get_cached_decrypted_user_data(secret_str)
+        if cached_user_data is not None:
+            return cached_user_data
+
         try:
             # Handle legacy format (no prefix)
             if not secret_str.startswith((DIRECT_PREFIX, REDIS_PREFIX, UUID_PREFIX)):
@@ -147,13 +209,19 @@ class CryptoUtils:
                 iv = final_data[:16]
                 encrypted_data = final_data[16:]
                 json_str = self._decrypt_and_decompress(iv, encrypted_data)
-                return UserData.model_validate_json(json_str)
+                user_data = UserData.model_validate_json(json_str)
+                self._cache_decrypted_user_data(secret_str, user_data)
+                return user_data
 
             elif prefix == REDIS_PREFIX:
-                return await self.retrieve_and_decrypt(data)
+                user_data = await self.retrieve_and_decrypt(data)
+                self._cache_decrypted_user_data(secret_str, user_data)
+                return user_data
 
             elif prefix == UUID_PREFIX:
-                return await self._resolve_uuid_profile(data)
+                user_data = await self._resolve_uuid_profile(data)
+                self._cache_decrypted_user_data(secret_str, user_data)
+                return user_data
 
             else:
                 raise ValueError("Invalid prefix")
@@ -303,8 +371,7 @@ class CryptoUtils:
         except Exception as e:
             logger.warning(f"Failed to cache UUID profile for {profile_uuid}: {e}")
 
-    @staticmethod
-    async def invalidate_uuid_cache(profile_uuid: str) -> None:
+    async def invalidate_uuid_cache(self, profile_uuid: str) -> None:
         """
         Invalidate the UUID-keyed Redis cache for a profile.
 
@@ -316,6 +383,7 @@ class CryptoUtils:
         cache_key = f"{UUID_CACHE_PREFIX}{profile_uuid}"
         try:
             await REDIS_ASYNC_CLIENT.delete(cache_key)
+            self._invalidate_decrypt_cache_prefix(f"{UUID_PREFIX}{profile_uuid}")
             logger.debug(f"Invalidated UUID cache for profile {profile_uuid}")
         except Exception as e:
             logger.warning(f"Failed to invalidate UUID cache for {profile_uuid}: {e}")

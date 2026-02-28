@@ -75,11 +75,23 @@ def generate_cache_key(
     )
 
 
-async def get_cached_stream_url(cached_stream_url_key: str) -> str | None:
-    """Get cached stream URL from Redis."""
-    if cached_stream_url := await REDIS_ASYNC_CLIENT.getex(cached_stream_url_key, ex=URL_CACHE_EXP):
-        return cached_stream_url.decode("utf-8")
-    return None
+async def get_cached_stream_payload(
+    cached_stream_url_key: str,
+    include_filename: bool = False,
+) -> tuple[str | None, str | None]:
+    """Get cached stream URL and optional filename from Redis with minimal round-trips."""
+    if include_filename:
+        pipeline = REDIS_ASYNC_CLIENT.pipeline(transaction=False)
+        pipeline.getex(cached_stream_url_key, ex=URL_CACHE_EXP)
+        pipeline.getex(f"{cached_stream_url_key}:filename", ex=URL_CACHE_EXP)
+        cached_stream_url_value, cached_filename_value = await pipeline.execute()
+    else:
+        cached_stream_url_value = await REDIS_ASYNC_CLIENT.getex(cached_stream_url_key, ex=URL_CACHE_EXP)
+        cached_filename_value = None
+
+    cached_stream_url = cached_stream_url_value.decode("utf-8") if cached_stream_url_value else None
+    cached_filename = cached_filename_value.decode("utf-8") if cached_filename_value else None
+    return cached_stream_url, cached_filename
 
 
 async def get_cached_stream_url_and_redirect(
@@ -107,13 +119,13 @@ async def get_cached_stream_url_and_redirect(
     Returns:
         RedirectResponse if cached URL exists, None otherwise
     """
-    if cached_stream_url := await get_cached_stream_url(cached_stream_url_key):
-        cached_filename = filename
-        if not cached_filename:
-            if cached_filename_value := await REDIS_ASYNC_CLIENT.getex(
-                f"{cached_stream_url_key}:filename", ex=URL_CACHE_EXP
-            ):
-                cached_filename = cached_filename_value.decode("utf-8")
+    cached_stream_url, cached_filename = await get_cached_stream_payload(
+        cached_stream_url_key,
+        include_filename=filename is None,
+    )
+    if cached_stream_url:
+        if filename:
+            cached_filename = filename
 
         # Check if MediaFlow is configured and per-provider setting is enabled
         should_proxy = (
@@ -216,9 +228,11 @@ async def cache_stream_url(cached_stream_url_key: str, video_url: str, filename:
     """
     Caches the streaming URL in Redis for future use.
     """
-    await REDIS_ASYNC_CLIENT.set(cached_stream_url_key, video_url.encode("utf-8"), ex=URL_CACHE_EXP)
+    pipeline = REDIS_ASYNC_CLIENT.pipeline(transaction=False)
+    pipeline.set(cached_stream_url_key, video_url.encode("utf-8"), ex=URL_CACHE_EXP)
     if filename:
-        await REDIS_ASYNC_CLIENT.set(f"{cached_stream_url_key}:filename", filename.encode("utf-8"), ex=URL_CACHE_EXP)
+        pipeline.set(f"{cached_stream_url_key}:filename", filename.encode("utf-8"), ex=URL_CACHE_EXP)
+    await pipeline.execute()
 
 
 def apply_mediaflow_proxy_if_needed(

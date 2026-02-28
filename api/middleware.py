@@ -36,18 +36,81 @@ from utils.worker_memory_metrics import (
     WORKER_MEMORY_METRICS_SUMMARY_KEY,
 )
 
+ROUTE_LOOKUP_CACHE_MAX_ENTRIES = 4096
+_route_lookup_cache: dict[str, object] = {}
+_route_lookup_cache_mu = Lock()
+
+
+def _route_cache_get(cache_key: str):
+    with _route_lookup_cache_mu:
+        return _route_lookup_cache.get(cache_key)
+
+
+def _route_cache_set(cache_key: str, route) -> None:
+    with _route_lookup_cache_mu:
+        if cache_key in _route_lookup_cache:
+            return
+        if len(_route_lookup_cache) >= ROUTE_LOOKUP_CACHE_MAX_ENTRIES:
+            oldest_key = next(iter(_route_lookup_cache), None)
+            if oldest_key is not None:
+                _route_lookup_cache.pop(oldest_key, None)
+        _route_lookup_cache[cache_key] = route
+
 
 async def find_route_handler(app, request: Request) -> Callable | None:
-    for route in app.routes:
-        match, scope = route.matches(request.scope)
+    if endpoint := request.scope.get("endpoint"):
+        return endpoint
+
+    path_value = request.scope.get("path", "")
+    path_digest = hashlib.sha256(path_value.encode("utf-8")).hexdigest()
+    cache_key = f"{request.method}:{path_digest}"
+    cached_route = _route_cache_get(cache_key)
+    if cached_route is not None:
+        match, matched_scope = cached_route.matches(request.scope)
         if match == Match.FULL:
-            request.scope["path_params"] = scope["path_params"]
-            request.scope["endpoint"] = getattr(route, "endpoint", None)
-            return getattr(route, "endpoint", None)
+            request.scope["path_params"] = matched_scope.get("path_params", {})
+            endpoint = getattr(cached_route, "endpoint", None)
+            request.scope["endpoint"] = endpoint
+            return endpoint
+
+    routes = getattr(getattr(app, "router", app), "routes", [])
+    for route in routes:
+        route_methods = getattr(route, "methods", None)
+        if route_methods and request.method not in route_methods:
+            continue
+
+        match, matched_scope = route.matches(request.scope)
+        if match == Match.FULL:
+            request.scope["path_params"] = matched_scope.get("path_params", {})
+            endpoint = getattr(route, "endpoint", None)
+            request.scope["endpoint"] = endpoint
+            _route_cache_set(cache_key, route)
+            return endpoint
     return None
 
 
 class SecureLoggingMiddleware(BaseHTTPMiddleware):
+    HOT_PATH_MARKERS = (
+        "/manifest.json",
+        "/catalog/",
+        "/meta/",
+        "/stream/",
+        "/streaming_provider/",
+    )
+    HOT_PATH_LOG_SAMPLE_RATE = 20
+    _hot_path_log_counter = 0
+    _hot_path_log_mu = Lock()
+
+    @classmethod
+    def _is_hot_path(cls, url_path: str) -> bool:
+        return any(marker in url_path for marker in cls.HOT_PATH_MARKERS)
+
+    @classmethod
+    def _should_emit_hot_path_info(cls) -> bool:
+        with cls._hot_path_log_mu:
+            cls._hot_path_log_counter += 1
+            return cls._hot_path_log_counter % cls.HOT_PATH_LOG_SAMPLE_RATE == 0
+
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
         await self.custom_log(request, response)
@@ -62,7 +125,35 @@ class SecureLoggingMiddleware(BaseHTTPMiddleware):
             url_path = url_path.replace(request.path_params.get("secret_str"), "*MASKED*")
         if request.path_params.get("existing_secret_str"):
             url_path = url_path.replace(request.path_params.get("existing_secret_str"), "*MASKED*")
-        logging.info(f'{ip} - "{request.method} {url_path} HTTP/1.1" {response.status_code} {process_time}')
+        if SecureLoggingMiddleware._is_hot_path(url_path):
+            if SecureLoggingMiddleware._should_emit_hot_path_info():
+                logging.info(
+                    '%s - "%s %s HTTP/1.1" %s %s',
+                    ip,
+                    request.method,
+                    url_path,
+                    response.status_code,
+                    process_time,
+                )
+            else:
+                logging.debug(
+                    '%s - "%s %s HTTP/1.1" %s %s',
+                    ip,
+                    request.method,
+                    url_path,
+                    response.status_code,
+                    process_time,
+                )
+            return
+
+        logging.info(
+            '%s - "%s %s HTTP/1.1" %s %s',
+            ip,
+            request.method,
+            url_path,
+            response.status_code,
+            process_time,
+        )
 
 
 class UserDataMiddleware(BaseHTTPMiddleware):

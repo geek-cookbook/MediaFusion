@@ -197,6 +197,15 @@ async def get_catalog(
         response.headers.update(const.CACHE_HEADERS)
         cached_data = await REDIS_ASYNC_CLIENT.get(cache_key)
         if cached_data:
+            needs_rpdb_poster_mutation = bool(
+                user_data.rpdb_config and catalog_type in {MediaType.MOVIE, MediaType.SERIES}
+            )
+            if not needs_rpdb_poster_mutation:
+                return Response(
+                    content=cached_data,
+                    media_type="application/json",
+                    headers=dict(response.headers),
+                )
             try:
                 metas = public_schemas.Metas.model_validate_json(cached_data)
                 return await update_rpdb_posters(metas, user_data, catalog_type)

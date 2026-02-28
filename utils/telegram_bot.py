@@ -290,6 +290,54 @@ class TelegramNotifier:
         return f"{settings.host_url}/app/dashboard/moderator"
 
     @staticmethod
+    def _moderator_annotation_url() -> str:
+        """Frontend moderator annotation queue URL."""
+        return f"{settings.host_url}/app/dashboard/moderator?tab=annotations"
+
+    @staticmethod
+    def _is_http_url(value: Any) -> bool:
+        """Return True for non-empty HTTP(S) URL strings."""
+        return isinstance(value, str) and value.startswith(("http://", "https://"))
+
+    @staticmethod
+    def _display_requester_name(value: Any) -> str:
+        """Format requester name without internal score/id suffixes."""
+        username = TelegramNotifier._value_text(value, limit=80)
+        username = re.sub(r"\s*\(\d+\)\s*$", "", username).strip()
+        if re.fullmatch(r"user\s*#\d+", username, flags=re.IGNORECASE):
+            return "Unknown"
+        return username or "Unknown"
+
+    async def _get_primary_media_poster_url(self, media_id: Any) -> str | None:
+        """Get the primary poster URL for a media ID."""
+        try:
+            normalized_media_id = int(media_id)
+        except (TypeError, ValueError):
+            return None
+
+        try:
+            async with get_async_session_context() as session:
+                poster_result = await session.exec(
+                    select(MediaImage.url)
+                    .where(
+                        MediaImage.media_id == normalized_media_id,
+                        MediaImage.image_type == "poster",
+                    )
+                    .order_by(
+                        MediaImage.is_primary.desc(),
+                        MediaImage.display_order.asc(),
+                        MediaImage.id.asc(),
+                    )
+                    .limit(1)
+                )
+                poster_url = poster_result.first()
+        except Exception as e:
+            logger.error("Failed to fetch poster for media_id=%s: %s", media_id, e)
+            return None
+
+        return poster_url if self._is_http_url(poster_url) else None
+
+    @staticmethod
     def _format_pending_age(oldest_created_at: datetime | None) -> str:
         """Format oldest pending age into a compact human-readable string."""
         if oldest_created_at is None:
@@ -461,23 +509,13 @@ class TelegramNotifier:
 
         contribution_data = payload.get("data") if isinstance(payload.get("data"), dict) else {}
         contribution_type = self._value_text(payload.get("contribution_type", "unknown"), limit=80)
-        contribution_id = self._value_text(payload.get("contribution_id"), limit=80)
         uploader_name = self._value_text(payload.get("uploader_name", "Unknown"), limit=80)
-        target_id = payload.get("target_id")
 
         title = contribution_data.get("title") or contribution_data.get("name")
         if not title:
             title = contribution_data.get("url") or contribution_data.get("youtube_url")
 
-        message = (
-            "🆕 Pending User Upload\n\n"
-            f"*Contribution ID*: `{contribution_id}`\n"
-            f"*Type*: `{contribution_type}`\n"
-            f"*Uploader*: `{uploader_name}`\n"
-        )
-
-        if target_id:
-            message += f"*Target ID*: `{self._value_text(target_id, limit=120)}`\n"
+        message = f"🆕 Pending User Upload\n\n*Type*: `{contribution_type}`\n*Uploader*: `{uploader_name}`\n"
 
         if title:
             message += f"*Title*: `{self._value_text(title, limit=180)}`\n"
@@ -508,8 +546,8 @@ class TelegramNotifier:
             block_url = f"{settings.host_url}/scraper?action=block_torrent&info_hash={info_hash}"
             message += f"\n[🚫 Block/Delete Torrent]({block_url})"
 
-        poster = contribution_data.get("poster")
-        if isinstance(poster, str) and poster.startswith(("http://", "https://")):
+        poster = contribution_data.get("poster") or contribution_data.get("image") or contribution_data.get("thumbnail")
+        if self._is_http_url(poster):
             await self._send_photo_message(poster, message)
         else:
             await self._send_text_only_message(message)
@@ -520,23 +558,14 @@ class TelegramNotifier:
             logger.warning("Telegram notifications are disabled. Check bot token.")
             return
 
-        suggestion_id = self._value_text(payload.get("suggestion_id"), limit=80)
-        stream_id = self._value_text(payload.get("stream_id"), limit=40)
-        username = self._value_text(payload.get("username"), limit=80)
-        user_id = self._value_text(payload.get("user_id"), limit=40)
+        username = self._display_requester_name(payload.get("username"))
         suggestion_type = self._value_text(payload.get("suggestion_type"), limit=100)
         field_name = payload.get("field_name")
         current_value = payload.get("current_value")
         suggested_value = payload.get("suggested_value")
         reason = payload.get("reason")
 
-        message = (
-            "🛠️ Pending Stream Suggestion\n\n"
-            f"*Suggestion ID*: `{suggestion_id}`\n"
-            f"*Stream ID*: `{stream_id}`\n"
-            f"*Requester*: `{username}` (`{user_id}`)\n"
-            f"*Suggestion Type*: `{suggestion_type}`\n"
-        )
+        message = f"🛠️ Pending Stream Suggestion\n\n*Requester*: `{username}`\n*Suggestion Type*: `{suggestion_type}`\n"
 
         if field_name:
             message += f"*Field*: `{self._value_text(field_name, limit=80)}`\n"
@@ -557,22 +586,18 @@ class TelegramNotifier:
             logger.warning("Telegram notifications are disabled. Check bot token.")
             return
 
-        suggestion_id = self._value_text(payload.get("suggestion_id"), limit=80)
-        media_id = self._value_text(payload.get("media_id"), limit=40)
+        media_id = payload.get("media_id")
         media_title = self._value_text(payload.get("media_title"), limit=180)
         media_type = self._value_text(payload.get("media_type"), limit=40)
         field_name = self._value_text(payload.get("field_name"), limit=80)
-        username = self._value_text(payload.get("username"), limit=80)
-        user_id = self._value_text(payload.get("user_id"), limit=40)
+        username = self._display_requester_name(payload.get("username"))
         current_value = payload.get("current_value")
         suggested_value = payload.get("suggested_value")
         reason = payload.get("reason")
 
         message = (
             "📝 Pending Metadata Suggestion\n\n"
-            f"*Suggestion ID*: `{suggestion_id}`\n"
-            f"*Requester*: `{username}` (`{user_id}`)\n"
-            f"*Media ID*: `{media_id}`\n"
+            f"*Requester*: `{username}`\n"
             f"*Media*: `{media_title}` (`{media_type}`)\n"
             f"*Field*: `{field_name}`\n"
         )
@@ -586,7 +611,14 @@ class TelegramNotifier:
 
         review_url = self._moderator_dashboard_url()
         message += f"\n*Review Queue*: [View]({review_url})"
-        await self._send_text_only_message(message)
+        poster = payload.get("media_poster_url") or payload.get("poster")
+        if not self._is_http_url(poster):
+            poster = await self._get_primary_media_poster_url(media_id)
+
+        if self._is_http_url(poster):
+            await self._send_photo_message(poster, message)
+        else:
+            await self._send_text_only_message(message)
 
     async def send_pending_episode_suggestion_notification(self, payload: dict[str, Any]):
         """Send moderator alert for pending episode suggestion."""
@@ -594,24 +626,19 @@ class TelegramNotifier:
             logger.warning("Telegram notifications are disabled. Check bot token.")
             return
 
-        suggestion_id = self._value_text(payload.get("suggestion_id"), limit=80)
-        episode_id = self._value_text(payload.get("episode_id"), limit=40)
         series_title = self._value_text(payload.get("series_title"), limit=160)
         episode_title = self._value_text(payload.get("episode_title"), limit=160)
         season_number = payload.get("season_number")
         episode_number = payload.get("episode_number")
         field_name = self._value_text(payload.get("field_name"), limit=80)
-        username = self._value_text(payload.get("username"), limit=80)
-        user_id = self._value_text(payload.get("user_id"), limit=40)
+        username = self._display_requester_name(payload.get("username"))
         current_value = payload.get("current_value")
         suggested_value = payload.get("suggested_value")
         reason = payload.get("reason")
 
         message = (
             "📺 Pending Episode Suggestion\n\n"
-            f"*Suggestion ID*: `{suggestion_id}`\n"
-            f"*Requester*: `{username}` (`{user_id}`)\n"
-            f"*Episode ID*: `{episode_id}`\n"
+            f"*Requester*: `{username}`\n"
             f"*Series*: `{series_title}`\n"
             f"*Episode*: `{episode_title}`\n"
             f"*Field*: `{field_name}`\n"
@@ -779,11 +806,13 @@ class TelegramNotifier:
             logger.warning("Telegram notifications are disabled. Check bot token.")
             return
 
+        annotation_url = self._moderator_annotation_url()
         message = (
-            f"📝 Failed to identify the episodes. Require to annotate.\n\n"
+            "📝 Episode file mapping required\n\n"
             f"*Info Hash*: `{info_hash}`\n"
             f"*Torrent Name*: `{torrent_name}`\n"
-            f"Please review and annotate the episodes manually."
+            f"*Annotation Queue*: [Open]({annotation_url})\n"
+            "Please review and annotate the episode mappings manually."
         )
 
         await self._send_text_only_message(message)

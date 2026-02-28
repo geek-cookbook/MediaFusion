@@ -38,6 +38,7 @@ PROWLARR_SEARCH_TTL = int(timedelta(hours=settings.prowlarr_search_interval_hour
 TORRENTIO_SEARCH_TTL = int(timedelta(days=settings.torrentio_search_interval_days).total_seconds())
 MEDIAFUSION_SEARCH_TTL = int(timedelta(days=settings.mediafusion_search_interval_days).total_seconds())
 ZILEAN_SEARCH_TTL = int(timedelta(hours=settings.zilean_search_interval_hour).total_seconds())
+DMM_HASHLIST_SYNC_TTL = int(timedelta(hours=settings.dmm_hashlist_sync_interval_hour).total_seconds())
 
 SERVER_NAMESPACE = None
 YTS_SEARCH_TTL = 259200  # 3 days in seconds

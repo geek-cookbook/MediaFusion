@@ -18,8 +18,18 @@ logger = logging.getLogger(__name__)
 # workers (--workers N) or Dramatiq spawns child processes, because each forked
 # process gets its own engine bound to its own event loop.
 _engine_pid: int | None = None
+_engine_loop_id: int | None = None
 _ASYNC_ENGINE: AsyncEngine | None = None
 _ASYNC_READ_ENGINE: AsyncEngine | None = None
+_read_engine_loop_id: int | None = None
+
+
+def _get_running_loop_id() -> int | None:
+    """Return current running loop id, or None when no loop is active."""
+    try:
+        return id(asyncio.get_running_loop())
+    except RuntimeError:
+        return None
 
 
 def _create_primary_engine() -> AsyncEngine:
@@ -48,21 +58,26 @@ def _create_read_engine() -> AsyncEngine:
 
 def _get_engine() -> AsyncEngine:
     """Return the primary read-write engine, creating it lazily if needed."""
-    global _ASYNC_ENGINE, _ASYNC_READ_ENGINE, _engine_pid
+    global _ASYNC_ENGINE, _ASYNC_READ_ENGINE, _engine_pid, _engine_loop_id, _read_engine_loop_id
     pid = os.getpid()
-    if _ASYNC_ENGINE is None or _engine_pid != pid:
+    loop_id = _get_running_loop_id()
+    if _ASYNC_ENGINE is None or _engine_pid != pid or _engine_loop_id != loop_id:
         _ASYNC_ENGINE = _create_primary_engine()
         _ASYNC_READ_ENGINE = None  # force re-creation for read engine too
         _engine_pid = pid
+        _engine_loop_id = loop_id
+        _read_engine_loop_id = None
     return _ASYNC_ENGINE
 
 
 def _get_read_engine() -> AsyncEngine:
     """Return the read-replica engine, creating it lazily if needed."""
-    global _ASYNC_READ_ENGINE
+    global _ASYNC_READ_ENGINE, _read_engine_loop_id
+    loop_id = _get_running_loop_id()
     _get_engine()  # ensure primary is initialized (sets _engine_pid)
-    if _ASYNC_READ_ENGINE is None:
+    if _ASYNC_READ_ENGINE is None or _read_engine_loop_id != loop_id:
         _ASYNC_READ_ENGINE = _create_read_engine()
+        _read_engine_loop_id = loop_id
     return _ASYNC_READ_ENGINE
 
 
@@ -249,8 +264,11 @@ async def init():
 
 async def close():
     """Close PostgreSQL connection pools"""
+    global _engine_loop_id, _read_engine_loop_id
     if _ASYNC_ENGINE is not None:
         await _ASYNC_ENGINE.dispose()
     if _ASYNC_READ_ENGINE is not None and _ASYNC_READ_ENGINE is not _ASYNC_ENGINE:
         await _ASYNC_READ_ENGINE.dispose()
+    _engine_loop_id = None
+    _read_engine_loop_id = None
     logger.info("PostgreSQL connections closed.")

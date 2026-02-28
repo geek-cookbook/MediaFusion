@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from db.schemas.config import StreamingProvider
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -149,8 +149,7 @@ class ProfileContext(BaseModel):
     has_mediaflow_configured: bool = False  # Whether MediaFlow proxy URL and password are configured
     web_playback_enabled: bool = False  # Whether web browser playback is enabled (requires MediaFlow)
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @classmethod
     def empty(cls, user_id: int) -> "ProfileContext":

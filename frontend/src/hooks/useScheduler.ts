@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { schedulerApi, type SchedulerListParams } from '@/lib/api'
+import { schedulerApi, scrapersApi, type SchedulerListParams } from '@/lib/api'
 
 export const schedulerKeys = {
   all: ['scheduler'] as const,
@@ -7,6 +7,7 @@ export const schedulerKeys = {
   stats: () => [...schedulerKeys.all, 'stats'] as const,
   detail: (jobId: string) => [...schedulerKeys.all, 'detail', jobId] as const,
   history: (jobId: string, limit?: number) => [...schedulerKeys.all, 'history', jobId, limit] as const,
+  dmmHashlistStatus: () => [...schedulerKeys.all, 'dmm-hashlist-status'] as const,
 }
 
 /**
@@ -57,6 +58,18 @@ export function useSchedulerJobHistory(jobId: string | undefined, limit: number 
 }
 
 /**
+ * Get DMM hashlist ingestion status/checkpoints (admin only)
+ */
+export function useDmmHashlistStatus() {
+  return useQuery({
+    queryKey: schedulerKeys.dmmHashlistStatus(),
+    queryFn: () => scrapersApi.getDMMHashlistStatus(),
+    staleTime: 30 * 1000,
+    refetchInterval: 60 * 1000,
+  })
+}
+
+/**
  * Manually run a scheduler job (admin only)
  * Queues the job for background execution
  */
@@ -85,6 +98,27 @@ export function useRunSchedulerJobInline() {
     onSuccess: () => {
       // Invalidate scheduler data to refresh running status
       queryClient.invalidateQueries({ queryKey: schedulerKeys.all })
+    },
+  })
+}
+
+/**
+ * Run full DMM ingestion loop once (admin only).
+ */
+export function useRunDmmHashlistFull() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (payload: {
+      sync?: boolean
+      reset_checkpoints?: boolean
+      max_iterations?: number
+      incremental_commits?: number
+      backfill_commits?: number
+    }) => scrapersApi.runDMMHashlistFull(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: schedulerKeys.all })
+      queryClient.invalidateQueries({ queryKey: schedulerKeys.dmmHashlistStatus() })
     },
   })
 }

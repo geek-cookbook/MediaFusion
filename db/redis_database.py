@@ -364,6 +364,10 @@ class RedisWrapper:
         """Redis SMEMBERS operation."""
         return self._create_method("smembers", set())(name)
 
+    def scard(self, name: str):
+        """Redis SCARD operation."""
+        return self._create_method("scard", 0)(name)
+
     def lrange(self, name: str, start: int, end: int):
         """Redis LRANGE operation."""
         return self._create_method("lrange", [])(name, start, end)

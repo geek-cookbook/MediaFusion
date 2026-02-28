@@ -100,6 +100,15 @@ class Settings(BaseSettings):
     zilean_search_interval_hour: int = 24
     zilean_url: str = "https://zilean.elfhosted.com"
 
+    # DMM Hashlist Settings
+    is_scrap_from_dmm_hashlist: bool = False
+    dmm_hashlist_repo_owner: str = "debridmediamanager"
+    dmm_hashlist_repo_name: str = "hashlists"
+    dmm_hashlist_branch: str = "main"
+    dmm_hashlist_sync_interval_hour: int = 6
+    dmm_hashlist_commits_per_run: int = 20
+    dmm_hashlist_backfill_commits_per_run: int = 20
+
     # BT4G Settings
     is_scrap_from_bt4g: bool = True
     bt4g_url: str = "https://bt4gprx.com"
@@ -169,6 +178,9 @@ class Settings(BaseSettings):
     is_scrap_from_yts: bool = True
     scrape_with_aka_titles: bool = True
     enable_fetching_torrent_metadata_from_p2p: bool = True
+    # Anime metadata providers used by search fallback chain.
+    # Ordered preference: first provider is queried first, next providers are used as fallback.
+    anime_metadata_source_order: list[Literal["kitsu", "anilist"]] = Field(default_factory=lambda: ["kitsu", "anilist"])
 
     # Poster Fetch Failure Tracking
     poster_failure_ttl: int = 3600  # TTL in seconds for a single failure record (1 hour)
@@ -306,6 +318,8 @@ class Settings(BaseSettings):
     disable_jackett_feed_scraper: bool = False
     rss_feed_scraper_crontab: str = "0 */3 * * *"
     disable_rss_feed_scraper: bool = False
+    dmm_hashlist_scraper_crontab: str = "0 * * * *"
+    disable_dmm_hashlist_scraper: bool = False
     cleanup_expired_scraper_task_crontab: str = "0 * * * *"
     cleanup_expired_cache_task_crontab: str = "0 0 * * *"
     pending_moderation_reminder_crontab: str = "0 */6 * * *"

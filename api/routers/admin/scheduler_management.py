@@ -124,6 +124,13 @@ SCHEDULER_JOBS = {
         "crontab_setting": "arab_torrents_scheduler_crontab",
         "disable_setting": "disable_arab_torrents_scheduler",
     },
+    "dmm_hashlist_scraper": {
+        "display_name": "DMM Hashlist Scraper",
+        "category": "scraper",
+        "description": "Ingests DMM hashlists and stores deduplicated torrent streams",
+        "crontab_setting": "dmm_hashlist_scraper_crontab",
+        "disable_setting": "disable_dmm_hashlist_scraper",
+    },
     # Feed Scrapers
     "prowlarr_feed_scraper": {
         "display_name": "Prowlarr Feed",
@@ -489,7 +496,16 @@ async def run_scheduler_job(
     # Import task functions based on category
     # Use asyncio.to_thread to avoid blocking the event loop with synchronous Redis calls
     try:
-        if job_meta["category"] == "scraper":
+        if job_id == "dmm_hashlist_scraper":
+            from scrapers.dmm_hashlist import run_dmm_hashlist_scraper
+
+            crontab = getattr(settings, job_meta["crontab_setting"], "0 0 * * *")
+            await asyncio.to_thread(
+                run_dmm_hashlist_scraper.send,
+                crontab_expression=crontab,
+                force_run=force_run,
+            )
+        elif job_meta["category"] == "scraper":
             from mediafusion_scrapy.task import run_spider
 
             crontab = getattr(settings, job_meta["crontab_setting"], "0 0 * * *")
@@ -645,7 +661,12 @@ async def run_scheduler_job_inline(
     try:
         crontab = getattr(settings, job_meta["crontab_setting"], "0 0 * * *")
 
-        if job_meta["category"] == "scraper":
+        if job_id == "dmm_hashlist_scraper":
+            from scrapers.dmm_hashlist import run_dmm_hashlist_scraper
+
+            result = await run_dmm_hashlist_scraper.fn(crontab_expression=crontab)
+            result_data = {"status": "completed", "result": result}
+        elif job_meta["category"] == "scraper":
             from mediafusion_scrapy.task import run_spider_in_process
 
             def _run():

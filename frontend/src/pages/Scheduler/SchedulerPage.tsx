@@ -44,6 +44,7 @@ import {
   Rss,
   Settings,
   Bug,
+  Database,
   ChevronRight,
   Power,
   PowerOff,
@@ -55,6 +56,8 @@ import {
   useRunSchedulerJob,
   useRunSchedulerJobInline,
   useSchedulerJobHistory,
+  useDmmHashlistStatus,
+  useRunDmmHashlistFull,
 } from '@/hooks'
 import { useToast } from '@/hooks/use-toast'
 import type { SchedulerCategory, SchedulerJobInfo } from '@/lib/api'
@@ -108,6 +111,11 @@ function formatCrontab(crontab: string): string {
   }
 
   return crontab
+}
+
+function shortSha(sha: string | null | undefined): string {
+  if (!sha) return '—'
+  return sha.length > 12 ? sha.slice(0, 12) : sha
 }
 
 // Job Detail Dialog
@@ -358,6 +366,8 @@ export function SchedulerPage() {
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [confirmRun, setConfirmRun] = useState<ConfirmRunState | null>(null)
   const [forceRun, setForceRun] = useState(false)
+  const [confirmDmmFullRunOpen, setConfirmDmmFullRunOpen] = useState(false)
+  const [resetDmmCheckpoints, setResetDmmCheckpoints] = useState(false)
 
   const {
     data: jobsData,
@@ -367,8 +377,15 @@ export function SchedulerPage() {
     category: categoryFilter === 'all' ? undefined : categoryFilter,
   })
   const { data: stats } = useSchedulerStats()
+  const {
+    data: dmmStatus,
+    isLoading: dmmStatusLoading,
+    isError: dmmStatusError,
+    refetch: refetchDmmStatus,
+  } = useDmmHashlistStatus()
   const runJob = useRunSchedulerJob()
   const runJobInline = useRunSchedulerJobInline()
+  const runDmmHashlistFull = useRunDmmHashlistFull()
   const { toast } = useToast()
 
   // Filter jobs by search
@@ -426,6 +443,33 @@ export function SchedulerPage() {
     setDetailsOpen(true)
   }
 
+  const handleRunDmmFullIngestion = async () => {
+    try {
+      await runDmmHashlistFull.mutateAsync({
+        sync: false,
+        reset_checkpoints: resetDmmCheckpoints,
+        max_iterations: 200,
+        incremental_commits: 100,
+        backfill_commits: 100,
+      })
+      toast({
+        title: 'Full DMM Ingestion Queued',
+        description: resetDmmCheckpoints
+          ? 'Full ingestion queued with checkpoint reset (fresh backfill).'
+          : 'Full ingestion queued. It will continue until backfill completes or guardrails stop it.',
+      })
+      setConfirmDmmFullRunOpen(false)
+      setResetDmmCheckpoints(false)
+      refetchDmmStatus()
+    } catch (error) {
+      toast({
+        title: 'Failed to Queue Full Ingestion',
+        description: error instanceof Error ? error.message : 'An error occurred',
+        variant: 'destructive',
+      })
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -439,7 +483,14 @@ export function SchedulerPage() {
           </h1>
           <p className="text-muted-foreground mt-1">Monitor and control scheduled background jobs</p>
         </div>
-        <Button onClick={() => refetch()} variant="outline" className="rounded-xl">
+        <Button
+          onClick={() => {
+            refetch()
+            refetchDmmStatus()
+          }}
+          variant="outline"
+          className="rounded-xl"
+        >
           <RefreshCw className="mr-2 h-4 w-4" />
           Refresh
         </Button>
@@ -515,6 +566,96 @@ export function SchedulerPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* DMM Hashlist Operational Status */}
+      <Card className="glass border-border/50">
+        <CardContent className="p-4 space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-xl bg-primary/10">
+                <Database className="h-4 w-4 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium">DMM Hashlist Ingestion</p>
+                <p className="text-xs text-muted-foreground">
+                  {dmmStatus ? `${dmmStatus.repo}@${dmmStatus.branch}` : 'Loading repository details...'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-lg"
+                onClick={() => setConfirmDmmFullRunOpen(true)}
+                disabled={!dmmStatus?.enabled || dmmStatusLoading || runDmmHashlistFull.isPending}
+              >
+                {runDmmHashlistFull.isPending ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Play className="mr-2 h-4 w-4" />
+                )}
+                Run Full Ingestion
+              </Button>
+              <Badge
+                className={
+                  dmmStatus?.enabled
+                    ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30'
+                    : 'bg-red-500/10 text-red-500 border-red-500/30'
+                }
+              >
+                {dmmStatus?.enabled ? 'Enabled' : 'Disabled'}
+              </Badge>
+              <Badge
+                className={
+                  dmmStatus?.scheduler_disabled
+                    ? 'bg-primary/10 text-primary border-primary/30'
+                    : 'bg-blue-500/10 text-blue-500 border-blue-500/30'
+                }
+              >
+                {dmmStatus?.scheduler_disabled ? 'Scheduler Off' : 'Scheduler On'}
+              </Badge>
+            </div>
+          </div>
+
+          {dmmStatusLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {[...Array(5)].map((_, index) => (
+                <Skeleton key={index} className="h-14 rounded-xl" />
+              ))}
+            </div>
+          ) : dmmStatusError ? (
+            <div className="rounded-xl border border-primary/30 bg-primary/10 p-3 text-sm text-primary">
+              Unable to load DMM status from the backend.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="rounded-xl border border-border/50 bg-muted/20 p-3">
+                <p className="text-xs text-muted-foreground">Latest Commit</p>
+                <p className="font-mono text-sm mt-1">{shortSha(dmmStatus?.latest_commit_sha)}</p>
+              </div>
+              <div className="rounded-xl border border-border/50 bg-muted/20 p-3">
+                <p className="text-xs text-muted-foreground">Backfill Pointer</p>
+                <p className="font-mono text-sm mt-1">
+                  {dmmStatus?.backfill_complete ? 'complete' : shortSha(dmmStatus?.backfill_next_commit_sha)}
+                </p>
+              </div>
+              <div className="rounded-xl border border-border/50 bg-muted/20 p-3">
+                <p className="text-xs text-muted-foreground">Processed Files</p>
+                <p className="text-sm mt-1">{dmmStatus?.processed_file_sha_count ?? '—'}</p>
+              </div>
+              <div className="rounded-xl border border-border/50 bg-muted/20 p-3">
+                <p className="text-xs text-muted-foreground">Incremental / Run</p>
+                <p className="text-sm mt-1">{dmmStatus?.commits_per_run ?? '—'}</p>
+              </div>
+              <div className="rounded-xl border border-border/50 bg-muted/20 p-3">
+                <p className="text-xs text-muted-foreground">Backfill / Run</p>
+                <p className="text-sm mt-1">{dmmStatus?.backfill_commits_per_run ?? '—'}</p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Filters */}
       <div className="flex items-center gap-4">
@@ -670,6 +811,61 @@ export function SchedulerPage() {
                     <Play className="mr-2 h-4 w-4" />
                   )}
                   {confirmRun?.mode === 'inline' ? 'Run Inline' : forceRun ? 'Force Queue' : 'Queue Now'}
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirm Full DMM Run Dialog */}
+      <AlertDialog
+        open={confirmDmmFullRunOpen}
+        onOpenChange={(open) => {
+          setConfirmDmmFullRunOpen(open)
+          if (!open) {
+            setResetDmmCheckpoints(false)
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5 text-primary" />
+              Run Full DMM Ingestion?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will queue a one-time full DMM ingestion loop and continue processing until backfill completes or
+              guardrails stop it.
+              <div className="mt-4 flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 p-3">
+                <div>
+                  <p className="text-sm font-medium">Reset checkpoints first</p>
+                  <p className="text-xs text-muted-foreground">Start from scratch and reprocess full history.</p>
+                </div>
+                <Switch
+                  checked={resetDmmCheckpoints}
+                  onCheckedChange={setResetDmmCheckpoints}
+                  aria-label="Reset DMM checkpoints before full ingestion"
+                />
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={runDmmHashlistFull.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRunDmmFullIngestion}
+              className="bg-primary hover:bg-primary/90"
+              disabled={runDmmHashlistFull.isPending}
+            >
+              {runDmmHashlistFull.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Queueing...
+                </>
+              ) : (
+                <>
+                  <Play className="mr-2 h-4 w-4" />
+                  Queue Full Ingestion
                 </>
               )}
             </AlertDialogAction>

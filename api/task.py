@@ -13,6 +13,7 @@ from scrapers import (  # noqa: F401
     scraper_tasks,
     trackers,
     tv,
+    dmm_hashlist,
 )
 from streaming_providers import cache_helpers  # noqa: F401
 

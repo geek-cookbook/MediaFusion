@@ -29,6 +29,19 @@ from db.enums import UserRole
 from db.models import FileMediaLink, Media, MediaExternalID, StreamFile, StreamMediaLink, User
 from db.redis_database import REDIS_ASYNC_CLIENT
 from mediafusion_scrapy.task import run_spider
+from scrapers.dmm_hashlist import (
+    BACKFILL_DONE_SENTINEL,
+    BACKFILL_NEXT_COMMIT_SHA_KEY,
+    DEFAULT_FULL_INGEST_BACKFILL_COMMITS,
+    DEFAULT_FULL_INGEST_INCREMENTAL_COMMITS,
+    DEFAULT_FULL_INGEST_MAX_ITERATIONS,
+    LATEST_COMMIT_SHA_KEY,
+    PROCESSED_FILE_SHA_KEY,
+    DMMHashlistScraper,
+    run_dmm_hashlist_full_ingestion,
+    run_dmm_hashlist_full_ingestion_job,
+    run_dmm_hashlist_scraper,
+)
 from scrapers.scraper_tasks import meta_fetcher
 from scrapers.tv import add_tv_metadata
 from utils import const
@@ -94,6 +107,41 @@ class DeleteTorrentRequest(BaseModel):
 
     info_hash: str
     reason: str | None = None
+
+
+class DMMHashlistStatusResponse(BaseModel):
+    """Operational status for DMM hashlist ingestion."""
+
+    enabled: bool
+    scheduler_disabled: bool
+    cron_expression: str
+    repo: str
+    branch: str
+    sync_interval_hours: int
+    commits_per_run: int
+    backfill_commits_per_run: int
+    latest_commit_sha: str | None = None
+    backfill_next_commit_sha: str | None = None
+    backfill_complete: bool = False
+    processed_file_sha_count: int = 0
+
+
+class RunDMMHashlistRequest(BaseModel):
+    """Request to run DMM hashlist ingestion."""
+
+    sync: bool = True
+    incremental_commits: int | None = Field(default=None, ge=0, le=100)
+    backfill_commits: int | None = Field(default=None, ge=0, le=100)
+
+
+class RunDMMHashlistFullRequest(BaseModel):
+    """Request to run full DMM hashlist ingestion until backfill completes."""
+
+    sync: bool = False
+    reset_checkpoints: bool = False
+    max_iterations: int = Field(default=DEFAULT_FULL_INGEST_MAX_ITERATIONS, ge=1, le=2000)
+    incremental_commits: int = Field(default=DEFAULT_FULL_INGEST_INCREMENTAL_COMMITS, ge=0, le=100)
+    backfill_commits: int = Field(default=DEFAULT_FULL_INGEST_BACKFILL_COMMITS, ge=0, le=100)
 
 
 # ============================================
@@ -230,6 +278,123 @@ async def get_scraper_status(
         )
 
     return {"scrapers": statuses}
+
+
+@router.get("/dmm-hashlist/status", response_model=DMMHashlistStatusResponse)
+async def get_dmm_hashlist_status(
+    _admin: User = Depends(require_role(UserRole.ADMIN)),
+):
+    """Get DMM hashlist ingestion status and checkpoints (Admin only)."""
+    redis_values = await REDIS_ASYNC_CLIENT.mget(
+        [
+            LATEST_COMMIT_SHA_KEY,
+            BACKFILL_NEXT_COMMIT_SHA_KEY,
+        ]
+    )
+    latest_commit = redis_values[0] if redis_values else None
+    backfill_next = redis_values[1] if len(redis_values) > 1 else None
+
+    def decode_value(value: bytes | str | None) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, bytes):
+            return value.decode("utf-8")
+        return value
+
+    latest_commit_text = decode_value(latest_commit)
+    backfill_next_text = decode_value(backfill_next)
+    backfill_complete = backfill_next_text == BACKFILL_DONE_SENTINEL
+
+    return DMMHashlistStatusResponse(
+        enabled=settings.is_scrap_from_dmm_hashlist,
+        scheduler_disabled=settings.disable_dmm_hashlist_scraper,
+        cron_expression=settings.dmm_hashlist_scraper_crontab,
+        repo=f"{settings.dmm_hashlist_repo_owner}/{settings.dmm_hashlist_repo_name}",
+        branch=settings.dmm_hashlist_branch,
+        sync_interval_hours=settings.dmm_hashlist_sync_interval_hour,
+        commits_per_run=settings.dmm_hashlist_commits_per_run,
+        backfill_commits_per_run=settings.dmm_hashlist_backfill_commits_per_run,
+        latest_commit_sha=latest_commit_text,
+        backfill_next_commit_sha=None if backfill_complete else backfill_next_text,
+        backfill_complete=backfill_complete,
+        processed_file_sha_count=await REDIS_ASYNC_CLIENT.scard(PROCESSED_FILE_SHA_KEY),
+    )
+
+
+@router.post("/dmm-hashlist/run")
+async def run_dmm_hashlist_ingestion(
+    request: RunDMMHashlistRequest,
+    _admin: User = Depends(require_role(UserRole.ADMIN)),
+):
+    """Run DMM hashlist ingestion now (Admin only)."""
+    if not settings.is_scrap_from_dmm_hashlist:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="DMM hashlist ingestion is disabled. Enable is_scrap_from_dmm_hashlist in environment settings.",
+        )
+
+    if not request.sync:
+        run_dmm_hashlist_scraper.send()
+        return {
+            "status": "scheduled",
+            "mode": "async_queue",
+            "message": "DMM hashlist ingestion task has been queued.",
+        }
+
+    scraper = DMMHashlistScraper()
+    try:
+        if request.incremental_commits is not None:
+            scraper.max_incremental_commits = request.incremental_commits
+        if request.backfill_commits is not None:
+            scraper.max_backfill_commits = request.backfill_commits
+        result = await scraper.run()
+    finally:
+        await scraper.close()
+
+    return {
+        "status": "success",
+        "mode": "sync",
+        "result": result,
+    }
+
+
+@router.post("/dmm-hashlist/run-full")
+async def run_dmm_hashlist_full_ingestion_endpoint(
+    request: RunDMMHashlistFullRequest,
+    _admin: User = Depends(require_role(UserRole.ADMIN)),
+):
+    """Run full DMM ingestion to completion (Admin only)."""
+    if not settings.is_scrap_from_dmm_hashlist:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="DMM hashlist ingestion is disabled. Enable is_scrap_from_dmm_hashlist in environment settings.",
+        )
+
+    if not request.sync:
+        run_dmm_hashlist_full_ingestion_job.send(
+            max_iterations=request.max_iterations,
+            incremental_commits=request.incremental_commits,
+            backfill_commits=request.backfill_commits,
+            reset_checkpoints=request.reset_checkpoints,
+        )
+        return {
+            "status": "scheduled",
+            "mode": "async_queue",
+            "message": "Full DMM hashlist ingestion task has been queued.",
+            "params": request.model_dump(),
+        }
+
+    result = await run_dmm_hashlist_full_ingestion(
+        max_iterations=request.max_iterations,
+        incremental_commits=request.incremental_commits,
+        backfill_commits=request.backfill_commits,
+        reset_checkpoints=request.reset_checkpoints,
+    )
+    return {
+        "status": result.get("status", "success"),
+        "mode": "sync",
+        "result": result,
+    }
 
 
 # ============================================

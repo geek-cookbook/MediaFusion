@@ -70,6 +70,35 @@ export interface ScrapeResponse {
   scrapers_skipped: string[]
 }
 
+export interface DMMHashlistStatusResponse {
+  enabled: boolean
+  scheduler_disabled: boolean
+  cron_expression: string
+  repo: string
+  branch: string
+  sync_interval_hours: number
+  commits_per_run: number
+  backfill_commits_per_run: number
+  latest_commit_sha: string | null
+  backfill_next_commit_sha: string | null
+  backfill_complete: boolean
+  processed_file_sha_count: number
+}
+
+export interface RunDMMHashlistRequest {
+  sync?: boolean
+  incremental_commits?: number
+  backfill_commits?: number
+}
+
+export interface RunDMMHashlistFullRequest {
+  sync?: boolean
+  reset_checkpoints?: boolean
+  max_iterations?: number
+  incremental_commits?: number
+  backfill_commits?: number
+}
+
 export const scrapersApi = {
   /**
    * Run a scraper task
@@ -123,6 +152,27 @@ export const scrapersApi = {
     }>
   }> => {
     return apiClient.get('/admin/scrapers/status')
+  },
+
+  /**
+   * Get DMM hashlist ingestion status/checkpoints
+   */
+  getDMMHashlistStatus: async (): Promise<DMMHashlistStatusResponse> => {
+    return apiClient.get('/admin/scrapers/dmm-hashlist/status')
+  },
+
+  /**
+   * Trigger a one-time DMM ingestion run
+   */
+  runDMMHashlist: async (payload: RunDMMHashlistRequest): Promise<Record<string, unknown>> => {
+    return apiClient.post('/admin/scrapers/dmm-hashlist/run', payload)
+  },
+
+  /**
+   * Trigger a full DMM ingestion backfill loop
+   */
+  runDMMHashlistFull: async (payload: RunDMMHashlistFullRequest): Promise<Record<string, unknown>> => {
+    return apiClient.post('/admin/scrapers/dmm-hashlist/run-full', payload)
   },
 
   // ============================================

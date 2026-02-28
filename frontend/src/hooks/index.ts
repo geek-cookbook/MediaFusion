@@ -203,8 +203,10 @@ export {
   useSchedulerStats,
   useSchedulerJob,
   useSchedulerJobHistory,
+  useDmmHashlistStatus,
   useRunSchedulerJob,
   useRunSchedulerJobInline,
+  useRunDmmHashlistFull,
   schedulerKeys,
 } from './useScheduler'
 

@@ -57,6 +57,14 @@ SCRAPER_CONFIG = {
         "description": "Search Zilean DMM database",
         "is_user_configurable": False,
     },
+    "dmm_hashlist": {
+        "name": "DMM Hashlist",
+        "enabled": settings.is_scrap_from_dmm_hashlist and not settings.disable_dmm_hashlist_scraper,
+        "requires_debrid": False,
+        "ttl": runtime_const.DMM_HASHLIST_SYNC_TTL,
+        "description": "Background ingestion of DMM hashlists for stream/cache coverage",
+        "is_user_configurable": False,
+    },
     "torrentio": {
         "name": "Torrentio",
         "enabled": settings.is_scrap_from_torrentio,

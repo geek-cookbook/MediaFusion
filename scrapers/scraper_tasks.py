@@ -1013,6 +1013,54 @@ class MetadataFetcher:
                 logging.error(f"Error searching Kitsu: {e}")
                 return []
 
+        async def get_anime_candidates() -> list[dict[str, Any]]:
+            """
+            Search anime providers in configured order and fallback progressively.
+            """
+            if not include_anime:
+                return []
+
+            provider_handlers = {
+                "kitsu": get_kitsu_candidates,
+                "anilist": get_mal_candidates,  # "mal_data" module is AniList-backed.
+            }
+            source_order: list[str] = []
+            for provider in settings.anime_metadata_source_order:
+                provider_key = provider.lower()
+                if provider_key in provider_handlers and provider_key not in source_order:
+                    source_order.append(provider_key)
+            if not source_order:
+                source_order = ["kitsu", "anilist"]
+
+            combined_results: list[dict[str, Any]] = []
+            seen_ids: set[str] = set()
+            for provider in source_order:
+                if len(combined_results) >= limit:
+                    break
+                handler = provider_handlers[provider]
+                provider_results = await handler()
+                for item in provider_results:
+                    dedup_key = None
+                    if item.get("imdb_id"):
+                        dedup_key = f"imdb:{item['imdb_id']}"
+                    elif item.get("tmdb_id"):
+                        dedup_key = f"tmdb:{item['tmdb_id']}"
+                    elif item.get("tvdb_id"):
+                        dedup_key = f"tvdb:{item['tvdb_id']}"
+                    elif item.get("mal_id"):
+                        dedup_key = f"mal:{item['mal_id']}"
+                    elif item.get("kitsu_id"):
+                        dedup_key = f"kitsu:{item['kitsu_id']}"
+
+                    if dedup_key:
+                        if dedup_key in seen_ids:
+                            continue
+                        seen_ids.add(dedup_key)
+                    combined_results.append(item)
+                    if len(combined_results) >= limit:
+                        break
+            return combined_results
+
         async def get_db_candidates() -> list[dict[str, Any]]:
             try:
                 from db.crud.media import (
@@ -1082,8 +1130,7 @@ class MetadataFetcher:
             get_imdb_candidates(),
             get_tmdb_candidates(),
             get_tvdb_candidates(),
-            get_mal_candidates(),
-            get_kitsu_candidates(),
+            get_anime_candidates(),
         )
 
         # Combine results with DB entries first, then deduplicate

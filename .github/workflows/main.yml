@@ -72,11 +72,15 @@ jobs:
       - name: Build and push
         id: docker_build
         uses: docker/build-push-action@v5
+        env:
+          BUILDKIT_PROGRESS: plain
         with:
           context: .
           file: ./deployment/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
+          cache-from: type=gha,scope=mediafusion
+          cache-to: type=gha,mode=max,scope=mediafusion
           build-args: VERSION=${{ github.ref_name }}
           tags: |
             mhdzumair/mediafusion:${{ github.ref_name }}
@@ -84,6 +88,16 @@ jobs:
 
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
+
+      - name: Cache verification summary
+        if: always()
+        run: |
+          {
+            echo "### Docker cache verification"
+            echo "- Open the **Build and push** step logs and search for \`CACHED\`."
+            echo "- The first run after cache setup may have many misses."
+            echo "- From the second run onward, unchanged layers should show \`CACHED\`."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   kodi_build:
     needs: update_version

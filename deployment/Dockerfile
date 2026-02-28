@@ -39,8 +39,6 @@ RUN --mount=type=cache,target=/mediafusion/.cache/uv \
 # Runtime stage
 FROM python:3.13-slim-bookworm AS runtime
 
-ARG VERSION
-
 WORKDIR /mediafusion
 
 # Install runtime dependencies
@@ -57,12 +55,14 @@ RUN groupadd -r mediafusion && \
 COPY --from=builder --chown=mediafusion:mediafusion /mediafusion/.venv /mediafusion/.venv
 
 ENV PATH="/mediafusion/.venv/bin:$PATH"
-ENV VERSION=${VERSION}
 
 COPY --chown=mediafusion:mediafusion . /mediafusion
 
 # Copy the frontend build from the frontend-builder stage
 COPY --from=frontend-builder --chown=mediafusion:mediafusion /app/frontend/dist /mediafusion/frontend/dist
+
+ARG VERSION
+ENV VERSION=${VERSION}
 
 USER mediafusion
 

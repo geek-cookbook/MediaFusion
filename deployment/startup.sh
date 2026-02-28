@@ -88,4 +88,4 @@ alembic upgrade head
 echo "=========================================="
 echo "Starting FastAPI server..."
 echo "=========================================="
-exec gunicorn api.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --timeout 120 --max-requests 500 --max-requests-jitter 200
+exec gunicorn api.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 --timeout 120 --max-requests 5000 --max-requests-jitter 2000

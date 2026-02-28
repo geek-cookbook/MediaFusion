@@ -36,7 +36,6 @@ spec:
               secretKeyRef:
                 name: mediafusion-secrets
                 key: POSTGRES_URI
-                optional: true
           # PostgreSQL Read Replica (optional)
           - name: POSTGRES_READ_URI
             valueFrom:
@@ -49,6 +48,13 @@ spec:
               secretKeyRef:
                 name: mediafusion-secrets
                 key: SECRET_KEY
+          - name: API_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mediafusion-secrets
+                key: API_PASSWORD
+          - name: CONTACT_EMAIL
+            value: "admin@example.com"
           - name: PREMIUMIZE_OAUTH_CLIENT_ID
             valueFrom:
               secretKeyRef:
@@ -229,7 +235,6 @@ spec:
               secretKeyRef:
                 name: mediafusion-secrets
                 key: POSTGRES_URI
-                optional: true
           - name: POSTGRES_READ_URI
             valueFrom:
               secretKeyRef:
@@ -243,6 +248,13 @@ spec:
               secretKeyRef:
                 name: mediafusion-secrets
                 key: SECRET_KEY
+          - name: API_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: mediafusion-secrets
+                key: API_PASSWORD
+          - name: CONTACT_EMAIL
+            value: "admin@example.com"
           - name: PROWLARR_API_KEY
             valueFrom:
               secretKeyRef:

@@ -41,6 +41,20 @@ jobs:
       - name: Ruff format check
         run: uv run --only-group dev ruff format --check .
 
+  env-config-sync:
+    name: Env Config Sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Validate env docs/deploy sync
+        run: python scripts/check_env_sync.py
+
   frontend-lint:
     name: Frontend Lint
     runs-on: ubuntu-latest

@@ -137,6 +137,8 @@ Edit the `deployment/local-deployment.yaml` to set the required environment vari
 ```yaml
           - name: HOST_URL
             value: "https://mediafusion.local"
+          - name: CONTACT_EMAIL
+            value: "admin@example.com"
           - name: ENABLE_TAMILMV_SEARCH_SCRAPER
             value: "false"
           - name: PROWLARR_IMMEDIATE_MAX_PROCESS

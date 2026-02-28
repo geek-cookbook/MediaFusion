@@ -53,6 +53,9 @@ echo SECRET_KEY=$(openssl rand -hex 16) >> .env
 # Set API Password to secure the API endpoints
 echo API_PASSWORD=your_password >> .env
 
+# Set contact email shown in addon metadata
+echo CONTACT_EMAIL=admin@example.com >> .env
+
 # Optional:
 # Update .env with your Premiumize credentials if available
 # You can obtain OAuth credentials from the https://www.premiumize.me/registerclient with free user account.
@@ -75,6 +78,9 @@ Add-Content -Path .env -Value "SECRET_KEY=$guid"
 
 # Set API Password to secure the API endpoints
 Add-Content -Path .env -Value "API_PASSWORD=your_password"
+
+# Set contact email shown in addon metadata
+Add-Content -Path .env -Value "CONTACT_EMAIL=admin@example.com"
 
 # Optional:
 # Update .env with your Premiumize credentials if available

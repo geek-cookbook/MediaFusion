@@ -2,6 +2,10 @@
 
 This guide describes the environment variables available in MediaFusion for configuration. These settings control various aspects of the application, including database connections, service URLs, feature toggles, scheduling, and more. You can set these variables to customize MediaFusion according to your requirements.
 
+> [!IMPORTANT]
+> The full environment variable reference is auto-generated from `db/config.py` at `docs/env-reference.md`.
+> If settings change, regenerate it with `python scripts/check_env_sync.py --write`.
+
 ## Core Application Settings
 
 These settings define the basic configuration and identity of your MediaFusion instance.

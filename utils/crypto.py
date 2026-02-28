@@ -31,6 +31,9 @@ UUID_CACHE_PREFIX = "user_profile:"  # Redis key prefix for UUID-cached profile 
 UUID_CACHE_TTL = 2592000  # 30 days in seconds (same as R- expiry)
 DECRYPT_CACHE_TTL_SECONDS = 120  # in-process cache TTL for decrypted secret strings
 DECRYPT_CACHE_MAX_ENTRIES = 2048  # bounded cache size to avoid unbounded memory growth
+INVALID_SECRET_CACHE_TTL_SECONDS = 300  # short-circuit repeated invalid secrets for 5 minutes
+INVALID_SECRET_CACHE_MAX_ENTRIES = 4096  # bounded size for invalid-secret bloom cache
+MAX_SECRET_STR_LENGTH = 4096  # defensive cap against very large malformed inputs
 
 
 def make_urlsafe(data: bytes) -> str:
@@ -51,6 +54,8 @@ class CryptoUtils:
         self.secret_key = settings.secret_key.encode("utf-8").ljust(32)[:32]
         self._decrypted_user_data_cache: dict[str, tuple[float, UserData]] = {}
         self._decrypted_user_data_cache_mu = Lock()
+        self._invalid_secret_cache: dict[str, float] = {}
+        self._invalid_secret_cache_mu = Lock()
 
     def _get_cached_decrypted_user_data(self, secret_str: str) -> UserData | None:
         """Return cached decrypted UserData for secret_str if still valid."""
@@ -104,6 +109,48 @@ class CryptoUtils:
             matching_keys = [key for key in self._decrypted_user_data_cache if key.startswith(secret_prefix)]
             for key in matching_keys:
                 self._decrypted_user_data_cache.pop(key, None)
+
+    @staticmethod
+    def _secret_digest(secret_str: str) -> str:
+        return hashlib.sha256(secret_str.encode("utf-8")).hexdigest()
+
+    def _evict_expired_invalid_secret_entries(self, now: float) -> None:
+        expired_digests = [digest for digest, expires_at in self._invalid_secret_cache.items() if expires_at <= now]
+        for digest in expired_digests:
+            self._invalid_secret_cache.pop(digest, None)
+
+    def _is_known_invalid_secret(self, secret_str: str) -> bool:
+        now = time.monotonic()
+        digest = self._secret_digest(secret_str)
+        with self._invalid_secret_cache_mu:
+            expires_at = self._invalid_secret_cache.get(digest)
+            if expires_at is None:
+                return False
+            if expires_at <= now:
+                self._invalid_secret_cache.pop(digest, None)
+                return False
+            return True
+
+    def _mark_invalid_secret(self, secret_str: str) -> bool:
+        """
+        Mark secret as invalid and return True only when this is a fresh mark.
+        """
+        now = time.monotonic()
+        digest = self._secret_digest(secret_str)
+        with self._invalid_secret_cache_mu:
+            self._evict_expired_invalid_secret_entries(now)
+            already_known = digest in self._invalid_secret_cache
+            if len(self._invalid_secret_cache) >= INVALID_SECRET_CACHE_MAX_ENTRIES:
+                oldest_digest = next(iter(self._invalid_secret_cache), None)
+                if oldest_digest is not None:
+                    self._invalid_secret_cache.pop(oldest_digest, None)
+            self._invalid_secret_cache[digest] = now + INVALID_SECRET_CACHE_TTL_SECONDS
+            return not already_known
+
+    def _clear_invalid_secret(self, secret_str: str) -> None:
+        digest = self._secret_digest(secret_str)
+        with self._invalid_secret_cache_mu:
+            self._invalid_secret_cache.pop(digest, None)
 
     def _generate_storage_key(self, data_hash: str, random_chars: str) -> str:
         """Generate Redis storage key with prefix"""
@@ -191,6 +238,13 @@ class CryptoUtils:
         if not secret_str:
             return UserData()
 
+        if len(secret_str) > MAX_SECRET_STR_LENGTH:
+            self._mark_invalid_secret(secret_str)
+            raise ValueError("Invalid user data")
+
+        if self._is_known_invalid_secret(secret_str):
+            raise ValueError("Invalid user data")
+
         cached_user_data = self._get_cached_decrypted_user_data(secret_str)
         if cached_user_data is not None:
             return cached_user_data
@@ -210,22 +264,35 @@ class CryptoUtils:
                 encrypted_data = final_data[16:]
                 json_str = self._decrypt_and_decompress(iv, encrypted_data)
                 user_data = UserData.model_validate_json(json_str)
+                self._clear_invalid_secret(secret_str)
                 self._cache_decrypted_user_data(secret_str, user_data)
                 return user_data
 
             elif prefix == REDIS_PREFIX:
                 user_data = await self.retrieve_and_decrypt(data)
+                self._clear_invalid_secret(secret_str)
                 self._cache_decrypted_user_data(secret_str, user_data)
                 return user_data
 
             elif prefix == UUID_PREFIX:
                 user_data = await self._resolve_uuid_profile(data)
+                self._clear_invalid_secret(secret_str)
                 self._cache_decrypted_user_data(secret_str, user_data)
                 return user_data
 
             else:
                 raise ValueError("Invalid prefix")
 
+        except ValueError as e:
+            is_new_invalid_secret = self._mark_invalid_secret(secret_str)
+            log_fn = logger.warning if is_new_invalid_secret else logger.debug
+            log_fn(
+                "Rejected invalid user data secret (prefix=%s, len=%s): %s",
+                secret_str[:2] if secret_str else "NA",
+                len(secret_str) if secret_str else 0,
+                e,
+            )
+            raise ValueError("Invalid user data")
         except Exception as e:
             logger.error(f"Failed to decrypt user data: {e}")
             raise ValueError("Invalid user data")

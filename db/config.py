@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     poster_host_url: str | None = None
     min_scraping_video_size: int = 26214400  # 25 MB in bytes
     metadata_primary_source: Literal["imdb", "tmdb"] = "imdb"
+    startup_migrate_only: bool = False  # Skip startup DB bootstrap checks; run Alembic + Gunicorn only
 
     # Streaming Provider Toggles
     disabled_providers: list[

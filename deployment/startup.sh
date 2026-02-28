@@ -1,6 +1,17 @@
 #!/bin/bash
 set -e
 
+# When true, skip PostgreSQL readiness/database bootstrap checks and only run
+# Alembic migrations before starting Gunicorn.
+STARTUP_MIGRATE_ONLY="${STARTUP_MIGRATE_ONLY:-${startup_migrate_only:-false}}"
+
+is_truthy() {
+    case "${1,,}" in
+        1|true|yes|on) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 # psql accepts postgresql:// URIs (strip +asyncpg for SQLAlchemy format)
 # Support both POSTGRES_URI and postgres_uri (Pydantic accepts either casing)
 PSQL_URI="${POSTGRES_URI:-${postgres_uri:-postgresql://mediafusion:mediafusion@localhost:5432/mediafusion}}"
@@ -77,10 +88,14 @@ echo "=========================================="
 echo "MediaFusion Startup"
 echo "=========================================="
 
-wait_for_postgres
-create_database_if_not_exists
-create_extensions
-handle_migration_bridge
+if is_truthy "$STARTUP_MIGRATE_ONLY"; then
+    echo "STARTUP_MIGRATE_ONLY enabled: skipping DB readiness/bootstrap checks and extension setup."
+else
+    wait_for_postgres
+    create_database_if_not_exists
+    create_extensions
+    handle_migration_bridge
+fi
 
 echo "Running Alembic migrations..."
 alembic upgrade head

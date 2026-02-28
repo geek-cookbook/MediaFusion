@@ -4,7 +4,7 @@ import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from sqlalchemy import text
+from sqlalchemy import event, exc, text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.pool import NullPool
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -32,27 +32,66 @@ def _get_running_loop_id() -> int | None:
         return None
 
 
+def _install_asyncpg_guards(engine: AsyncEngine) -> None:
+    """Register pool events to detect and discard corrupted asyncpg connections.
+
+    asyncpg keeps an internal protocol state machine.  If a previous operation
+    was interrupted (cancelled request, timeout, etc.) the connection can be
+    returned to the pool with the protocol stuck mid-operation.
+    pool_pre_ping verifies the *PostgreSQL* session is alive but does NOT reset
+    the asyncpg protocol state, so a subsequent selectinload or any multi-step
+    query will hit "another operation is in progress".
+
+    The checkout listener below inspects the raw asyncpg connection and
+    invalidates it if its protocol is not idle, forcing the pool to create a
+    fresh connection.
+    """
+
+    @event.listens_for(engine.sync_engine, "checkout")
+    def _check_asyncpg_state(dbapi_connection, connection_record, connection_proxy):
+        raw = dbapi_connection.dbapi_connection  # underlying asyncpg connection
+        if raw is None or raw.is_closed():
+            raise exc.DisconnectionError("asyncpg connection is closed")
+        protocol = getattr(raw, "_protocol", None)
+        if protocol is not None:
+            state = getattr(protocol, "state", None)
+            # asyncpg protocol state 0 = STATE_READY (idle).
+            # Any other state means a previous operation didn't finish cleanly.
+            if state is not None and state != 0:
+                logger.warning(
+                    "Discarding asyncpg connection with dirty protocol state %s",
+                    state,
+                )
+                raise exc.DisconnectionError(f"asyncpg protocol in state {state}, expected idle (0)")
+
+
 def _create_primary_engine() -> AsyncEngine:
-    return create_async_engine(
+    engine = create_async_engine(
         settings.postgres_uri,
         echo=False,
         pool_size=20,
         max_overflow=30,
         pool_pre_ping=True,
-        pool_recycle=3600,
+        pool_recycle=300,
+        pool_timeout=30,
     )
+    _install_asyncpg_guards(engine)
+    return engine
 
 
 def _create_read_engine() -> AsyncEngine:
     if settings.postgres_read_uri:
-        return create_async_engine(
+        engine = create_async_engine(
             settings.postgres_read_uri,
             echo=False,
             pool_size=30,
             max_overflow=40,
             pool_pre_ping=True,
-            pool_recycle=3600,
+            pool_recycle=300,
+            pool_timeout=30,
         )
+        _install_asyncpg_guards(engine)
+        return engine
     return _get_engine()
 
 
@@ -100,6 +139,21 @@ ASYNC_ENGINE = _EngineProxy(_get_engine)  # type: ignore[assignment]
 ASYNC_READ_ENGINE = _EngineProxy(_get_read_engine)  # type: ignore[assignment]
 
 
+async def _safe_close_session(session: AsyncSession) -> None:
+    """Close a session, properly handling dead connections.
+
+    When a TCP connection drops mid-request (load balancer timeout, PG restart,
+    network blip), session.close() attempts ROLLBACK on a dead socket and raises
+    InterfaceError.  The pool will already discard the dead connection on the
+    next checkout (pool_pre_ping=True), so the close-time failure is safe to
+    absorb.  We log at DEBUG since this is expected in cloud/LB environments.
+    """
+    try:
+        await session.close()
+    except Exception as close_err:
+        logger.debug("Session close failed (dead connection, will be discarded by pool): %s", close_err)
+
+
 def _create_fresh_engine() -> AsyncEngine:
     """Create a fresh async engine for use in background tasks (like Dramatiq).
 
@@ -136,10 +190,7 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
     try:
         yield session
     finally:
-        try:
-            await session.close()
-        except Exception as e:
-            logger.warning(f"Error closing write session: {e}")
+        await _safe_close_session(session)
 
 
 @asynccontextmanager
@@ -151,10 +202,7 @@ async def get_async_session_context() -> AsyncGenerator[AsyncSession, None]:
     try:
         yield session
     finally:
-        try:
-            await session.close()
-        except Exception as e:
-            logger.warning(f"Error closing session: {e}")
+        await _safe_close_session(session)
 
 
 async def get_read_session() -> AsyncGenerator[AsyncSession, None]:
@@ -165,10 +213,7 @@ async def get_read_session() -> AsyncGenerator[AsyncSession, None]:
     try:
         yield session
     finally:
-        try:
-            await session.close()
-        except Exception as e:
-            logger.warning(f"Error closing read session: {e}")
+        await _safe_close_session(session)
 
 
 @asynccontextmanager
@@ -181,10 +226,7 @@ async def get_read_session_context() -> AsyncGenerator[AsyncSession, None]:
     try:
         yield session
     finally:
-        try:
-            await session.close()
-        except Exception as e:
-            logger.warning(f"Error closing read session: {e}")
+        await _safe_close_session(session)
 
 
 def _friendly_db_error(exc: BaseException) -> RuntimeError | None:

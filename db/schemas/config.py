@@ -4,7 +4,7 @@ import math
 import re
 from typing import Literal
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
 from db.config import settings
 from db.enums import IntegrationType, NudityStatus, SyncDirection
@@ -38,9 +38,7 @@ class QBittorrentConfig(BaseModel):
     webdav_password: str = Field(alias="wpw")
     webdav_downloads_path: str = Field(default="/", alias="wdp")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class MediaFlowConfig(BaseModel):
@@ -60,9 +58,7 @@ class MediaFlowConfig(BaseModel):
     # Enable web browser playback - required for playing debrid streams in MediaFusion web UI
     enable_web_playback: bool = Field(default=False, alias="ewp")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class RPDBConfig(BaseModel):
@@ -70,9 +66,7 @@ class RPDBConfig(BaseModel):
 
     api_key: str = Field(alias="ak")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 # ============================================
@@ -92,9 +86,7 @@ class SABnzbdConfig(BaseModel):
     webdav_password: str | None = Field(default=None, alias="wpw")
     webdav_downloads_path: str = Field(default="/", alias="wdp")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class NZBGetConfig(BaseModel):
@@ -110,9 +102,7 @@ class NZBGetConfig(BaseModel):
     webdav_password: str | None = Field(default=None, alias="wpw")
     webdav_downloads_path: str = Field(default="/", alias="wdp")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class NzbDAVConfig(BaseModel):
@@ -122,9 +112,7 @@ class NzbDAVConfig(BaseModel):
     api_key: str = Field(alias="ak")
     category: str = Field(default="MediaFusion", alias="cat")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class EasynewsConfig(BaseModel):
@@ -133,9 +121,7 @@ class EasynewsConfig(BaseModel):
     username: str = Field(alias="un")
     password: str = Field(alias="pw")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class StreamingProvider(BaseModel):
@@ -202,9 +188,7 @@ class StreamingProvider(BaseModel):
                 raise ValueError(f"{field} is required")
         return self
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class SortingOption(BaseModel):
@@ -213,9 +197,7 @@ class SortingOption(BaseModel):
     key: str = Field(alias="k")
     direction: Literal["asc", "desc"] = Field(default="desc", alias="d")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class MDBListItem(BaseModel):
@@ -232,9 +214,7 @@ class MDBListItem(BaseModel):
     def catalog_id(self) -> str:
         return f"mdblist_{self.catalog_type}_{self.id}"
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class MDBListConfig(BaseModel):
@@ -243,9 +223,7 @@ class MDBListConfig(BaseModel):
     api_key: str = Field(alias="ak")
     lists: list[MDBListItem] = Field(default_factory=list, alias="l")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class CatalogConfig(BaseModel):
@@ -265,9 +243,7 @@ class CatalogConfig(BaseModel):
     )
     order: Literal["asc", "desc"] = Field(default="desc", alias="o")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class StreamTemplate(BaseModel):
@@ -324,9 +300,7 @@ class StreamTemplate(BaseModel):
         description="Description template for stream display",
     )
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class IndexerInstanceConfig(BaseModel):
@@ -337,9 +311,7 @@ class IndexerInstanceConfig(BaseModel):
     api_key: str | None = Field(default=None, alias="ak")
     use_global: bool = Field(default=True, alias="ug")  # Use global instance if True
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class TorznabEndpointConfig(BaseModel):
@@ -353,9 +325,7 @@ class TorznabEndpointConfig(BaseModel):
     categories: list[int] = Field(default_factory=list, alias="c")
     priority: int = Field(default=1, alias="p")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 # ============================================
@@ -379,9 +349,7 @@ class NewznabIndexerConfig(BaseModel):
     use_zyclops: bool = Field(default=False, alias="uz")
     zyclops_backbones: list[str] = Field(default_factory=list, alias="zb")  # backbone slugs
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class IndexerConfig(BaseModel):
@@ -393,9 +361,7 @@ class IndexerConfig(BaseModel):
     # Newznab indexers for Usenet NZB scraping
     newznab_indexers: list[NewznabIndexerConfig] = Field(default_factory=list, alias="nz")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 # ============================================
@@ -413,9 +379,7 @@ class TelegramChannelConfig(BaseModel):
     enabled: bool = Field(default=True, alias="en")
     priority: int = Field(default=1, alias="p")  # Lower = higher priority
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class TelegramConfig(BaseModel):
@@ -426,9 +390,7 @@ class TelegramConfig(BaseModel):
     # Option to also use admin-configured global channels
     use_global_channels: bool = Field(default=True, alias="ugc")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 # ============================================
@@ -450,9 +412,7 @@ class TraktConfig(BaseModel):
     scrobble_enabled: bool = Field(default=True, alias="sc")  # Real-time sync while watching
     min_watch_percent: int = Field(default=80, alias="mwp")  # % watched before marking complete
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class SimklConfig(BaseModel):
@@ -467,9 +427,7 @@ class SimklConfig(BaseModel):
     sync_enabled: bool = Field(default=True, alias="se")
     sync_direction: SyncDirection = Field(default=SyncDirection.BIDIRECTIONAL, alias="sd")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class MALConfig(BaseModel):
@@ -482,9 +440,7 @@ class MALConfig(BaseModel):
     sync_direction: SyncDirection = Field(default=SyncDirection.BIDIRECTIONAL, alias="sd")
     sync_anime_only: bool = Field(default=True, alias="sao")  # Only sync anime content
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class AniListConfig(BaseModel):
@@ -496,9 +452,7 @@ class AniListConfig(BaseModel):
     sync_direction: SyncDirection = Field(default=SyncDirection.BIDIRECTIONAL, alias="sd")
     sync_anime_only: bool = Field(default=True, alias="sao")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class LetterboxdConfig(BaseModel):
@@ -508,9 +462,7 @@ class LetterboxdConfig(BaseModel):
     sync_enabled: bool = Field(default=True, alias="se")
     sync_direction: SyncDirection = Field(default=SyncDirection.IMPORT, alias="sd")  # Letterboxd is import-only via RSS
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class TVTimeConfig(BaseModel):
@@ -522,9 +474,7 @@ class TVTimeConfig(BaseModel):
     sync_enabled: bool = Field(default=True, alias="se")
     sync_direction: SyncDirection = Field(default=SyncDirection.BIDIRECTIONAL, alias="sd")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class IntegrationConfigs(BaseModel):
@@ -537,9 +487,7 @@ class IntegrationConfigs(BaseModel):
     letterboxd: LetterboxdConfig | None = Field(default=None, alias="lbx")
     tvtime: TVTimeConfig | None = Field(default=None, alias="tvt")
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     def get_enabled_platforms(self) -> list[IntegrationType]:
         """Get list of enabled integration platforms."""
@@ -899,12 +847,12 @@ class UserData(BaseModel):
         config = self.get_catalog_config(catalog_id)
         return config.enabled if config else False
 
-    class Config:
-        extra = "ignore"
-        populate_by_name = True
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
 
 class AuthorizeData(BaseModel):
     """Device code authorization data."""
 
     device_code: str
+
+    model_config = ConfigDict(extra="ignore")

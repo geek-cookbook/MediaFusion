@@ -169,7 +169,7 @@ services:
       - mediafusion-network
 
   dramatiq-worker:
-    image: mhdzumair/mediafusion:5.0.1latest
+    image: mhdzumair/mediafusion:5.0.1
     command: ["dramatiq", "api.task", "-p", "1", "-t", "4"]
     env_file: .env
     environment:

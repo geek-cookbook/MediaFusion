@@ -18,6 +18,11 @@ class Torbox(DebridClient):
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await super().__aexit__(exc_type, exc_val, exc_tb)
 
+    @staticmethod
+    def _is_plan_restricted_error(error_message: str) -> bool:
+        normalized = (error_message or "").strip().lower()
+        return "plan_restricted_feature" in normalized or "access this api feature" in normalized
+
     async def _handle_service_specific_errors(self, error_data: dict, status_code: int):
         error_code = error_data.get("error")
         match error_code:
@@ -133,12 +138,21 @@ class Torbox(DebridClient):
         return {}
 
     async def get_queued_torrents(self):
-        response = await self._make_request(
-            "GET",
-            "/queued/getqueued",
-            params={"type": "torrent", "bypass_cache": "true"},
-            is_expected_to_fail=True,
-        )
+        try:
+            response = await self._make_request(
+                "GET",
+                "/queued/getqueued",
+                params={"type": "torrent", "bypass_cache": "true"},
+                is_expected_to_fail=True,
+            )
+        except ProviderException as error:
+            if self._is_plan_restricted_error(error.message):
+                raise ProviderException(
+                    "Need premium TorBox account to access this API feature",
+                    "need_premium.mp4",
+                )
+            raise
+
         if isinstance(response, dict) and response.get("error") == "PLAN_RESTRICTED_FEATURE":
             await self._handle_service_specific_errors(response, 403)
         if isinstance(response, dict) and response.get("success"):

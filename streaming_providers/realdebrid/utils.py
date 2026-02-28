@@ -20,6 +20,15 @@ def _is_unknown_resource_error(error: ProviderException) -> bool:
     return "unknown_ressource" in message or "resource not found" in message
 
 
+def _extract_torrent_id_from_create_response(create_response: object) -> str:
+    if not isinstance(create_response, dict):
+        raise ProviderException("Failed to add torrent to Real-Debrid", "transfer_error.mp4")
+    torrent_id = create_response.get("id")
+    if not torrent_id:
+        raise ProviderException("Failed to add torrent to Real-Debrid", "transfer_error.mp4")
+    return str(torrent_id)
+
+
 async def _get_all_torrents(rd_client: RealDebrid) -> list[dict]:
     """Fetch all torrents with safe pagination fallback."""
     all_torrents: list[dict] = []
@@ -84,7 +93,8 @@ async def create_download_link(
 
     if relevant_file.get("selected") != 1 or len(selected_files) != len(torrent_info["links"]):
         await rd_client.delete_torrent(torrent_info["id"])
-        torrent_id = (await rd_client.add_magnet_link(magnet_link)).get("id")
+        create_response = await rd_client.add_magnet_link(magnet_link)
+        torrent_id = _extract_torrent_id_from_create_response(create_response)
         torrent_info = await rd_client.wait_for_status(
             torrent_id, "waiting_files_selection", max_retries, retry_interval
         )
@@ -185,12 +195,7 @@ async def add_new_torrent(rd_client, magnet_link, info_hash, stream):
             create_response = await rd_client.add_torrent_file(stream.torrent_file)
         else:
             create_response = await rd_client.add_magnet_link(magnet_link)
-        if not isinstance(create_response, dict):
-            raise ProviderException("Failed to add magnet link to Real-Debrid", "transfer_error.mp4")
-        torrent_id = create_response.get("id")
-        if not torrent_id:
-            raise ProviderException("Failed to add magnet link to Real-Debrid", "transfer_error.mp4")
-        return str(torrent_id)
+        return _extract_torrent_id_from_create_response(create_response)
 
     max_create_attempts = 2
     max_info_retries = 3

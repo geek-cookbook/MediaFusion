@@ -33,6 +33,10 @@ class RealDebrid(DebridClient):
             case 30:
                 raise ProviderException("Invalid magnet link", "transfer_error.mp4")
 
+    def _should_retry_torrent_info_error(self, error: ProviderException) -> bool:
+        message = (error.message or "").lower()
+        return "unknown_ressource" in message or "resource not found" in message
+
     async def _make_request(
         self,
         method: str,

@@ -175,6 +175,10 @@ class DebridClient(AsyncContextDecorator):
     async def disable_access_token(self):
         raise NotImplementedError
 
+    def _should_retry_torrent_info_error(self, error: ProviderException) -> bool:
+        """Whether wait_for_status should retry a torrent-info failure."""
+        return False
+
     async def wait_for_status(
         self,
         torrent_id: str,
@@ -197,8 +201,20 @@ class DebridClient(AsyncContextDecorator):
             if _normalize_status(torrent_info.get("status")) == normalized_target:
                 return torrent_info
 
-        for _ in range(max_retries):
-            torrent_info = await self.get_torrent_info(torrent_id)
+        for attempt in range(max_retries):
+            try:
+                torrent_info = await self.get_torrent_info(torrent_id)
+            except ProviderException as error:
+                if self._should_retry_torrent_info_error(error):
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(retry_interval)
+                        continue
+                    raise ProviderException(
+                        f"Torrent did not reach {target_status} status.",
+                        "torrent_not_downloaded.mp4",
+                    )
+                raise
+
             current = _normalize_status(torrent_info.get("status"))
             if current == normalized_target:
                 return torrent_info
@@ -207,7 +223,8 @@ class DebridClient(AsyncContextDecorator):
                     f"Torrent entered error state: {torrent_info.get('errorMessage', 'unknown error')}",
                     "transfer_error.mp4",
                 )
-            await asyncio.sleep(retry_interval)
+            if attempt < max_retries - 1:
+                await asyncio.sleep(retry_interval)
         raise ProviderException(
             f"Torrent did not reach {target_status} status.",
             "torrent_not_downloaded.mp4",

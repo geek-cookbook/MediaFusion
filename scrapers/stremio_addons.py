@@ -80,7 +80,7 @@ class StremioScraper(BaseScraper):
             if stream:
                 streams.append(stream)
                 if is_cached:
-                    cached_info_hashes.append(stream.id)
+                    cached_info_hashes.append(stream.info_hash)
 
         primary_provider = user_data.get_primary_provider()
         provider_service = primary_provider.service if primary_provider else "none"

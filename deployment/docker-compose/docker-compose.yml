@@ -6,7 +6,6 @@ services:
     env_file: .env
     environment:
       # Override these in .env file for customization
-      - MONGO_URI=mongodb://mongodb:27017/mediafusion
       - POSTGRES_URI=postgresql+asyncpg://mediafusion:mediafusion@postgres:5432/mediafusion
       # For read replicas, uncomment and configure:
       # - POSTGRES_READ_URI=postgresql+asyncpg://mediafusion:mediafusion@postgres-replica:5432/mediafusion
@@ -15,8 +14,6 @@ services:
       - FLARESOLVERR_URL=http://flaresolverr:8191/v1
       - PLAYWRIGHT_CDP_URL=ws://browserless:3000?blockAds=true&stealth=true
     depends_on:
-      mongodb:
-        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
@@ -53,28 +50,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    networks:
-      - mediafusion-network
-
-  # MongoDB - kept for migration period
-  mongodb:
-    image: mongo:latest
-    volumes:
-      - mongo-data:/data/db
-    ports:
-      - "27017:27017"
-    restart: unless-stopped
-    healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
-      interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
     logging:
       driver: "json-file"
       options:
@@ -173,12 +148,9 @@ services:
     command: ["dramatiq", "api.task", "-p", "1", "-t", "4"]
     env_file: .env
     environment:
-      - MONGO_URI=mongodb://mongodb:27017/mediafusion
       - POSTGRES_URI=postgresql+asyncpg://mediafusion:mediafusion@postgres:5432/mediafusion
       - REDIS_URL=redis://redis:6379
     depends_on:
-      mongodb:
-        condition: service_healthy
       postgres:
         condition: service_healthy
       redis:
@@ -251,8 +223,6 @@ services:
       - mediafusion-network
 
 volumes:
-  mongo-data:
-    driver: local
   postgres-data:
     driver: local
   prowlarr-config:

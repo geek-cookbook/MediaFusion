@@ -49,27 +49,6 @@ services:
     networks:
       - mediafusion-network
 
-  mongodb:
-    image: mongo:latest
-    volumes:
-      - mongo-data:/data/db
-    ports:
-      - "27017:27017"
-    restart: unless-stopped
-    healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
-      interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    networks:
-      - mediafusion-network
-
   # PostgreSQL - Primary database
   postgres:
     image: postgres:18-alpine
@@ -141,8 +120,6 @@ services:
       - mediafusion-network
 
 volumes:
-  mongo-data:
-    driver: local
   postgres-data:
     driver: local
   redis-data:

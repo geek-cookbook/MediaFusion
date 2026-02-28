@@ -199,15 +199,12 @@ services:
   # Override mediafusion to use PgBouncer
   mediafusion:
     environment:
-      - MONGO_URI=mongodb://mongodb:27017/mediafusion
       # Use PgBouncer for write operations
       - POSTGRES_URI=postgresql+asyncpg://mediafusion:mediafusion@pgbouncer:6432/mediafusion
       # Use read replica PgBouncer for read operations
       - POSTGRES_READ_URI=postgresql+asyncpg://mediafusion:mediafusion@pgbouncer-read:6432/mediafusion
       - REDIS_URL=redis://redis:6379
     depends_on:
-      mongodb:
-        condition: service_healthy
       pgbouncer:
         condition: service_healthy
       pgbouncer-read:
@@ -218,13 +215,10 @@ services:
   # Override dramatiq-worker to use PgBouncer
   dramatiq-worker:
     environment:
-      - MONGO_URI=mongodb://mongodb:27017/mediafusion
       - POSTGRES_URI=postgresql+asyncpg://mediafusion:mediafusion@pgbouncer:6432/mediafusion
       - POSTGRES_READ_URI=postgresql+asyncpg://mediafusion:mediafusion@pgbouncer-read:6432/mediafusion
       - REDIS_URL=redis://redis:6379
     depends_on:
-      mongodb:
-        condition: service_healthy
       pgbouncer:
         condition: service_healthy
       redis:

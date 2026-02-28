@@ -43,7 +43,7 @@ Start only the database services using the minimal Docker Compose configuration:
 ```bash
 cd deployment/docker-compose
 
-# Start MongoDB, PostgreSQL, and Redis
+# Start PostgreSQL and Redis
 docker compose -f docker-compose-minimal.yml up -d
 
 # Verify services are running
@@ -51,7 +51,6 @@ docker compose -f docker-compose-minimal.yml ps
 ```
 
 This starts:
-- **MongoDB** on `localhost:27017`
 - **PostgreSQL** on `localhost:5432` (user: `mediafusion`, password: `mediafusion`)
 - **Redis** on `localhost:6379`
 
@@ -86,7 +85,6 @@ SECRET_KEY=${SECRET_KEY}
 API_PASSWORD=dev_password
 
 # Database URIs (matching docker-compose-minimal.yml)
-MONGO_URI=mongodb://localhost:27017/mediafusion
 POSTGRES_URI=postgresql+asyncpg://mediafusion:mediafusion@localhost:5432/mediafusion
 REDIS_URL=redis://localhost:6379
 
@@ -105,10 +103,7 @@ EOF
 ### Step 5: Run Database Migrations
 
 ```bash
-# Run Beanie migrations for MongoDB
-uv run beanie migrate -uri "mongodb://localhost:27017" -db mediafusion -p migrations/
-
-# Run Alembic migrations for PostgreSQL (if using PostgreSQL)
+# Run Alembic migrations for PostgreSQL
 uv run alembic upgrade head
 ```
 

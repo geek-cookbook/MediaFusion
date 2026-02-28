@@ -138,7 +138,7 @@ class Stream(TimestampMixin, table=True):
     # =========================================================================
 
     # User-provided uploader name from contribution (could be Anonymous, username, or mistaken value)
-    # This is the original value from MongoDB that users entered
+    # This preserves the original value users entered
     uploader: str | None = Field(default=None, index=True)
 
     # MediaFusion v5+: FK to user who contributed this stream (with consent)

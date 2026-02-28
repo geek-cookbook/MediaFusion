@@ -198,7 +198,6 @@ A special thank you to all our contributors!
 - [FastAPI](https://fastapi.tiangolo.com/)
 - [beautifulsoup4](https://beautiful-soup-4.readthedocs.io/en/latest/)
 - [cinemagoer](https://cinemagoer.readthedocs.io/en/latest/)
-- [beanie](https://roman-right.github.io/beanie/)
 - [parse-torrent-title](https://github.com/platelminto/parse-torrent-title)
 - [kubernetes](https://kubernetes.io/)
 - [docker](https://www.docker.com/)

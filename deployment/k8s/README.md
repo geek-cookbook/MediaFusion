@@ -21,7 +21,7 @@ Before you begin, ensure the following tools are installed on your system:
 
 ## Database Options 📊
 
-MediaFusion supports both MongoDB and PostgreSQL:
+MediaFusion uses PostgreSQL as the primary database:
 
 | File | Description |
 |------|-------------|
@@ -146,21 +146,6 @@ Edit the `deployment/local-deployment.yaml` to set the required environment vari
           - name: IS_SCRAP_FROM_TORRENTIO
             value: "false"
 ```
-
-> [!WARNING]
-> Note: If you have lower than armv8-2 architecture, you may not be able to run the mongodb container. In that case, you can use MongoDB Atlas Cluster. 
-
-
-### Configuring MongoDB Atlas Cluster (Optional) 🌐
-If you want to use MongoDB Atlas Cluster instead of local MongoDB, follow the documentation [here](/deployment/mongo/README.md).
-
-- Replace the `MONGO_URI` in the `deployment/k8s/local-deployment.yaml` file with the connection string you copied from the previous step.
-- Make sure to add the Database name in the connection string. Example Database name is `mediafusion`.
-```yaml
-          - name: MONGO_URI
-            value: "mongodb+srv://<username>:<password>@<cluster-url>/<database-name>?retryWrites=true&w=majority"
-```
-- Set `mongodb-deployment` replica to 0 in the `deployment/k8s/local-deployment.yaml` file.
 
 ### Configuring Managed PostgreSQL (Recommended for Production) 🌐
 

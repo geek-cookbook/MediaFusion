@@ -25,10 +25,7 @@ Ensure the following tools are installed:
 
 ## Database Options 📊
 
-MediaFusion supports both MongoDB and PostgreSQL. The deployment includes both databases during the migration period:
-
-- **MongoDB**: Legacy database (kept for migration compatibility)
-- **PostgreSQL**: New primary database with better performance and replica support
+MediaFusion uses PostgreSQL as the primary database.
 
 ### Available Compose Files
 
@@ -157,9 +154,6 @@ For local development where you run the app separately:
 docker compose -f docker-compose-minimal.yml up -d
 ```
 
-> [!WARNING]
-> Note: If you have lower than armv8-2 architecture, you may not be able to run the mongodb container. In that case, you can use MongoDB Atlas Cluster. 
-
 ## Database Configuration 🗄️
 
 ### PostgreSQL Configuration
@@ -178,17 +172,6 @@ POSTGRES_URI=postgresql+asyncpg://user:password@postgres:5432/mediafusion
 # With read replica (optional)
 POSTGRES_READ_URI=postgresql+asyncpg://user:password@postgres-replica:5432/mediafusion
 ```
-
-### Configuring MongoDB Atlas Cluster (Optional) 🌐
-
-If you want to use MongoDB Atlas Cluster instead of local MongoDB, follow the documentation [here](/deployment/mongo/README.md).
-
-- Replace the `MONGO_URI` in the `.env` file with the connection string you copied from the previous step.
-- Make sure to add the Database name in the connection string. Example Database name is `mediafusion`.
-```dotenv
-MONGO_URI=mongodb+srv://<username>:<password>@<cluster-url>/<database-name>?retryWrites=true&w=majority
-```
-- Remove the `mongodb` container and `depends_on` from the `docker-compose.yml` file.
 
 ### Managed PostgreSQL Services (Recommended for Production)
 

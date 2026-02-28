@@ -49,11 +49,6 @@ These settings define the basic configuration and identity of your MediaFusion i
   - Use this for scaling read operations in production.
 - **db_max_connections** (default: `50`): Maximum database connections per pool.
 
-### MongoDB Settings (Legacy/Migration)
-- **mongo_uri** (required for migration): MongoDB connection URI.
-  - Only needed during the migration process from MongoDB to PostgreSQL.
-  - Can be removed after successful migration.
-
 ### Redis Settings
 - **redis_url** (default: `"redis://redis-service:6379"`): Redis service URL for caching and tasks.
 - **redis_max_connections** (default: `100`): Maximum Redis connections.

@@ -300,7 +300,6 @@ migration for the v5.0 release.
 PREREQUISITES
 -------------
 1. A separate PostgreSQL database for clean migration generation
-2. Access to both MongoDB and PostgreSQL for migration verification
 
 STEP-BY-STEP PROCESS
 --------------------
@@ -341,17 +340,6 @@ Step 6: Verify migration works on fresh database
 Step 7: Compare schema to ensure completeness
     python scripts/consolidate_migrations.py compare \\
         --db-url "postgresql+asyncpg://postgres:postgres@localhost:5433/mediafusion_test"
-
-Step 8: Test mongo-to-postgres migration
-    python -m migrations.mongo_to_postgres migrate \\
-        --mongo-uri "mongodb://localhost:27017/mediafusion" \\
-        --postgres-uri "postgresql+asyncpg://postgres:postgres@localhost:5433/mediafusion_test" \\
-        --sample 100
-
-    python -m migrations.mongo_to_postgres verify \\
-        --mongo-uri "mongodb://localhost:27017/mediafusion" \\
-        --postgres-uri "postgresql+asyncpg://postgres:postgres@localhost:5433/mediafusion_test" \\
-        --sample 100
 
 CLEANUP
 -------

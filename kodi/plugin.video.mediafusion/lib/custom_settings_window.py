@@ -8,6 +8,36 @@ import xbmcaddon
 import xbmcgui
 
 
+def _extract_wrapped_api_error(payload):
+    """Return (detail, status_code) for wrapped API errors, else (None, None)."""
+    if not isinstance(payload, dict) or payload.get("error") is not True:
+        return None, None
+    detail = payload.get("detail")
+    status_code = payload.get("status_code")
+    return (
+        detail if isinstance(detail, str) else "Request failed",
+        status_code if isinstance(status_code, int) else None,
+    )
+
+
+def _map_kodi_error_message(detail, status_code):
+    normalized_detail = detail.lower()
+
+    if status_code == 429 or "rate limit" in normalized_detail:
+        return "Too many requests. Please wait a few seconds and try again."
+
+    if "invalid setup code" in normalized_detail:
+        return "Invalid or expired setup code. Generate a new code and try again."
+
+    if status_code == 401 or "api key" in normalized_detail or "api password" in normalized_detail:
+        return "Authentication failed. Verify API key/password for this MediaFusion instance."
+
+    if "validation error" in normalized_detail:
+        return "Invalid setup code format. Use the 6-character code shown in Kodi."
+
+    return detail
+
+
 class CustomSettingsWindow(xbmcgui.WindowXMLDialog):
     def __init__(self, *args, **kwargs):
         super(CustomSettingsWindow, self).__init__(*args, **kwargs)
@@ -97,9 +127,17 @@ class CustomSettingsWindow(xbmcgui.WindowXMLDialog):
     def configure_secret(self):
         try:
             data = self.secret_string if self.secret_string else ""
-            response = requests.post(urljoin(self.base_url, "api/v1/kodi/generate-setup-code"), json=data)
+            response = requests.post(
+                urljoin(self.base_url, "api/v1/kodi/generate-setup-code"),
+                json=data,
+                timeout=15,
+            )
             response.raise_for_status()
             data = response.json()
+            error_detail, error_status_code = _extract_wrapped_api_error(data)
+            if error_detail:
+                raise RuntimeError(_map_kodi_error_message(error_detail, error_status_code))
+
             code = data["code"]
             qr_code_url = data["qr_code_url"]
             self.configure_url = data["configure_url"]
@@ -137,22 +175,47 @@ class CustomSettingsWindow(xbmcgui.WindowXMLDialog):
                 self.qr_code_image.setImage("")
 
         except requests.exceptions.RequestException as e:
+            status_code = getattr(e.response, "status_code", None)
             error_message = (
-                "Rate limit exceeded. Please wait and try again."
-                if getattr(e.response, "status_code", None) == 429
+                "Too many requests. Please wait a few seconds and try again."
+                if status_code == 429
+                else "Authentication failed. Verify API key/password for this MediaFusion instance."
+                if status_code == 401
                 else f"Error: {str(e)}"
             )
             self.setup_code_label.setLabel(error_message)
             self.time_remaining_label.setLabel("")
             self.open_config_button.setVisible(False)
             self.qr_code_image.setImage("")
+        except Exception as e:
+            self.setup_code_label.setLabel(f"Error: {str(e)}")
+            self.time_remaining_label.setLabel("")
+            self.open_config_button.setVisible(False)
+            self.qr_code_image.setImage("")
 
     def poll_for_secret(self, code):
         try:
-            response = requests.get(urljoin(self.base_url, f"api/v1/kodi/get-manifest/{code}"))
+            response = requests.get(urljoin(self.base_url, f"api/v1/kodi/get-manifest/{code}"), timeout=10)
             if response.status_code == 200:
                 data = response.json()
-                new_secret_string = data["secret_string"]
+                error_detail, error_status_code = _extract_wrapped_api_error(data)
+                if error_detail:
+                    if error_status_code == 404 and error_detail == "Manifest URL not found":
+                        # Expected while waiting for user to submit code in web UI.
+                        return False
+                    if error_status_code == 429:
+                        self.poll_interval *= 2  # Double the polling interval on rate limit
+                        xbmc.log(
+                            f"Rate limit hit. Increasing poll interval to {self.poll_interval} seconds.",
+                            xbmc.LOGWARNING,
+                        )
+                        return False
+                    raise RuntimeError(_map_kodi_error_message(error_detail, error_status_code))
+
+                new_secret_string = data.get("secret_string")
+                if not new_secret_string:
+                    return False
+
                 self.secret_string = new_secret_string
                 self.addon.setSetting("secret_string", self.secret_string)
                 self.update_secret_display()
@@ -166,6 +229,15 @@ class CustomSettingsWindow(xbmcgui.WindowXMLDialog):
                 )
             else:
                 xbmc.log(f"Error polling for secret: {str(e)}", xbmc.LOGERROR)
+        except RuntimeError as e:
+            xbmc.log(f"Kodi setup failed: {str(e)}", xbmc.LOGERROR)
+            self.setup_code_label.setLabel(str(e))
+            self.time_remaining_label.setLabel("")
+            self.open_config_button.setVisible(False)
+            self.qr_code_image.setImage("")
+            self.is_running = False
+        except ValueError as e:
+            xbmc.log(f"Error parsing setup response: {str(e)}", xbmc.LOGERROR)
         return False
 
     def open_configuration_page(self):

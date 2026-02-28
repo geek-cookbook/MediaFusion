@@ -522,6 +522,32 @@ export function generateManifestUrls(encryptedStr: string): {
   }
 }
 
+function mapKodiLinkError(detail: string | null, statusCode?: number): string {
+  const normalizedDetail = (detail || '').toLowerCase()
+
+  if (statusCode === 429 || normalizedDetail.includes('rate limit')) {
+    return 'Too many requests. Please wait a few seconds and try again.'
+  }
+
+  if (normalizedDetail.includes('invalid setup code') || statusCode === 404) {
+    return 'Invalid or expired Kodi setup code. Generate a new code in Kodi and try again within 5 minutes.'
+  }
+
+  if (
+    normalizedDetail.includes('invalid or missing api key') ||
+    normalizedDetail.includes('invalid api password') ||
+    normalizedDetail.includes('authentication required')
+  ) {
+    return 'This private instance requires a valid API key. Save the correct API key first, then link Kodi again.'
+  }
+
+  if (normalizedDetail.includes('validation error')) {
+    return 'Invalid setup code format. Use the 6-character code shown in Kodi.'
+  }
+
+  return detail || 'Failed to link Kodi device'
+}
+
 /**
  * Associate a Kodi setup code with a manifest URL.
  * Called from the web UI after the user enters the 6-digit code from Kodi.
@@ -545,12 +571,17 @@ export async function associateKodiManifest(code: string, manifestUrl: string): 
     body: JSON.stringify({ code, manifest_url: manifestUrl }),
   })
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'Request failed' }))
-    throw new Error(typeof error.detail === 'string' ? error.detail : 'Failed to link Kodi device')
+  const data = await response.json().catch(() => null)
+
+  // MediaFusion API may wrap errors as HTTP 200 with { error: true, detail, status_code }.
+  if (!response.ok || data?.error === true) {
+    const detail = typeof data?.detail === 'string' ? data.detail : null
+    const statusCode =
+      typeof data?.status_code === 'number' ? data.status_code : response.ok ? undefined : response.status
+    throw new Error(mapKodiLinkError(detail, statusCode))
   }
 
-  return response.json()
+  return data
 }
 
 export const anonymousApi = {

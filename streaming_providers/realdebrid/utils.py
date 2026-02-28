@@ -173,19 +173,24 @@ async def get_video_url_from_realdebrid(
 
 async def add_new_torrent(rd_client, magnet_link, info_hash, stream):
     response = await rd_client.get_active_torrents()
-    if response["limit"] == response["nb"]:
+    if not isinstance(response, dict):
+        raise ProviderException("Failed to fetch Real-Debrid active torrents", "api_error.mp4")
+    if response.get("limit") == response.get("nb"):
         raise ProviderException("Torrent limit reached. Please try again later.", "torrent_limit.mp4")
-    if info_hash in response["list"]:
+    if info_hash in (response.get("list") or []):
         raise ProviderException("Torrent is already being downloading", "torrent_not_downloaded.mp4")
 
     async def _create_torrent() -> str:
         if stream.torrent_file:
-            torrent_id = (await rd_client.add_torrent_file(stream.torrent_file)).get("id")
+            create_response = await rd_client.add_torrent_file(stream.torrent_file)
         else:
-            torrent_id = (await rd_client.add_magnet_link(magnet_link)).get("id")
+            create_response = await rd_client.add_magnet_link(magnet_link)
+        if not isinstance(create_response, dict):
+            raise ProviderException("Failed to add magnet link to Real-Debrid", "transfer_error.mp4")
+        torrent_id = create_response.get("id")
         if not torrent_id:
             raise ProviderException("Failed to add magnet link to Real-Debrid", "transfer_error.mp4")
-        return torrent_id
+        return str(torrent_id)
 
     max_create_attempts = 2
     max_info_retries = 3

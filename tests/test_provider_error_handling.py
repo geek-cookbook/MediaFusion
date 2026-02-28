@@ -129,6 +129,22 @@ async def test_realdebrid_add_new_torrent_readds_after_persistent_unknown_resour
 
 
 @pytest.mark.asyncio
+async def test_realdebrid_add_new_torrent_handles_none_create_response():
+    class FakeRDClient:
+        async def get_active_torrents(self):
+            return {"limit": 100, "nb": 0, "list": []}
+
+        async def add_magnet_link(self, magnet_link):
+            return None
+
+    stream = SimpleNamespace(torrent_file=None)
+
+    with pytest.raises(ProviderException) as exc:
+        await realdebrid_utils.add_new_torrent(FakeRDClient(), "magnet:?xt=urn:btih:abc", "abc", stream)
+    assert exc.value.video_file_name == "transfer_error.mp4"
+
+
+@pytest.mark.asyncio
 async def test_realdebrid_maps_hoster_not_free_error():
     client = RealDebrid(token=None)
 

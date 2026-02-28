@@ -416,6 +416,15 @@ class BaseScraper(abc.ABC):
         self.cache_key_prefix = cache_key_prefix
         self.metrics = ScraperMetrics(cache_key_prefix)
 
+    def _recreate_http_client(self) -> None:
+        """Recreate HTTP client after unexpected close/error."""
+        try:
+            if getattr(self, "http_client", None) is not None and not self.http_client.is_closed:
+                return
+        except Exception:
+            pass
+        self.http_client = httpx.AsyncClient(timeout=30)
+
     async def __aenter__(self):
         return self
 
@@ -424,7 +433,8 @@ class BaseScraper(abc.ABC):
 
     async def close(self):
         """Release scraper resources."""
-        await self.http_client.aclose()
+        if getattr(self, "http_client", None) is not None and not self.http_client.is_closed:
+            await self.http_client.aclose()
 
     async def scrape_and_parse(
         self,
@@ -612,6 +622,14 @@ class BaseScraper(abc.ABC):
             response = await self.http_client.request(method, url, **kwargs)
             response.raise_for_status()
             return response
+        except RuntimeError as e:
+            if "client has been closed" in str(e).lower():
+                self.logger.warning("HTTP client was closed unexpectedly, recreating client.")
+                self._recreate_http_client()
+                response = await self.http_client.request(method, url, **kwargs)
+                response.raise_for_status()
+                return response
+            raise ScraperError(f"Runtime error occurred: {e}")
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404 and is_expected_to_fail:
                 return e.response
@@ -848,6 +866,14 @@ class BaseScraper(abc.ABC):
                 raise
             except httpx.RequestError as error:
                 self.logger.error(f"Request error getting torrent data: {error}")
+                raise
+            except RuntimeError as error:
+                if "client has been closed" in str(error).lower() and attempt < max_5xx_retries:
+                    self.logger.warning("HTTP client was closed while fetching torrent data; recreating and retrying.")
+                    self._recreate_http_client()
+                    await asyncio.sleep(0.25)
+                    continue
+                self.logger.error(f"Runtime error getting torrent data: {error}")
                 raise
             except Exception as e:
                 self.logger.exception(f"Error getting torrent data: {e}")

@@ -80,6 +80,24 @@ CACHED_DATA = [
 ]
 
 
+async def _run_scraper_with_cleanup(
+    scraper: BaseScraper,
+    user_data: UserData,
+    metadata: MetadataData,
+    catalog_type: str,
+    season: int | None,
+    episode: int | None,
+):
+    """Run scraper and always close underlying HTTP client."""
+    try:
+        return await scraper.scrape_and_parse(user_data, metadata, catalog_type, season, episode)
+    finally:
+        try:
+            await scraper.close()
+        except Exception as exc:
+            logger.warning("Failed to close scraper %s: %s", scraper.__class__.__name__, exc)
+
+
 def _normalize_torznab_url(url: str) -> str:
     """Normalize endpoint URL for stable deduplication."""
     if not url:
@@ -235,8 +253,9 @@ async def run_scrapers(
             if selected_scrapers is not None and scraper_id not in selected_scrapers:
                 continue
 
+            scraper = scraper_cls()
             task = tg.create_task(
-                scraper_cls().scrape_and_parse(user_data, metadata, catalog_type, season, episode),
+                _run_scraper_with_cleanup(scraper, user_data, metadata, catalog_type, season, episode),
                 name=f"{scraper_cls.__name__}",
             )
             tasks.append(task)
@@ -279,18 +298,20 @@ def _create_prowlarr_task(
         if prowlarr_cfg.enabled and not prowlarr_cfg.use_global:
             # Use user's custom Prowlarr instance
             if prowlarr_cfg.url and prowlarr_cfg.api_key:
+                scraper = ProwlarrScraper(
+                    base_url=prowlarr_cfg.url,
+                    api_key=prowlarr_cfg.api_key,
+                )
                 return tg.create_task(
-                    ProwlarrScraper(
-                        base_url=prowlarr_cfg.url,
-                        api_key=prowlarr_cfg.api_key,
-                    ).scrape_and_parse(user_data, metadata, catalog_type, season, episode),
+                    _run_scraper_with_cleanup(scraper, user_data, metadata, catalog_type, season, episode),
                     name="ProwlarrScraper (user)",
                 )
         elif prowlarr_cfg.enabled and prowlarr_cfg.use_global:
             # Explicitly use global
             if settings.is_scrap_from_prowlarr:
+                scraper = ProwlarrScraper()
                 return tg.create_task(
-                    ProwlarrScraper().scrape_and_parse(user_data, metadata, catalog_type, season, episode),
+                    _run_scraper_with_cleanup(scraper, user_data, metadata, catalog_type, season, episode),
                     name="ProwlarrScraper",
                 )
         # If not enabled, skip Prowlarr entirely
@@ -298,8 +319,9 @@ def _create_prowlarr_task(
 
     # No user config - fall back to global if enabled
     if settings.is_scrap_from_prowlarr:
+        scraper = ProwlarrScraper()
         return tg.create_task(
-            ProwlarrScraper().scrape_and_parse(user_data, metadata, catalog_type, season, episode),
+            _run_scraper_with_cleanup(scraper, user_data, metadata, catalog_type, season, episode),
             name="ProwlarrScraper",
         )
     return None
@@ -321,18 +343,20 @@ def _create_jackett_task(
         if jackett_cfg.enabled and not jackett_cfg.use_global:
             # Use user's custom Jackett instance
             if jackett_cfg.url and jackett_cfg.api_key:
+                scraper = JackettScraper(
+                    base_url=jackett_cfg.url,
+                    api_key=jackett_cfg.api_key,
+                )
                 return tg.create_task(
-                    JackettScraper(
-                        base_url=jackett_cfg.url,
-                        api_key=jackett_cfg.api_key,
-                    ).scrape_and_parse(user_data, metadata, catalog_type, season, episode),
+                    _run_scraper_with_cleanup(scraper, user_data, metadata, catalog_type, season, episode),
                     name="JackettScraper (user)",
                 )
         elif jackett_cfg.enabled and jackett_cfg.use_global:
             # Explicitly use global
             if settings.is_scrap_from_jackett:
+                scraper = JackettScraper()
                 return tg.create_task(
-                    JackettScraper().scrape_and_parse(user_data, metadata, catalog_type, season, episode),
+                    _run_scraper_with_cleanup(scraper, user_data, metadata, catalog_type, season, episode),
                     name="JackettScraper",
                 )
         # If not enabled, skip Jackett entirely
@@ -340,8 +364,9 @@ def _create_jackett_task(
 
     # No user config - fall back to global if enabled
     if settings.is_scrap_from_jackett:
+        scraper = JackettScraper()
         return tg.create_task(
-            JackettScraper().scrape_and_parse(user_data, metadata, catalog_type, season, episode),
+            _run_scraper_with_cleanup(scraper, user_data, metadata, catalog_type, season, episode),
             name="JackettScraper",
         )
     return None
@@ -359,8 +384,9 @@ def _create_torznab_task(
     """Create Torznab scraper task using merged user and global endpoints."""
     enabled_endpoints = get_effective_torznab_endpoints(ic)
     if enabled_endpoints:
+        scraper = TorznabScraper(enabled_endpoints)
         return tg.create_task(
-            TorznabScraper(enabled_endpoints).scrape_and_parse(user_data, metadata, catalog_type, season, episode),
+            _run_scraper_with_cleanup(scraper, user_data, metadata, catalog_type, season, episode),
             name="TorznabScraper",
         )
     return None
@@ -400,8 +426,9 @@ def _create_torbox_search_task(
         return None
 
     # User has TorBox configured - create the search task
+    scraper = TorBoxSearchScraper()
     return tg.create_task(
-        TorBoxSearchScraper().scrape_and_parse(user_data, metadata, catalog_type, season, episode),
+        _run_scraper_with_cleanup(scraper, user_data, metadata, catalog_type, season, episode),
         name="TorBoxSearchScraper",
     )
 
@@ -451,8 +478,9 @@ def _create_telegram_task(
         return None
 
     # Create the Telegram scraper task
+    scraper = TelegramScraper()
     return tg.create_task(
-        TelegramScraper().scrape_and_parse(user_data, metadata, catalog_type, season, episode),
+        _run_scraper_with_cleanup(scraper, user_data, metadata, catalog_type, season, episode),
         name="TelegramScraper",
     )
 

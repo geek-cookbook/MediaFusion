@@ -9,6 +9,7 @@ from db.config import settings
 from db.database import get_read_session
 from db.enums import MediaType
 from db.redis_database import REDIS_ASYNC_CLIENT
+from db.retry_utils import run_db_operation_with_retry
 from utils import const, wrappers
 
 META_CACHE_PREFIX = "meta:"
@@ -66,21 +67,32 @@ async def get_meta(
         except ValidationError:
             pass
 
-    # Use the appropriate CRUD function that loads relationships
-    if catalog_type == MediaType.MOVIE:
-        media = await crud.get_movie_data_by_id(session, meta_id)
-    elif catalog_type == MediaType.SERIES:
-        media = await crud.get_series_data_by_id(session, meta_id)
-    elif catalog_type == MediaType.TV:
-        media = await crud.get_tv_data_by_id(session, meta_id)
-    else:
-        media = await crud.get_metadata_by_id(session, meta_id, load_relations=True)
+    async def _fetch_meta_and_canonical_id():
+        # Use the appropriate CRUD function that loads relationships
+        if catalog_type == MediaType.MOVIE:
+            media = await crud.get_movie_data_by_id(session, meta_id)
+        elif catalog_type == MediaType.SERIES:
+            media = await crud.get_series_data_by_id(session, meta_id)
+        elif catalog_type == MediaType.TV:
+            media = await crud.get_tv_data_by_id(session, meta_id)
+        else:
+            media = await crud.get_metadata_by_id(session, meta_id, load_relations=True)
+
+        if not media:
+            return None, None
+
+        # Get canonical external_id for Stremio
+        canonical_ext_id = await crud.get_canonical_external_id(session, media.id)
+        return media, canonical_ext_id
+
+    media, canonical_ext_id = await run_db_operation_with_retry(
+        _fetch_meta_and_canonical_id,
+        operation_name=f"stremio meta fetch {catalog_type.value}:{meta_id}",
+        before_retry=lambda _attempt, _max_attempts, _exc: session.rollback(),
+    )
 
     if not media:
         raise HTTPException(status_code=404, detail="Metadata not found")
-
-    # Get canonical external_id for Stremio
-    canonical_ext_id = await crud.get_canonical_external_id(session, media.id)
 
     # Get IMDb rating from MediaRating table
     imdb_rating = None

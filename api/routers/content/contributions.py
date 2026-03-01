@@ -5,7 +5,7 @@ Contributions API endpoints for user-submitted metadata corrections and stream a
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 import pytz
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -50,6 +50,22 @@ class ContributionReview(BaseModel):
 
     status: ContributionStatus = Field(..., description="APPROVED or REJECTED")
     review_notes: str | None = None
+
+
+class ContributionBulkReviewRequest(BaseModel):
+    """Request schema for bulk reviewing pending contributions."""
+
+    action: Literal["approve", "reject"]
+    contribution_type: str | None = Field(None, pattern=_CONTRIBUTION_TYPE_PATTERN)
+    review_notes: str | None = None
+
+
+class BulkContributionReviewResponse(BaseModel):
+    """Bulk contribution review result counters."""
+
+    approved: int
+    rejected: int
+    skipped: int
 
 
 class ContributionResponse(BaseModel):
@@ -201,6 +217,71 @@ async def process_telegram_import(
         await session.flush()
 
     return {"status": "success", "stream_id": stream.id}
+
+
+def _append_review_note(existing_notes: str | None, note: str) -> str:
+    """Append a system-generated note preserving optional moderator notes."""
+    return f"{existing_notes or ''}\n{note}".strip()
+
+
+async def _apply_contribution_review(
+    session: AsyncSession,
+    contribution: Contribution,
+    review_status: ContributionStatus,
+    reviewer: User,
+    review_notes: str | None,
+    logger: logging.Logger,
+) -> None:
+    """Apply review decision and optional import processing to a contribution."""
+    contribution.status = review_status
+    contribution.reviewed_by = str(reviewer.id)
+    contribution.reviewed_at = datetime.now(pytz.UTC)
+    contribution.review_notes = review_notes
+
+    if review_status != ContributionStatus.APPROVED:
+        return
+
+    if contribution.contribution_type not in {
+        "torrent",
+        "nzb",
+        "telegram",
+        "youtube",
+        "http",
+        "acestream",
+    }:
+        return
+
+    try:
+        process_fn = {
+            "torrent": process_torrent_import,
+            "nzb": process_nzb_import,
+            "telegram": process_telegram_import,
+            "youtube": process_youtube_import,
+            "http": process_http_import,
+            "acestream": process_acestream_import,
+        }.get(contribution.contribution_type)
+
+        if process_fn is None:
+            raise ValueError(f"Unsupported contribution type: {contribution.contribution_type}")
+
+        # Anonymous contributions have no contributor user_id by design.
+        contributor = await session.get(User, contribution.user_id) if contribution.user_id is not None else None
+        contribution_data = dict(contribution.data or {})
+        contribution_data["is_public"] = True
+        contribution.data = contribution_data
+        import_result = await process_fn(session, contribution_data, contributor)
+
+        if import_result.get("status") == "success":
+            contribution.review_notes = _append_review_note(
+                review_notes,
+                f"Import successful: stream_id={import_result.get('stream_id')}",
+            )
+        elif import_result.get("status") == "exists":
+            contribution.review_notes = _append_review_note(review_notes, "Content already exists in database")
+
+    except Exception as e:
+        logger.exception(f"Failed to process contribution import on approval: {e}")
+        contribution.review_notes = _append_review_note(review_notes, f"Import processing failed: {str(e)}")
 
 
 # ============================================
@@ -561,50 +642,14 @@ async def review_contribution(
             detail=f"Contribution already reviewed with status: {contribution.status}",
         )
 
-    contribution.status = review.status
-    contribution.reviewed_by = str(user.id)
-    contribution.reviewed_at = datetime.now(pytz.UTC)
-    contribution.review_notes = review.review_notes
-
-    # If approved and it's a supported import contribution, process it.
-    if review.status == ContributionStatus.APPROVED and contribution.contribution_type in {
-        "torrent",
-        "nzb",
-        "telegram",
-        "youtube",
-        "http",
-        "acestream",
-    }:
-        try:
-            process_fn = {
-                "torrent": process_torrent_import,
-                "nzb": process_nzb_import,
-                "telegram": process_telegram_import,
-                "youtube": process_youtube_import,
-                "http": process_http_import,
-                "acestream": process_acestream_import,
-            }.get(contribution.contribution_type)
-
-            if process_fn is None:
-                raise ValueError(f"Unsupported contribution type: {contribution.contribution_type}")
-
-            # Anonymous contributions have no contributor user_id by design.
-            contributor = await session.get(User, contribution.user_id) if contribution.user_id is not None else None
-            contribution_data = dict(contribution.data or {})
-            contribution_data["is_public"] = True
-            contribution.data = contribution_data
-            import_result = await process_fn(session, contribution_data, contributor)
-
-            if import_result.get("status") == "success":
-                contribution.review_notes = (
-                    f"{review.review_notes or ''}\nImport successful: stream_id={import_result.get('stream_id')}"
-                ).strip()
-            elif import_result.get("status") == "exists":
-                contribution.review_notes = (f"{review.review_notes or ''}\nContent already exists in database").strip()
-
-        except Exception as e:
-            logger.exception(f"Failed to process contribution import on approval: {e}")
-            contribution.review_notes = (f"{review.review_notes or ''}\nImport processing failed: {str(e)}").strip()
+    await _apply_contribution_review(
+        session,
+        contribution,
+        review.status,
+        user,
+        review.review_notes,
+        logger,
+    )
 
     session.add(contribution)
     await session.commit()
@@ -613,6 +658,55 @@ async def review_contribution(
     username = await get_contribution_username(session, contribution.user_id)
     media_id = await resolve_contribution_media_id(session, contribution)
     return contribution_to_response(contribution, username, media_id)
+
+
+@router.post("/review/bulk", response_model=BulkContributionReviewResponse)
+async def bulk_review_contributions(
+    request: ContributionBulkReviewRequest,
+    user: User = Depends(require_role(UserRole.MODERATOR)),
+    session: AsyncSession = Depends(get_async_session),
+):
+    """Bulk review all pending contributions, optionally filtered by type."""
+    logger = logging.getLogger(__name__)
+    review_status = ContributionStatus.APPROVED if request.action == "approve" else ContributionStatus.REJECTED
+
+    query = select(Contribution).where(Contribution.status == ContributionStatus.PENDING)
+    if request.contribution_type:
+        query = query.where(Contribution.contribution_type == request.contribution_type)
+
+    result = await session.exec(query.order_by(col(Contribution.created_at).asc()))
+    contributions = result.all()
+
+    approved = 0
+    rejected = 0
+    skipped = 0
+
+    for contribution in contributions:
+        if contribution.status != ContributionStatus.PENDING:
+            skipped += 1
+            continue
+
+        await _apply_contribution_review(
+            session,
+            contribution,
+            review_status,
+            user,
+            request.review_notes,
+            logger,
+        )
+        session.add(contribution)
+        if review_status == ContributionStatus.APPROVED:
+            approved += 1
+        else:
+            rejected += 1
+
+    await session.commit()
+
+    return BulkContributionReviewResponse(
+        approved=approved,
+        rejected=rejected,
+        skipped=skipped,
+    )
 
 
 @router.get("/review/stats", response_model=ContributionStats)

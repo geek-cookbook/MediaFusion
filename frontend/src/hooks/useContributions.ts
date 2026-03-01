@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tansta
 import {
   contributionsApi,
   type ContributionListParams,
+  type ContributionBulkReviewRequest,
+  type ContributionBulkReviewResponse,
   type ContributionCreateRequest,
   type ContributionReviewRequest,
   type ContributionType,
@@ -79,6 +81,18 @@ export function useReviewContribution() {
   return useMutation({
     mutationFn: ({ contributionId, data }: { contributionId: string; data: ContributionReviewRequest }) =>
       contributionsApi.review(contributionId, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: CONTRIBUTIONS_QUERY_KEY })
+    },
+  })
+}
+
+export function useBulkReviewContributions() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (data: ContributionBulkReviewRequest): Promise<ContributionBulkReviewResponse> =>
+      contributionsApi.bulkReview(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: CONTRIBUTIONS_QUERY_KEY })
     },

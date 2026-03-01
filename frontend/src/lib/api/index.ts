@@ -72,6 +72,8 @@ export {
   type ContributionStats,
   type ContributionCreateRequest,
   type ContributionReviewRequest,
+  type ContributionBulkReviewRequest,
+  type ContributionBulkReviewResponse,
   type ContributionType,
   type ContributionStatus,
   type ContributionData,

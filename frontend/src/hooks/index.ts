@@ -43,6 +43,7 @@ export {
   useDeleteContribution,
   usePendingContributions,
   useReviewContribution,
+  useBulkReviewContributions,
   useAllContributionStats,
 } from './useContributions'
 

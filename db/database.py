@@ -11,6 +11,9 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from db.config import settings
 
+_REPLICA_CONFLICT_MSG = "conflict with recovery"
+
+
 logger = logging.getLogger(__name__)
 
 # Lazy engine initialization: engines are created per-process on first access.
@@ -33,36 +36,41 @@ def _get_running_loop_id() -> int | None:
 
 
 def _install_asyncpg_guards(engine: AsyncEngine) -> None:
-    """Register pool events to detect and discard corrupted asyncpg connections.
+    """Register pool/engine events to harden asyncpg connections.
 
-    asyncpg keeps an internal protocol state machine.  If a previous operation
-    was interrupted (cancelled request, timeout, etc.) the connection can be
-    returned to the pool with the protocol stuck mid-operation.
-    pool_pre_ping verifies the *PostgreSQL* session is alive but does NOT reset
-    the asyncpg protocol state, so a subsequent selectinload or any multi-step
-    query will hit "another operation is in progress".
+    1. Checkout guard: asyncpg's internal protocol state machine can get stuck
+       mid-operation if a previous request was interrupted.  pool_pre_ping only
+       validates the PostgreSQL session, not asyncpg's state.  We inspect the
+       raw protocol on checkout and invalidate dirty connections.
 
-    The checkout listener below inspects the raw asyncpg connection and
-    invalidates it if its protocol is not idle, forcing the pool to create a
-    fresh connection.
+    2. Replica conflict handler: on a streaming-replication read replica,
+       long-running queries can be cancelled by the primary's VACUUM via
+       "SerializationError: conflict with recovery".  We treat this as a
+       disconnect so SQLAlchemy invalidates the connection and the caller
+       gets a retryable error rather than a corrupt connection.
     """
 
     @event.listens_for(engine.sync_engine, "checkout")
     def _check_asyncpg_state(dbapi_connection, connection_record, connection_proxy):
-        raw = dbapi_connection.dbapi_connection  # underlying asyncpg connection
+        raw = dbapi_connection.driver_connection
         if raw is None or raw.is_closed():
             raise exc.DisconnectionError("asyncpg connection is closed")
         protocol = getattr(raw, "_protocol", None)
         if protocol is not None:
             state = getattr(protocol, "state", None)
-            # asyncpg protocol state 0 = STATE_READY (idle).
-            # Any other state means a previous operation didn't finish cleanly.
             if state is not None and state != 0:
                 logger.warning(
                     "Discarding asyncpg connection with dirty protocol state %s",
                     state,
                 )
                 raise exc.DisconnectionError(f"asyncpg protocol in state {state}, expected idle (0)")
+
+    @event.listens_for(engine.sync_engine, "handle_error")
+    def _handle_replica_conflict(context):
+        if context.original_exception and _REPLICA_CONFLICT_MSG in str(context.original_exception):
+            logger.warning("Read replica conflict detected, invalidating connection")
+            context.invalidate_pool_on_disconnect = False
+            context.is_disconnect = True
 
 
 def _create_primary_engine() -> AsyncEngine:
@@ -149,7 +157,14 @@ async def _safe_close_session(session: AsyncSession) -> None:
     absorb.  We log at DEBUG since this is expected in cloud/LB environments.
     """
     try:
-        await session.close()
+        await asyncio.shield(session.close())
+    except asyncio.CancelledError:
+        # Ensure close still runs even when request/task cancellation interrupts cleanup.
+        try:
+            await session.close()
+        except Exception as close_err:
+            logger.debug("Session close failed after cancellation: %s", close_err)
+        raise
     except Exception as close_err:
         logger.debug("Session close failed (dead connection, will be discarded by pool): %s", close_err)
 

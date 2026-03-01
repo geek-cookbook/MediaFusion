@@ -40,8 +40,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
-import { useContributions, useReviewContribution } from '@/hooks'
-import { contributionsApi } from '@/lib/api'
+import { useBulkReviewContributions, useContributions, useReviewContribution } from '@/hooks'
 import type { Contribution, ContributionStatus, ContributionType } from '@/lib/api'
 
 import {
@@ -93,6 +92,7 @@ export function ContributionsTab({ statusFilter, onStatusFilterChange }: Contrib
     page_size: 20,
   })
   const reviewContribution = useReviewContribution()
+  const bulkReviewContributions = useBulkReviewContributions()
   const pendingContributions = (data?.items ?? []).filter((contribution) => contribution.status === 'pending')
 
   const handleReview = async (action: 'approved' | 'rejected') => {
@@ -115,28 +115,10 @@ export function ContributionsTab({ statusFilter, onStatusFilterChange }: Contrib
     if (!pendingContributions.length) return
     setIsBulkApproving(true)
     try {
-      const pendingIds: string[] = []
-      let reviewPage = 1
-      let hasMore = true
-
-      while (hasMore) {
-        const response = await contributionsApi.list({
-          contribution_type: typeFilter === 'all' ? undefined : (typeFilter as ContributionType),
-          contribution_status: 'pending',
-          page: reviewPage,
-          page_size: 100,
-        })
-        pendingIds.push(...response.items.map((contribution) => contribution.id))
-        hasMore = response.has_more
-        reviewPage += 1
-      }
-
-      for (const contributionId of pendingIds) {
-        await reviewContribution.mutateAsync({
-          contributionId,
-          data: { status: 'approved' },
-        })
-      }
+      await bulkReviewContributions.mutateAsync({
+        action: 'approve',
+        contribution_type: typeFilter === 'all' ? undefined : (typeFilter as ContributionType),
+      })
       setBulkApproveDialogOpen(false)
       setSelectedContribution(null)
       setReviewDialogOpen(false)
@@ -210,7 +192,7 @@ export function ContributionsTab({ statusFilter, onStatusFilterChange }: Contrib
             variant="outline"
             className="rounded-xl"
             onClick={() => setBulkApproveDialogOpen(true)}
-            disabled={isBulkApproving || reviewContribution.isPending}
+            disabled={isBulkApproving || reviewContribution.isPending || bulkReviewContributions.isPending}
           >
             {isBulkApproving ? (
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -397,7 +379,7 @@ export function ContributionsTab({ statusFilter, onStatusFilterChange }: Contrib
             <AlertDialogCancel disabled={isBulkApproving}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleApproveAllPending}
-              disabled={isBulkApproving}
+              disabled={isBulkApproving || bulkReviewContributions.isPending}
               className="bg-emerald-600 text-white hover:bg-emerald-700"
             >
               {isBulkApproving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}

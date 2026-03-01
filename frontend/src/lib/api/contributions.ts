@@ -58,6 +58,18 @@ export interface ContributionReviewRequest {
   review_notes?: string
 }
 
+export interface ContributionBulkReviewRequest {
+  action: 'approve' | 'reject'
+  contribution_type?: ContributionType
+  review_notes?: string
+}
+
+export interface ContributionBulkReviewResponse {
+  approved: number
+  rejected: number
+  skipped: number
+}
+
 export const contributionsApi = {
   /**
    * List contributions (user's own or all for mods)
@@ -123,6 +135,13 @@ export const contributionsApi = {
    */
   review: async (contributionId: string, data: ContributionReviewRequest): Promise<Contribution> => {
     return apiClient.patch<Contribution>(`/contributions/${contributionId}/review`, data)
+  },
+
+  /**
+   * Bulk review pending contributions (Mod+ only)
+   */
+  bulkReview: async (data: ContributionBulkReviewRequest): Promise<ContributionBulkReviewResponse> => {
+    return apiClient.post<ContributionBulkReviewResponse>('/contributions/review/bulk', data)
   },
 
   /**

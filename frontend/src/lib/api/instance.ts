@@ -22,6 +22,7 @@ export interface InstanceInfo {
   version: string
   logo_url: string
   branding_svg: string | null // Optional partner/host SVG logo URL
+  default_color_scheme: string
   newsletter: NewsletterConfig
 }
 

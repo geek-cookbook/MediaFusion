@@ -67,6 +67,42 @@ const schemeGradients: Record<ColorScheme, SchemeGradientConfig> = {
     play1: 'rgb(16,185,129)',
     play2: 'rgb(110,231,183)',
   },
+  emeraldnight: {
+    dark: 'rgb(6,44,36)',
+    primary: 'rgb(5,150,105)',
+    mid: 'rgb(16,185,129)',
+    secondary: 'rgb(34,197,94)',
+    bright: 'rgb(110,231,183)',
+    play1: 'rgb(16,185,129)',
+    play2: 'rgb(110,231,183)',
+  },
+  midnight: {
+    dark: 'rgb(23,37,84)',
+    primary: 'rgb(37,99,235)',
+    mid: 'rgb(79,70,229)',
+    secondary: 'rgb(99,102,241)',
+    bright: 'rgb(147,197,253)',
+    play1: 'rgb(59,130,246)',
+    play2: 'rgb(147,197,253)',
+  },
+  arctic: {
+    dark: 'rgb(12,74,110)',
+    primary: 'rgb(8,145,178)',
+    mid: 'rgb(6,182,212)',
+    secondary: 'rgb(34,211,238)',
+    bright: 'rgb(165,243,252)',
+    play1: 'rgb(34,211,238)',
+    play2: 'rgb(165,243,252)',
+  },
+  slate: {
+    dark: 'rgb(30,41,59)',
+    primary: 'rgb(71,85,105)',
+    mid: 'rgb(100,116,139)',
+    secondary: 'rgb(148,163,184)',
+    bright: 'rgb(203,213,225)',
+    play1: 'rgb(100,116,139)',
+    play2: 'rgb(203,213,225)',
+  },
   rose: {
     dark: 'rgb(136,19,55)',
     primary: 'rgb(225,29,72)',
@@ -528,6 +564,58 @@ const textGradients: Record<ColorScheme, TextGradientThemeConfig> = {
       first: { top: 'rgb(209,250,229)', bottom: 'rgb(52,211,153)' },
       second: {
         stops: ['rgb(209,250,229)', 'rgb(167,243,208)', 'rgb(110,231,183)', 'rgb(52,211,153)', 'rgb(16,185,129)'],
+      },
+    },
+  },
+  emeraldnight: {
+    light: {
+      first: { top: 'rgb(167,243,208)', bottom: 'rgb(6,78,59)' },
+      second: { stops: ['rgb(110,231,183)', 'rgb(52,211,153)', 'rgb(34,197,94)', 'rgb(16,185,129)', 'rgb(5,150,105)'] },
+    },
+    dark: {
+      first: { top: 'rgb(220,252,231)', bottom: 'rgb(74,222,128)' },
+      second: {
+        stops: ['rgb(220,252,231)', 'rgb(187,247,208)', 'rgb(134,239,172)', 'rgb(74,222,128)', 'rgb(34,197,94)'],
+      },
+    },
+  },
+  midnight: {
+    light: {
+      first: { top: 'rgb(147,197,253)', bottom: 'rgb(30,58,138)' },
+      second: { stops: ['rgb(147,197,253)', 'rgb(96,165,250)', 'rgb(59,130,246)', 'rgb(79,70,229)', 'rgb(49,46,129)'] },
+    },
+    dark: {
+      first: { top: 'rgb(219,234,254)', bottom: 'rgb(129,140,248)' },
+      second: {
+        stops: ['rgb(219,234,254)', 'rgb(191,219,254)', 'rgb(147,197,253)', 'rgb(99,102,241)', 'rgb(79,70,229)'],
+      },
+    },
+  },
+  arctic: {
+    light: {
+      first: { top: 'rgb(165,243,252)', bottom: 'rgb(14,116,144)' },
+      second: {
+        stops: ['rgb(165,243,252)', 'rgb(103,232,249)', 'rgb(34,211,238)', 'rgb(6,182,212)', 'rgb(8,145,178)'],
+      },
+    },
+    dark: {
+      first: { top: 'rgb(236,254,255)', bottom: 'rgb(34,211,238)' },
+      second: {
+        stops: ['rgb(236,254,255)', 'rgb(207,250,254)', 'rgb(165,243,252)', 'rgb(103,232,249)', 'rgb(34,211,238)'],
+      },
+    },
+  },
+  slate: {
+    light: {
+      first: { top: 'rgb(203,213,225)', bottom: 'rgb(51,65,85)' },
+      second: {
+        stops: ['rgb(226,232,240)', 'rgb(148,163,184)', 'rgb(100,116,139)', 'rgb(71,85,105)', 'rgb(51,65,85)'],
+      },
+    },
+    dark: {
+      first: { top: 'rgb(241,245,249)', bottom: 'rgb(148,163,184)' },
+      second: {
+        stops: ['rgb(241,245,249)', 'rgb(226,232,240)', 'rgb(203,213,225)', 'rgb(148,163,184)', 'rgb(100,116,139)'],
       },
     },
   },

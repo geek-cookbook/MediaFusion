@@ -17,6 +17,21 @@ class Settings(BaseSettings):
     api_password: str
     logging_level: str = "INFO"
     logo_url: str = "https://raw.githubusercontent.com/mhdzumair/MediaFusion/main/resources/images/mediafusion_logo.png"
+    # Default frontend color scheme for users without a saved local preference.
+    default_color_scheme: Literal[
+        "mediafusion",
+        "cinematic",
+        "ocean",
+        "forest",
+        "emeraldnight",
+        "midnight",
+        "arctic",
+        "slate",
+        "rose",
+        "purple",
+        "sunset",
+        "youtube",
+    ] = "mediafusion"
     is_public_instance: bool = False
     poster_host_url: str | None = None
     min_scraping_video_size: int = 26214400  # 25 MB in bytes

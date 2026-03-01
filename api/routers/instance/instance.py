@@ -6,6 +6,7 @@ and the initial admin setup flow for first deployments.
 """
 
 from datetime import datetime
+from typing import Literal
 
 import pytz
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -48,6 +49,20 @@ class InstanceInfo(BaseModel):
     version: str
     logo_url: str
     branding_svg: str | None = None  # Optional partner/host SVG logo URL
+    default_color_scheme: Literal[
+        "mediafusion",
+        "cinematic",
+        "ocean",
+        "forest",
+        "emeraldnight",
+        "midnight",
+        "arctic",
+        "slate",
+        "rose",
+        "purple",
+        "sunset",
+        "youtube",
+    ]
     newsletter: NewsletterConfig
 
 
@@ -120,6 +135,7 @@ async def get_instance_info(
         version=settings.version,
         logo_url=settings.logo_url,
         branding_svg=settings.branding_svg,
+        default_color_scheme=settings.default_color_scheme,
         newsletter=NewsletterConfig(
             enabled=bool(settings.convertkit_api_key and settings.convertkit_form_id),
             label=settings.convertkit_newsletter_label,

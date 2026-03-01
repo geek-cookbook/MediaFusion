@@ -1,10 +1,23 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { useInstance } from '@/contexts/InstanceContext'
 
 type Theme = 'dark' | 'light' | 'system'
 
 // Available color schemes
-export type ColorScheme = 'mediafusion' | 'cinematic' | 'ocean' | 'forest' | 'rose' | 'purple' | 'sunset' | 'youtube'
+export type ColorScheme =
+  | 'mediafusion'
+  | 'cinematic'
+  | 'ocean'
+  | 'forest'
+  | 'emeraldnight'
+  | 'midnight'
+  | 'arctic'
+  | 'slate'
+  | 'rose'
+  | 'purple'
+  | 'sunset'
+  | 'youtube'
 
 export interface ColorSchemeConfig {
   id: ColorScheme
@@ -56,6 +69,46 @@ export const colorSchemes: ColorSchemeConfig[] = [
       primary: '#10b981',
       secondary: '#059669',
       accent: '#6ee7b7',
+    },
+  },
+  {
+    id: 'emeraldnight',
+    name: 'Emerald Night',
+    description: 'Green-forward logo accents with deep charcoal dark backgrounds',
+    preview: {
+      primary: '#10b981',
+      secondary: '#22c55e',
+      accent: '#6ee7b7',
+    },
+  },
+  {
+    id: 'midnight',
+    name: 'Midnight Sapphire',
+    description: 'Deep navy surfaces with electric blue-indigo accents',
+    preview: {
+      primary: '#3b82f6',
+      secondary: '#6366f1',
+      accent: '#93c5fd',
+    },
+  },
+  {
+    id: 'arctic',
+    name: 'Arctic Frost',
+    description: 'Crisp cyan tones with cool glacier-inspired contrast',
+    preview: {
+      primary: '#06b6d4',
+      secondary: '#0891b2',
+      accent: '#67e8f9',
+    },
+  },
+  {
+    id: 'slate',
+    name: 'Slate Graphite',
+    description: 'Minimal graphite neutrals with subtle steel-blue accents',
+    preview: {
+      primary: '#64748b',
+      secondary: '#475569',
+      accent: '#cbd5e1',
     },
   },
   {
@@ -112,6 +165,13 @@ const ThemeContext = createContext<ThemeContextType | null>(null)
 
 const THEME_STORAGE_KEY = 'mediafusion-theme'
 const COLOR_SCHEME_STORAGE_KEY = 'mediafusion-color-scheme'
+const DEFAULT_COLOR_SCHEME: ColorScheme = 'mediafusion'
+const COLOR_SCHEME_IDS = new Set<ColorScheme>(colorSchemes.map((scheme) => scheme.id))
+
+function isColorScheme(value: string | null | undefined): value is ColorScheme {
+  if (!value) return false
+  return COLOR_SCHEME_IDS.has(value as ColorScheme)
+}
 
 function getSystemTheme(): 'dark' | 'light' {
   if (typeof window === 'undefined') return 'dark'
@@ -119,16 +179,18 @@ function getSystemTheme(): 'dark' | 'light' {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
+  const { instanceInfo } = useInstance()
+
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window === 'undefined') return 'system'
     const stored = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null
     return stored || 'system'
   })
 
-  const [colorScheme, setColorSchemeState] = useState<ColorScheme>(() => {
-    if (typeof window === 'undefined') return 'mediafusion'
-    const stored = localStorage.getItem(COLOR_SCHEME_STORAGE_KEY) as ColorScheme | null
-    return stored || 'mediafusion'
+  const [storedColorScheme, setColorSchemeState] = useState<ColorScheme | null>(() => {
+    if (typeof window === 'undefined') return null
+    const stored = localStorage.getItem(COLOR_SCHEME_STORAGE_KEY)
+    return isColorScheme(stored) ? stored : null
   })
 
   const [resolvedTheme, setResolvedTheme] = useState<'dark' | 'light'>(() => {
@@ -157,6 +219,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     mediaQuery.addEventListener('change', handleChange)
     return () => mediaQuery.removeEventListener('change', handleChange)
   }, [theme])
+
+  const instanceDefaultColorScheme = instanceInfo?.default_color_scheme
+  const colorScheme: ColorScheme =
+    storedColorScheme ?? (isColorScheme(instanceDefaultColorScheme) ? instanceDefaultColorScheme : DEFAULT_COLOR_SCHEME)
 
   // Apply theme class and color scheme to document
   useEffect(() => {

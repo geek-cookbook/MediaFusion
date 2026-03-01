@@ -268,6 +268,250 @@
 }
 
 /* ==========================================================================
+   EMERALD NIGHT SCHEME
+   Green-forward accents with intentionally dark, charcoal backgrounds
+   ========================================================================== */
+.scheme-emeraldnight {
+  --background: 220 16% 9%;
+  --foreground: 150 20% 92%;
+  --card: 220 14% 12%;
+  --card-foreground: 150 20% 92%;
+  --popover: 220 14% 14%;
+  --popover-foreground: 150 20% 92%;
+  --primary: 160 84% 39%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 12% 18%;
+  --secondary-foreground: 150 14% 88%;
+  --muted: 220 10% 20%;
+  --muted-foreground: 150 8% 62%;
+  --accent: 220 10% 17%;
+  --accent-foreground: 150 16% 90%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 10% 22%;
+  --input: 220 10% 20%;
+  --ring: 160 84% 44%;
+  --gradient-start: 160 30% 15%;
+  --gradient-mid: 170 22% 11%;
+  --gradient-end: 220 16% 9%;
+  --scheme-primary: 160 84% 44%;
+  --scheme-light: 160 75% 58%;
+  --scheme-muted: 160 25% 42%;
+}
+
+.scheme-emeraldnight.dark,
+.dark.scheme-emeraldnight {
+  --background: 220 22% 5%;
+  --foreground: 150 18% 92%;
+  --card: 220 18% 8%;
+  --card-foreground: 150 18% 92%;
+  --popover: 220 18% 10%;
+  --popover-foreground: 150 18% 92%;
+  --primary: 160 84% 44%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 14% 12%;
+  --secondary-foreground: 150 12% 86%;
+  --muted: 220 12% 14%;
+  --muted-foreground: 150 8% 58%;
+  --accent: 220 12% 13%;
+  --accent-foreground: 150 16% 90%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 14% 18%;
+  --input: 220 14% 15%;
+  --ring: 160 84% 48%;
+  --gradient-start: 160 30% 10%;
+  --gradient-mid: 170 20% 7%;
+  --gradient-end: 220 22% 5%;
+  --scheme-primary: 160 84% 48%;
+  --scheme-light: 160 75% 60%;
+  --scheme-muted: 160 24% 36%;
+}
+
+/* ==========================================================================
+   MIDNIGHT SAPPHIRE SCHEME
+   Deep navy surfaces with electric blue-indigo accents
+   ========================================================================== */
+.scheme-midnight {
+  --background: 225 35% 97%;
+  --foreground: 228 20% 10%;
+  --card: 225 30% 95%;
+  --card-foreground: 228 20% 10%;
+  --popover: 225 30% 95%;
+  --popover-foreground: 228 20% 10%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 230 25% 90%;
+  --secondary-foreground: 228 18% 22%;
+  --muted: 228 18% 88%;
+  --muted-foreground: 228 10% 45%;
+  --accent: 225 55% 92%;
+  --accent-foreground: 228 18% 16%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 228 20% 85%;
+  --input: 228 20% 85%;
+  --ring: 233 84% 60%;
+  --gradient-start: 220 55% 95%;
+  --gradient-mid: 230 45% 92%;
+  --gradient-end: 225 35% 97%;
+  --scheme-primary: 217 91% 60%;
+  --scheme-light: 221 83% 72%;
+  --scheme-muted: 225 38% 68%;
+}
+
+.scheme-midnight.dark,
+.dark.scheme-midnight {
+  --background: 230 35% 6%;
+  --foreground: 220 18% 92%;
+  --card: 230 30% 9%;
+  --card-foreground: 220 18% 92%;
+  --popover: 230 30% 11%;
+  --popover-foreground: 220 18% 92%;
+  --primary: 221 83% 62%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 230 22% 14%;
+  --secondary-foreground: 220 14% 86%;
+  --muted: 230 18% 16%;
+  --muted-foreground: 220 10% 58%;
+  --accent: 230 22% 15%;
+  --accent-foreground: 220 16% 92%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 230 20% 20%;
+  --input: 230 20% 17%;
+  --ring: 233 89% 66%;
+  --gradient-start: 221 60% 14%;
+  --gradient-mid: 233 45% 10%;
+  --gradient-end: 230 35% 6%;
+  --scheme-primary: 221 83% 66%;
+  --scheme-light: 225 90% 76%;
+  --scheme-muted: 225 35% 40%;
+}
+
+/* ==========================================================================
+   ARCTIC FROST SCHEME
+   Crisp cyan tones with cool glacier-inspired contrast
+   ========================================================================== */
+.scheme-arctic {
+  --background: 195 35% 97%;
+  --foreground: 200 20% 10%;
+  --card: 195 30% 95%;
+  --card-foreground: 200 20% 10%;
+  --popover: 195 30% 95%;
+  --popover-foreground: 200 20% 10%;
+  --primary: 188 94% 43%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 195 24% 90%;
+  --secondary-foreground: 200 18% 20%;
+  --muted: 195 18% 88%;
+  --muted-foreground: 200 10% 45%;
+  --accent: 190 55% 92%;
+  --accent-foreground: 200 20% 16%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 195 22% 85%;
+  --input: 195 22% 85%;
+  --ring: 188 94% 43%;
+  --gradient-start: 186 55% 95%;
+  --gradient-mid: 195 40% 92%;
+  --gradient-end: 195 35% 97%;
+  --scheme-primary: 188 94% 43%;
+  --scheme-light: 186 85% 68%;
+  --scheme-muted: 190 40% 70%;
+}
+
+.scheme-arctic.dark,
+.dark.scheme-arctic {
+  --background: 205 30% 6%;
+  --foreground: 190 18% 92%;
+  --card: 205 26% 9%;
+  --card-foreground: 190 18% 92%;
+  --popover: 205 26% 11%;
+  --popover-foreground: 190 18% 92%;
+  --primary: 186 90% 48%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 205 20% 14%;
+  --secondary-foreground: 190 12% 86%;
+  --muted: 205 16% 16%;
+  --muted-foreground: 190 9% 58%;
+  --accent: 205 20% 15%;
+  --accent-foreground: 190 16% 92%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 205 18% 20%;
+  --input: 205 18% 17%;
+  --ring: 186 90% 52%;
+  --gradient-start: 186 55% 12%;
+  --gradient-mid: 195 40% 9%;
+  --gradient-end: 205 30% 6%;
+  --scheme-primary: 186 90% 52%;
+  --scheme-light: 186 85% 70%;
+  --scheme-muted: 190 32% 40%;
+}
+
+/* ==========================================================================
+   SLATE GRAPHITE SCHEME
+   Minimal graphite neutrals with subtle steel-blue accents
+   ========================================================================== */
+.scheme-slate {
+  --background: 215 18% 97%;
+  --foreground: 220 15% 12%;
+  --card: 215 14% 95%;
+  --card-foreground: 220 15% 12%;
+  --popover: 215 14% 95%;
+  --popover-foreground: 220 15% 12%;
+  --primary: 215 20% 45%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 215 12% 90%;
+  --secondary-foreground: 220 12% 22%;
+  --muted: 215 10% 88%;
+  --muted-foreground: 220 8% 45%;
+  --accent: 215 22% 92%;
+  --accent-foreground: 220 14% 16%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 215 12% 84%;
+  --input: 215 12% 84%;
+  --ring: 215 20% 45%;
+  --gradient-start: 215 24% 95%;
+  --gradient-mid: 215 18% 92%;
+  --gradient-end: 215 18% 97%;
+  --scheme-primary: 215 20% 45%;
+  --scheme-light: 215 22% 62%;
+  --scheme-muted: 215 16% 68%;
+}
+
+.scheme-slate.dark,
+.dark.scheme-slate {
+  --background: 220 14% 7%;
+  --foreground: 210 14% 92%;
+  --card: 220 12% 10%;
+  --card-foreground: 210 14% 92%;
+  --popover: 220 12% 12%;
+  --popover-foreground: 210 14% 92%;
+  --primary: 215 19% 56%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 10% 15%;
+  --secondary-foreground: 210 10% 86%;
+  --muted: 220 9% 17%;
+  --muted-foreground: 210 8% 58%;
+  --accent: 220 10% 16%;
+  --accent-foreground: 210 14% 92%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 10% 21%;
+  --input: 220 10% 18%;
+  --ring: 215 19% 60%;
+  --gradient-start: 215 18% 14%;
+  --gradient-mid: 220 14% 10%;
+  --gradient-end: 220 14% 7%;
+  --scheme-primary: 215 19% 60%;
+  --scheme-light: 215 24% 72%;
+  --scheme-muted: 215 14% 40%;
+}
+
+/* ==========================================================================
    ROSE QUARTZ SCHEME
    Soft pinks and warm magentas
    ========================================================================== */

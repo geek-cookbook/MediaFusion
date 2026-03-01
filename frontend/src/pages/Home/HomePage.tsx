@@ -86,7 +86,7 @@ const platformFeatures = [
   { icon: Filter, title: 'Advanced Filters', description: 'Filter by resolution, quality, language' },
   { icon: MonitorPlay, title: 'Web Player', description: 'Watch directly in browser with MediaFlow Proxy' },
   { icon: Download, title: 'Download Manager', description: 'Download content directly to device' },
-  { icon: Palette, title: 'Theme Customization', description: '8 color schemes with light/dark modes' },
+  { icon: Palette, title: 'Theme Customization', description: '12 color schemes with light/dark modes' },
 ]
 
 // Streaming Providers

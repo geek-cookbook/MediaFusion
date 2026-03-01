@@ -307,9 +307,9 @@ function AppRoutes() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <BrowserRouter basename="/app">
-          <InstanceProvider>
+      <BrowserRouter basename="/app">
+        <InstanceProvider>
+          <ThemeProvider>
             <AuthProvider>
               <RpdbProvider>
                 <TooltipProvider>
@@ -318,9 +318,9 @@ export default function App() {
                 </TooltipProvider>
               </RpdbProvider>
             </AuthProvider>
-          </InstanceProvider>
-        </BrowserRouter>
-      </ThemeProvider>
+          </ThemeProvider>
+        </InstanceProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   )
 }

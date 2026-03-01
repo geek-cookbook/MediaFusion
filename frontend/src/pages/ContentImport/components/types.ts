@@ -4,6 +4,11 @@ import type { ContentType, SportsCategory } from '@/lib/constants'
 export interface ImportResult {
   success: boolean
   message: string
+  severity?: 'success' | 'warning' | 'error'
+  links?: Array<{
+    label: string
+    to: string
+  }>
 }
 
 export interface TorrentBatchAnalysisItem {

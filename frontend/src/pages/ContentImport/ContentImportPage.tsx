@@ -45,6 +45,60 @@ function toTorrentMetaType(contentType: ContentType): TorrentMetaType {
   if (contentType === 'tv') return 'movie'
   return contentType
 }
+
+function getBatchIssueReason(result: ImportResponse): string {
+  const details = result.details
+  const isAlreadyExists = details?.reason === 'already_exists'
+  if (!isAlreadyExists) {
+    return result.message || 'Import issue'
+  }
+
+  const attachedMedia = Array.isArray(details?.attached_media)
+    ? (details.attached_media as Array<Record<string, unknown>>)
+    : []
+  const firstAttached = attachedMedia[0]
+  const attachedTitle = typeof firstAttached?.title === 'string' ? firstAttached.title : null
+  const attachedYear = typeof firstAttached?.year === 'number' ? firstAttached.year : null
+  const attachedType = typeof firstAttached?.type === 'string' ? firstAttached.type : null
+  const attachedExternalId = typeof firstAttached?.external_id === 'string' ? firstAttached.external_id : null
+  const attachedCount =
+    typeof details?.attached_media_count === 'number' ? details.attached_media_count : attachedMedia.length
+  const extraCount = Math.max(0, attachedCount - 1)
+
+  if (attachedTitle || attachedExternalId) {
+    const yearSuffix = attachedYear ? ` (${attachedYear})` : ''
+    const typePrefix = attachedType ? `${attachedType}: ` : ''
+    const idSuffix = attachedExternalId ? ` [${attachedExternalId}]` : ''
+    const extraSuffix = extraCount > 0 ? ` +${extraCount} more linked media` : ''
+    return `Upload skipped — already attached to ${typePrefix}${attachedTitle || 'Unknown title'}${yearSuffix}${idSuffix}${extraSuffix}`
+  }
+
+  return 'Upload skipped — torrent already exists in MediaFusion'
+}
+
+function getAttachedMediaLink(result: ImportResponse): NonNullable<ImportResult['links']>[number] | null {
+  const details = result.details
+  if (details?.reason !== 'already_exists') {
+    return null
+  }
+
+  const attachedMedia = Array.isArray(details?.attached_media)
+    ? (details.attached_media as Array<Record<string, unknown>>)
+    : []
+  const firstAttached = attachedMedia[0]
+  const mediaId = typeof firstAttached?.media_id === 'number' ? firstAttached.media_id : null
+  const mediaTypeRaw = typeof firstAttached?.type === 'string' ? firstAttached.type : null
+  const mediaType = mediaTypeRaw === 'movie' || mediaTypeRaw === 'series' || mediaTypeRaw === 'tv' ? mediaTypeRaw : null
+  if (!mediaId || !mediaType) {
+    return null
+  }
+
+  const attachedTitle = typeof firstAttached?.title === 'string' ? firstAttached.title : 'Attached media'
+  return {
+    label: `Open attached media: ${attachedTitle}`,
+    to: `/dashboard/content/${mediaType}/${mediaId}`,
+  }
+}
 import {
   MagnetTab,
   TorrentTab,
@@ -180,6 +234,8 @@ export function ContentImportPage() {
   const [currentTorrentQueueIndex, setCurrentTorrentQueueIndex] = useState(0)
   const [queuePrefillByIndex, setQueuePrefillByIndex] = useState<Record<number, Partial<TorrentImportFormData>>>({})
   const [batchSummary, setBatchSummary] = useState({ success: 0, warning: 0, error: 0 })
+  const [batchIssueDetails, setBatchIssueDetails] = useState<string[]>([])
+  const [batchIssueLinks, setBatchIssueLinks] = useState<NonNullable<ImportResult['links']>>([])
   const [magnetLink, setMagnetLink] = useState('')
 
   const importMagnet = useImportMagnet()
@@ -221,6 +277,8 @@ export function ContentImportPage() {
     setCurrentTorrentQueueIndex(0)
     setQueuePrefillByIndex({})
     setBatchSummary({ success: 0, warning: 0, error: 0 })
+    setBatchIssueDetails([])
+    setBatchIssueLinks([])
     setMagnetLink('')
   }, [])
 
@@ -243,6 +301,8 @@ export function ContentImportPage() {
     setCurrentTorrentQueueIndex(0)
     setQueuePrefillByIndex({})
     setBatchSummary({ success: 0, warning: 0, error: 0 })
+    setBatchIssueDetails([])
+    setBatchIssueLinks([])
     setTorrentDialogOpen(true)
   }, [])
 
@@ -257,6 +317,8 @@ export function ContentImportPage() {
     setCurrentTorrentQueueIndex(0)
     setQueuePrefillByIndex({})
     setBatchSummary({ success: 0, warning: 0, error: 0 })
+    setBatchIssueDetails([])
+    setBatchIssueLinks([])
     setMagnetAnalysis(null)
     setMagnetLink('')
     setTorrentDialogOpen(true)
@@ -343,6 +405,27 @@ export function ContentImportPage() {
           return { status: 'error', message: 'No torrent source provided' }
         }
 
+        let nextBatchIssueDetails = batchIssueDetails
+        let nextBatchIssueLinks = batchIssueLinks
+        if (!magnetLink && (result.status === 'warning' || result.status === 'error')) {
+          const itemName = selectedFile?.name || `Torrent ${currentTorrentQueueIndex + 1}`
+          const resultInfoHash =
+            typeof result.details?.info_hash === 'string'
+              ? result.details.info_hash
+              : currentTorrentItem?.analysis.info_hash
+          nextBatchIssueDetails = [
+            ...batchIssueDetails,
+            `${itemName}: ${getBatchIssueReason(result)}${resultInfoHash ? ` (InfoHash: ${resultInfoHash})` : ''}`,
+          ]
+          setBatchIssueDetails(nextBatchIssueDetails)
+
+          const attachedLink = getAttachedMediaLink(result)
+          if (attachedLink && !batchIssueLinks?.some((link) => link.to === attachedLink.to)) {
+            nextBatchIssueLinks = [...(batchIssueLinks || []), attachedLink]
+            setBatchIssueLinks(nextBatchIssueLinks)
+          }
+        }
+
         if (!magnetLink && options?.selectedQueueIndices && options.selectedQueueIndices.length > 0) {
           const nextPrefills = { ...queuePrefillByIndex }
           for (const index of options.selectedQueueIndices) {
@@ -355,10 +438,16 @@ export function ContentImportPage() {
 
         if (magnetLink) {
           if (result.status === 'success') {
-            setImportResult({ success: true, message: result.message || 'Import successful!' })
+            setImportResult({ success: true, message: result.message || 'Import successful!', severity: 'success' })
             resetTorrentDialogState()
           } else if (result.status === 'warning') {
-            setImportResult({ success: true, message: result.message })
+            const attachedLink = getAttachedMediaLink(result)
+            setImportResult({
+              success: true,
+              message: result.message,
+              severity: 'warning',
+              links: attachedLink ? [attachedLink] : undefined,
+            })
             resetTorrentDialogState()
           }
           return result
@@ -382,9 +471,23 @@ export function ContentImportPage() {
             setCurrentTorrentQueueIndex((prev) => prev + 1)
           } else {
             const total = nextBatchSummary.success + nextBatchSummary.warning + nextBatchSummary.error
+            const detailPreview = nextBatchIssueDetails.slice(0, 2).join(' | ')
+            const hiddenDetailsCount = Math.max(0, nextBatchIssueDetails.length - 2)
+            const detailsSuffix =
+              nextBatchIssueDetails.length > 0
+                ? ` Details: ${detailPreview}${hiddenDetailsCount > 0 ? ` | +${hiddenDetailsCount} more.` : '.'}`
+                : ''
+            const batchSeverity =
+              nextBatchSummary.error > 0 ? 'error' : nextBatchSummary.warning > 0 ? 'warning' : 'success'
             setImportResult({
               success: nextBatchSummary.error === 0,
-              message: `Batch import complete (${total} total): ${nextBatchSummary.success} imported, ${nextBatchSummary.warning} warnings, ${nextBatchSummary.error} failed.`,
+              severity: batchSeverity,
+              links:
+                nextBatchIssueLinks && nextBatchIssueLinks.length > 0 ? nextBatchIssueLinks.slice(0, 2) : undefined,
+              message:
+                `Batch import complete (${total} total): ${nextBatchSummary.success} imported, ` +
+                `${nextBatchSummary.warning} skipped with warnings, ${nextBatchSummary.error} failed.` +
+                detailsSuffix,
             })
             resetTorrentDialogState()
           }
@@ -394,6 +497,13 @@ export function ContentImportPage() {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Import failed'
         if (!magnetLink && torrentQueue.length > 0) {
+          const itemName = selectedFile?.name || `Torrent ${currentTorrentQueueIndex + 1}`
+          const currentInfoHash = currentTorrentItem?.analysis.info_hash
+          const nextBatchIssueDetails = [
+            ...batchIssueDetails,
+            `${itemName}: ${errorMessage}${currentInfoHash ? ` (InfoHash: ${currentInfoHash})` : ''}`,
+          ]
+          setBatchIssueDetails(nextBatchIssueDetails)
           const nextBatchSummary = {
             success: batchSummary.success,
             warning: batchSummary.warning,
@@ -406,14 +516,25 @@ export function ContentImportPage() {
             setCurrentTorrentQueueIndex((prev) => prev + 1)
           } else {
             const total = nextBatchSummary.success + nextBatchSummary.warning + nextBatchSummary.error
+            const detailPreview = nextBatchIssueDetails.slice(0, 2).join(' | ')
+            const hiddenDetailsCount = Math.max(0, nextBatchIssueDetails.length - 2)
+            const detailsSuffix =
+              nextBatchIssueDetails.length > 0
+                ? ` Details: ${detailPreview}${hiddenDetailsCount > 0 ? ` | +${hiddenDetailsCount} more.` : '.'}`
+                : ''
             setImportResult({
               success: false,
-              message: `Batch import complete (${total} total): ${nextBatchSummary.success} imported, ${nextBatchSummary.warning} warnings, ${nextBatchSummary.error} failed.`,
+              severity: 'error',
+              links: batchIssueLinks && batchIssueLinks.length > 0 ? batchIssueLinks.slice(0, 2) : undefined,
+              message:
+                `Batch import complete (${total} total): ${nextBatchSummary.success} imported, ` +
+                `${nextBatchSummary.warning} skipped with warnings, ${nextBatchSummary.error} failed.` +
+                detailsSuffix,
             })
             resetTorrentDialogState()
           }
         } else {
-          setImportResult({ success: false, message: errorMessage })
+          setImportResult({ success: false, message: errorMessage, severity: 'error' })
         }
 
         return { status: 'error', message: errorMessage }
@@ -428,6 +549,9 @@ export function ContentImportPage() {
       currentTorrentQueueIndex,
       torrentQueue.length,
       batchSummary,
+      batchIssueDetails,
+      batchIssueLinks,
+      currentTorrentItem,
       resetTorrentDialogState,
     ],
   )
@@ -465,22 +589,30 @@ export function ContentImportPage() {
         })
 
         if (result.status === 'success') {
-          setImportResult({ success: true, message: result.message || 'YouTube video imported successfully!' })
+          setImportResult({
+            success: true,
+            message: result.message || 'YouTube video imported successfully!',
+            severity: 'success',
+          })
           setYoutubeDialogOpen(false)
           setYoutubeAnalysis(null)
           setYoutubeUrl('')
         } else if (result.status === 'warning') {
-          setImportResult({ success: true, message: result.message })
+          setImportResult({ success: true, message: result.message, severity: 'warning' })
           setYoutubeDialogOpen(false)
           setYoutubeAnalysis(null)
         } else {
-          setImportResult({ success: false, message: result.message || 'Failed to import YouTube video' })
+          setImportResult({
+            success: false,
+            message: result.message || 'Failed to import YouTube video',
+            severity: 'error',
+          })
         }
 
         return result
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'YouTube import failed'
-        setImportResult({ success: false, message: errorMessage })
+        setImportResult({ success: false, message: errorMessage, severity: 'error' })
         return { status: 'error', message: errorMessage }
       } finally {
         setYoutubeImporting(false)
@@ -531,12 +663,16 @@ export function ContentImportPage() {
         }
 
         if (result.status === 'success') {
-          setImportResult({ success: true, message: result.message || 'NZB imported successfully!' })
+          setImportResult({
+            success: true,
+            message: result.message || 'NZB imported successfully!',
+            severity: 'success',
+          })
           setNzbDialogOpen(false)
           setNzbAnalysis(null)
           setNzbSource(null)
         } else if (result.status === 'warning') {
-          setImportResult({ success: true, message: result.message })
+          setImportResult({ success: true, message: result.message, severity: 'warning' })
           setNzbDialogOpen(false)
           setNzbAnalysis(null)
         }
@@ -544,7 +680,7 @@ export function ContentImportPage() {
         return result
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'NZB import failed'
-        setImportResult({ success: false, message: errorMessage })
+        setImportResult({ success: false, message: errorMessage, severity: 'error' })
         return { status: 'error', message: errorMessage }
       }
     },
@@ -552,11 +688,11 @@ export function ContentImportPage() {
   )
 
   const handleSuccess = useCallback((message: string) => {
-    setImportResult({ success: true, message })
+    setImportResult({ success: true, message, severity: 'success' })
   }, [])
 
   const handleError = useCallback((message: string) => {
-    setImportResult({ success: false, message })
+    setImportResult({ success: false, message, severity: 'error' })
   }, [])
 
   const isImporting =

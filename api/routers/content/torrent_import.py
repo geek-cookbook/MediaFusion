@@ -17,7 +17,13 @@ from api.routers.user.auth import require_auth
 from api.routers.content.anonymous_utils import normalize_anonymous_display_name, resolve_uploader_identity
 from api.routers.content.contributions import award_import_approval_points
 from db.config import settings
-from db.crud.media import get_media_by_external_id, add_external_id, parse_external_id
+from db.crud.media import (
+    add_external_id,
+    get_canonical_external_id,
+    get_media_by_external_id,
+    get_media_by_id,
+    parse_external_id,
+)
 from db.crud.reference import get_or_create_language
 from db.crud.scraper_helpers import get_or_create_metadata
 from db.database import get_async_session
@@ -54,6 +60,69 @@ async def _notify_pending_contribution(
             "uploader_name": uploader_name,
             "data": contribution.data,
         }
+    )
+
+
+async def _get_stream_media_attachment_details(
+    session: AsyncSession,
+    stream_id: int,
+    max_items: int = 2,
+) -> dict[str, Any]:
+    """Get a compact description of media entries linked to a stream."""
+    link_result = await session.exec(
+        select(StreamMediaLink)
+        .where(StreamMediaLink.stream_id == stream_id)
+        .order_by(StreamMediaLink.is_primary.desc(), StreamMediaLink.id.asc())
+    )
+    links = link_result.all()
+    if not links:
+        return {"count": 0, "items": []}
+
+    items: list[dict[str, Any]] = []
+    for link in links[:max_items]:
+        media = await get_media_by_id(session, link.media_id)
+        if not media:
+            continue
+        external_id = await get_canonical_external_id(session, media.id)
+        items.append(
+            {
+                "media_id": media.id,
+                "external_id": external_id,
+                "title": media.title,
+                "year": media.year,
+                "type": media.type.value,
+                "file_index": link.file_index,
+                "is_primary": link.is_primary,
+            }
+        )
+
+    return {"count": len(links), "items": items}
+
+
+def _build_existing_torrent_warning_message(
+    info_hash: str,
+    attachment_details: dict[str, Any],
+) -> str:
+    """Build a user-facing warning for duplicate torrent uploads."""
+    items = attachment_details.get("items") or []
+    linked_count = attachment_details.get("count") or 0
+
+    base_message = "⚠️ Upload skipped: this torrent already exists in MediaFusion."
+    if items:
+        first_item = items[0]
+        title = first_item.get("title") or "Unknown title"
+        year = first_item.get("year")
+        media_type = first_item.get("type") or "media"
+        external_id = first_item.get("external_id") or f"mf:{first_item.get('media_id')}"
+        year_suffix = f" ({year})" if year else ""
+        extra_suffix = f" and {linked_count - 1} more linked media item(s)" if linked_count > 1 else ""
+        base_message += f" Already attached to {title}{year_suffix} [{media_type}, {external_id}]{extra_suffix}."
+    else:
+        base_message += " Existing stream linkage metadata could not be resolved."
+
+    return (
+        f"{base_message} Thank you for trying to contribute ✨. "
+        f"If you cannot find it, contact support with this info hash ({info_hash})."
     )
 
 
@@ -638,10 +707,23 @@ async def import_magnet(
         existing = await session.exec(select(TorrentStream).where(TorrentStream.info_hash == info_hash))
         existing_torrent = existing.first()
         if existing_torrent:
+            attachment_details = {"count": 0, "items": []}
+            try:
+                attachment_details = await _get_stream_media_attachment_details(session, existing_torrent.stream_id)
+            except Exception as error:
+                logger.warning("Failed to resolve duplicate torrent attachment details for %s: %s", info_hash, error)
+
             return ImportResponse(
                 status="warning",
-                message=f"⚠️ Torrent {info_hash} already exists in the database. "
-                f"Thank you for trying to contribute ✨. If the torrent is not visible, please contact support with the Torrent InfoHash.",
+                message=_build_existing_torrent_warning_message(info_hash, attachment_details),
+                details={
+                    "reason": "already_exists",
+                    "action": "skipped",
+                    "info_hash": info_hash,
+                    "existing_stream_id": existing_torrent.stream_id,
+                    "attached_media_count": attachment_details.get("count", 0),
+                    "attached_media": attachment_details.get("items", []),
+                },
             )
 
     try:
@@ -849,10 +931,25 @@ async def import_torrent_file(
             existing = await session.exec(select(TorrentStream).where(TorrentStream.info_hash == info_hash))
             existing_torrent = existing.first()
             if existing_torrent:
+                attachment_details = {"count": 0, "items": []}
+                try:
+                    attachment_details = await _get_stream_media_attachment_details(session, existing_torrent.stream_id)
+                except Exception as error:
+                    logger.warning(
+                        "Failed to resolve duplicate torrent attachment details for %s: %s", info_hash, error
+                    )
+
                 return ImportResponse(
                     status="warning",
-                    message=f"⚠️ Torrent {info_hash} already exists in the database. "
-                    f"Thank you for trying to contribute ✨. If the torrent is not visible, please contact support with the Torrent InfoHash.",
+                    message=_build_existing_torrent_warning_message(info_hash, attachment_details),
+                    details={
+                        "reason": "already_exists",
+                        "action": "skipped",
+                        "info_hash": info_hash,
+                        "existing_stream_id": existing_torrent.stream_id,
+                        "attached_media_count": attachment_details.get("count", 0),
+                        "attached_media": attachment_details.get("items", []),
+                    },
                 )
 
         # Parse file_data if provided, otherwise use from torrent

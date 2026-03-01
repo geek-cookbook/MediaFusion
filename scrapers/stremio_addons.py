@@ -195,12 +195,14 @@ class StremioScraper(BaseScraper):
         # Clear existing files and create new ones with episode info
         stream.files = []
 
+        filename = parsed_data.get("filename") or ""
+
         if parsed_data.get("episodes"):
             for episode_number in parsed_data["episodes"]:
                 stream.files.append(
                     StreamFileData(
                         file_index=stream_data.get("fileIdx", 0) if episode_number == episode else 0,
-                        filename=parsed_data.get("filename", ""),
+                        filename=filename,
                         file_type="video",
                         season_number=season_number,
                         episode_number=episode_number,
@@ -210,7 +212,7 @@ class StremioScraper(BaseScraper):
             stream.files.append(
                 StreamFileData(
                     file_index=stream_data.get("fileIdx", 0),
-                    filename=parsed_data.get("filename", ""),
+                    filename=filename,
                     file_type="video",
                     season_number=season_number,
                     episode_number=episode,

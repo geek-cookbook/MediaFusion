@@ -470,13 +470,13 @@ async def get_imdb_data_via_cinemeta(title_id: str, media_type: str) -> model.Ti
     data = response.json()["meta"]
     data.update(
         {
-            "title": data["name"],
-            "rating": data["imdbRating"] if data.get("imdbRating") else None,
-            "primary_image": data["poster"],
-            "plot": {"en-US": data["description"]},
+            "title": data.get("name") or data.get("title", ""),
+            "rating": data.get("imdbRating") or None,
+            "primary_image": data.get("poster"),
+            "plot": {"en-US": data.get("description", "")},
             "type_id": "movie" if media_type == "movie" else "tvSeries",
             "cast": [{"name": cast, "imdb_id": ""} for cast in data.get("cast", [])],
-            "runtime": data["runtime"] if data.get("runtime") else None,
+            "runtime": data.get("runtime") or None,
         }
     )
     year = data.get("releaseInfo", "").split("–")

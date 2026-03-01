@@ -529,23 +529,25 @@ async def create_user_metadata(
             session.add(link)
 
     # Add images
-    if request.poster_url:
-        poster = MediaImage(
-            media_id=media.id,
-            image_type="poster",
-            url=request.poster_url,
-            provider="user",
-        )
-        session.add(poster)
+    if request.poster_url or request.background_url:
+        user_provider = await get_or_create_provider(session, "user")
+        if request.poster_url:
+            poster = MediaImage(
+                media_id=media.id,
+                image_type="poster",
+                url=request.poster_url,
+                provider_id=user_provider.id,
+            )
+            session.add(poster)
 
-    if request.background_url:
-        background = MediaImage(
-            media_id=media.id,
-            image_type="backdrop",
-            url=request.background_url,
-            provider="user",
-        )
-        session.add(background)
+        if request.background_url:
+            background = MediaImage(
+                media_id=media.id,
+                image_type="backdrop",
+                url=request.background_url,
+                provider_id=user_provider.id,
+            )
+            session.add(background)
 
     # Create type-specific metadata
     if media_type == MediaType.MOVIE:

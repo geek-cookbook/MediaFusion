@@ -1,7 +1,73 @@
+import json
+from copy import deepcopy
 from typing import Literal
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings
+
+
+DEFAULT_PROVIDER_SIGNUP_LINKS: dict[str, list[str]] = {
+    "realdebrid": [
+        "https://real-debrid.com/?id=9490816",
+        "https://real-debrid.com/?id=3351376",
+    ],
+    "alldebrid": ["https://alldebrid.com/?uid=3ndha&lang=en"],
+    "premiumize": ["https://www.premiumize.me"],
+    "debridlink": ["https://debrid-link.com/id/kHgZs"],
+    "torbox": [
+        "https://torbox.app/subscription?referral=38f1c266-8a6c-40b2-a6d2-2148e77dafc9",
+        "https://torbox.app/subscription?referral=339b923e-fb23-40e7-8031-4af39c212e3c",
+        "https://torbox.app/subscription?referral=e2a28977-99ed-43cd-ba2c-e90dc398c49c",
+    ],
+    "seedr": ["https://www.seedr.cc/?r=2726511"],
+    "offcloud": ["https://offcloud.com/?=9932cd9f"],
+    "pikpak": ["https://mypikpak.com/drive/activity/invited?invitation-code=52875535"],
+    "easydebrid": ["https://paradise-cloud.com/products/easydebrid"],
+    "debrider": ["https://debrider.app/pricing"],
+    "qbittorrent": [
+        "https://github.com/mhdzumair/MediaFusion/tree/main/streaming_providers/qbittorrent#qbittorrent-webdav-setup-options-with-mediafusion"
+    ],
+    "stremthru": ["https://github.com/MunifTanjim/stremthru?tab=readme-ov-file#configuration"],
+}
+
+
+def _normalize_provider_signup_links(raw_value: object) -> dict[str, list[str]]:
+    if isinstance(raw_value, str):
+        try:
+            raw_value = json.loads(raw_value)
+        except json.JSONDecodeError:
+            return {}
+
+    if not isinstance(raw_value, dict):
+        return {}
+
+    normalized: dict[str, list[str]] = {}
+    for provider, raw_links in raw_value.items():
+        if not isinstance(provider, str):
+            continue
+
+        if isinstance(raw_links, str):
+            links = [raw_links]
+        elif isinstance(raw_links, list):
+            links = [link for link in raw_links if isinstance(link, str) and link]
+        else:
+            continue
+
+        if links:
+            normalized[provider] = _dedupe_links(links)
+
+    return normalized
+
+
+def _dedupe_links(links: list[str]) -> list[str]:
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for link in links:
+        if link in seen:
+            continue
+        seen.add(link)
+        deduped.append(link)
+    return deduped
 
 
 class Settings(BaseSettings):
@@ -57,6 +123,7 @@ class Settings(BaseSettings):
         ]
     ] = Field(default_factory=list)
     max_streaming_providers_per_profile: int = Field(default=5, ge=1)
+    provider_signup_links: dict[str, list[str]] = Field(default_factory=lambda: deepcopy(DEFAULT_PROVIDER_SIGNUP_LINKS))
 
     # Content Type Toggles
     # Globally disable specific content types. Affects imports, stream delivery, and UI visibility.
@@ -340,6 +407,22 @@ class Settings(BaseSettings):
     cleanup_expired_cache_task_crontab: str = "0 0 * * *"
     pending_moderation_reminder_crontab: str = "0 */6 * * *"
     disable_pending_moderation_reminder_scheduler: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    def merge_provider_signup_links(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+
+        user_links = _normalize_provider_signup_links(data.get("provider_signup_links"))
+        merged_links = deepcopy(DEFAULT_PROVIDER_SIGNUP_LINKS)
+        for provider, links in user_links.items():
+            merged_links.setdefault(provider, []).extend(links)
+        for provider, links in merged_links.items():
+            merged_links[provider] = _dedupe_links(links)
+
+        data["provider_signup_links"] = merged_links
+        return data
 
     @model_validator(mode="after")
     def default_poster_host_url(self) -> "Settings":

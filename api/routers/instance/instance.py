@@ -102,6 +102,7 @@ class AppConfig(BaseModel):
     is_public_instance: bool
     contact_email: str | None = None  # Instance operator email (null if not configured)
     disabled_providers: list[str]
+    provider_signup_links: dict[str, list[str]]
     max_streaming_providers_per_profile: int
     disabled_content_types: list[str]
     authentication_required: bool
@@ -168,6 +169,7 @@ async def get_app_config():
         is_public_instance=settings.is_public_instance,
         contact_email=contact_email,
         disabled_providers=settings.disabled_providers,
+        provider_signup_links=settings.provider_signup_links,
         max_streaming_providers_per_profile=settings.max_streaming_providers_per_profile,
         disabled_content_types=settings.disabled_content_types,
         authentication_required=settings.api_password is not None and not settings.is_public_instance,

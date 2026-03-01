@@ -37,33 +37,30 @@ import type {
 } from './types'
 import { getDeviceCode, authorizeWithDeviceCode, type DeviceCodeResponse } from '@/lib/api/debrid-oauth'
 
-const SIGNUP_LINKS: Record<string, string | string[]> = {
-  realdebrid: ['https://real-debrid.com/?id=9490816', 'https://real-debrid.com/?id=3351376'],
-  alldebrid: 'https://alldebrid.com/?uid=3ndha&lang=en',
-  premiumize: 'https://www.premiumize.me',
-  debridlink: 'https://debrid-link.com/id/kHgZs',
-  torbox: [
-    'https://torbox.app/subscription?referral=38f1c266-8a6c-40b2-a6d2-2148e77dafc9',
-    'https://torbox.app/subscription?referral=339b923e-fb23-40e7-8031-4af39c212e3c',
-    'https://torbox.app/subscription?referral=e2a28977-99ed-43cd-ba2c-e90dc398c49c',
-  ],
-  seedr: 'https://www.seedr.cc/?r=2726511',
-  offcloud: 'https://offcloud.com/?=9932cd9f',
-  pikpak: 'https://mypikpak.com/drive/activity/invited?invitation-code=52875535',
-  easydebrid: 'https://paradise-cloud.com/products/easydebrid',
-  debrider: 'https://debrider.app/pricing',
-  qbittorrent:
-    'https://github.com/mhdzumair/MediaFusion/tree/main/streaming_providers/qbittorrent#qbittorrent-webdav-setup-options-with-mediafusion',
-  stremthru: 'https://github.com/MunifTanjim/stremthru?tab=readme-ov-file#configuration',
+type SignupLinksByProvider = Record<string, string[]>
+
+const getRandomSignupLink = (links: string[] | undefined): string | null => {
+  if (!links || links.length === 0) return null
+  return links[Math.floor(Math.random() * links.length)]
 }
 
-// Helper function to get a random link from an array or return the single link
-const getRandomSignupLink = (links: string | string[] | undefined): string | null => {
-  if (!links) return null
-  if (Array.isArray(links)) {
-    return links[Math.floor(Math.random() * links.length)]
+const normalizeSignupLinks = (rawValue: unknown): SignupLinksByProvider => {
+  if (!rawValue || typeof rawValue !== 'object') return {}
+
+  const normalized: SignupLinksByProvider = {}
+  for (const [provider, rawLinks] of Object.entries(rawValue)) {
+    if (Array.isArray(rawLinks)) {
+      const links = rawLinks.filter((link): link is string => typeof link === 'string' && link.length > 0)
+      if (links.length > 0) {
+        normalized[provider] = links
+      }
+    } else if (typeof rawLinks === 'string' && rawLinks.length > 0) {
+      // Backward-compatible fallback if an instance is still using string values.
+      normalized[provider] = [rawLinks]
+    }
   }
-  return links
+
+  return normalized
 }
 
 const DEFAULT_MAX_PROVIDERS = 5
@@ -81,6 +78,7 @@ interface SingleProviderEditorProps {
   canMoveDown: boolean
   totalProviders: number
   disabledProviders: string[]
+  signupLinksByProvider: SignupLinksByProvider
   hasMediaFlowConfigured: boolean // Whether MediaFlow is globally configured
 }
 
@@ -97,6 +95,7 @@ function SingleProviderEditor({
   canMoveDown,
   totalProviders,
   disabledProviders,
+  signupLinksByProvider,
   hasMediaFlowConfigured,
 }: SingleProviderEditorProps) {
   // Filter available providers based on disabled list
@@ -123,7 +122,10 @@ function SingleProviderEditor({
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const selectedProvider = STREAMING_PROVIDERS.find((p) => p.value === (provider.sv || ''))
-  const signupLink = getRandomSignupLink(provider.sv ? SIGNUP_LINKS[provider.sv] : undefined)
+  const signupLink = useMemo(
+    () => getRandomSignupLink(provider.sv ? signupLinksByProvider[provider.sv] : undefined),
+    [provider.sv, signupLinksByProvider],
+  )
   const isEnabled = provider.en !== false
 
   // Cleanup polling on unmount
@@ -1082,6 +1084,7 @@ function SingleProviderEditor({
 export function MultiProviderConfig({ config, onChange }: ConfigSectionProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(0)
   const [disabledProviders, setDisabledProviders] = useState<string[]>([])
+  const [signupLinksByProvider, setSignupLinksByProvider] = useState<SignupLinksByProvider>({})
   const [nzbdavConfigured, setNzbdavConfigured] = useState(false)
   const [maxProviders, setMaxProviders] = useState(DEFAULT_MAX_PROVIDERS)
 
@@ -1093,6 +1096,7 @@ export function MultiProviderConfig({ config, onChange }: ConfigSectionProps) {
         if (data.disabled_providers) {
           setDisabledProviders(data.disabled_providers)
         }
+        setSignupLinksByProvider(normalizeSignupLinks(data.provider_signup_links))
         if (
           Number.isInteger(data.max_streaming_providers_per_profile) &&
           data.max_streaming_providers_per_profile > 0
@@ -1263,6 +1267,7 @@ export function MultiProviderConfig({ config, onChange }: ConfigSectionProps) {
                 canMoveDown={index < providers.length - 1}
                 totalProviders={providers.length}
                 disabledProviders={disabledProviders}
+                signupLinksByProvider={signupLinksByProvider}
                 hasMediaFlowConfigured={!!(config.mfc?.pu && config.mfc?.ap)}
               />
             ))}

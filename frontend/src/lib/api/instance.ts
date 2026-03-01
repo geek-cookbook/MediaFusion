@@ -52,6 +52,7 @@ export interface AppConfig {
   is_public_instance: boolean
   contact_email: string | null // Instance operator email (null if not configured)
   disabled_providers: string[]
+  provider_signup_links: Record<string, string[]>
   max_streaming_providers_per_profile: number
   disabled_content_types: string[]
   authentication_required: boolean

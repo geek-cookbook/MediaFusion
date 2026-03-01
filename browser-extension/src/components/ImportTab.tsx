@@ -49,16 +49,58 @@ import {
   detectContentType, 
   detectSportsCategory, 
   SPORTS_CATEGORIES,
+  extractTitleFromMagnet,
 } from '@/lib/content-detection'
 
 interface ImportTabProps {
   settings: ExtensionSettings
   prefilledData: PrefilledData | null
+  onImportComplete?: (details: { matchTitle?: string; matchId?: string }) => void
 }
 
 type ImportStep = 'input' | 'analyzing' | 'results' | 'multi-content' | 'importing' | 'complete'
 
-export function ImportTab({ settings, prefilledData }: ImportTabProps) {
+function extractYearFromText(value: string): string {
+  const match = value.match(/\b(19|20)\d{2}\b/)
+  if (!match) return ''
+
+  const year = Number(match[0])
+  const maxYear = new Date().getFullYear() + 1
+  if (Number.isNaN(year) || year < 1900 || year > maxYear) return ''
+
+  return String(year)
+}
+
+function normalizeTitleForManualSearch(rawTitle: string): string {
+  if (!rawTitle) return ''
+
+  const normalizedFromMagnet =
+    rawTitle.startsWith('magnet:') ? extractTitleFromMagnet(rawTitle) || rawTitle : rawTitle
+
+  let title = normalizedFromMagnet
+    .replace(/\.torrent$/i, '')
+    .replace(/[._]/g, ' ')
+    .replace(/\[[^\]]*]/g, ' ')
+    .replace(/\{[^}]*}/g, ' ')
+    .replace(/\([^)]*\b(?:x264|x265|h\.?264|h\.?265|hevc|bluray|web[-\s]?dl|webrip|brrip|dvdrip|hdrip|remux)\b[^)]*\)/gi, ' ')
+    .replace(/\bS\d{1,2}E\d{1,2}\b/gi, ' ')
+    .replace(/\b\d{1,2}x\d{1,2}\b/gi, ' ')
+    .replace(/\b(?:2160p|1080p|720p|480p)\b/gi, ' ')
+    .replace(/\b(?:x264|x265|h\.?264|h\.?265|hevc|av1|10bit|8bit)\b/gi, ' ')
+    .replace(/\b(?:bluray|blu[-\s]?ray|web[-\s]?dl|webrip|brrip|dvdrip|hdrip|remux|proper|repack|extended|uncut)\b/gi, ' ')
+    .replace(/\b(?:ddp?\d(?:\.\d)?|dts(?:-hd)?|aac\d?(?:\.\d)?|ac3|eac3)\b/gi, ' ')
+    .replace(/\b(?:uindex|rarbg|yts|eztv|xvid|hings|lama|bone)\b/gi, ' ')
+    .replace(/[-]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+
+  // Remove bare year from the title; year has its own optional field.
+  title = title.replace(/\b(19|20)\d{2}\b/g, '').replace(/\s{2,}/g, ' ').trim()
+
+  return title
+}
+
+export function ImportTab({ settings, prefilledData, onImportComplete }: ImportTabProps) {
   // Input state
   const [magnetLink, setMagnetLink] = useState(prefilledData?.magnetLink || '')
   const [torrentFile, setTorrentFile] = useState<File | null>(null)
@@ -106,14 +148,127 @@ export function ImportTab({ settings, prefilledData }: ImportTabProps) {
     annotations?: FileAnnotation[]
     forceImport?: boolean
   } | null>(null)
+  const [manualSearchTitle, setManualSearchTitle] = useState('')
+  const [manualSearchYear, setManualSearchYear] = useState('')
+  const [manualSearching, setManualSearching] = useState(false)
+  const [manualSearchError, setManualSearchError] = useState<string | null>(null)
 
-  // Auto-analyze if prefilled data
+  // Keep form in sync when parent opens an advanced flow from bulk list.
   useEffect(() => {
-    if (prefilledData?.magnetLink && settings.autoAnalyze) {
-      handleAnalyze()
+    if (!prefilledData) return
+
+    const nextMagnetLink = prefilledData.magnetLink || ''
+    const nextContentType = prefilledData.contentType
+      || (nextMagnetLink ? detectContentType(nextMagnetLink) : 'movie')
+
+    setMagnetLink(nextMagnetLink)
+    setTorrentFile(null)
+    setContentType(nextContentType)
+    if (nextContentType !== 'sports') {
+      setSportsCategory('')
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+
+    setAnalysisResult(null)
+    setSelectedMatch(null)
+    setImportMode('single')
+    setError(null)
+    setImportError(null)
+    setImportSuccess(false)
+    setFileAnnotations([])
+    setStreamDetails({})
+    setShowEpisodeAnnotation(false)
+    setSelectedCatalogs([])
+    setValidationErrors([])
+    setShowValidationDialog(false)
+    setLastImportRequest(null)
+    setManualSearchTitle('')
+    setManualSearchYear('')
+    setManualSearchError(null)
+    setStep('input')
+  }, [prefilledData?.magnetLink, prefilledData?.torrentUrl, prefilledData?.contentType])
+
+  // Load torrent file when advanced flow passes a remote torrent URL.
+  useEffect(() => {
+    if (!prefilledData?.torrentUrl || prefilledData?.magnetLink) return
+
+    let cancelled = false
+
+    const loadTorrentFromUrl = async () => {
+      try {
+        const response = await fetch(prefilledData.torrentUrl!)
+        if (!response.ok) {
+          throw new Error(`Failed to download torrent file (${response.status})`)
+        }
+
+        const blob = await response.blob()
+        let fileName = 'prefilled.torrent'
+        try {
+          const parsed = new URL(prefilledData.torrentUrl!)
+          const fromPath = decodeURIComponent(parsed.pathname.split('/').pop() || '')
+          if (fromPath) {
+            fileName = fromPath.endsWith('.torrent') ? fromPath : `${fromPath}.torrent`
+          }
+        } catch {
+          // Keep fallback filename
+        }
+
+        if (cancelled) return
+
+        const file = new File([blob], fileName, {
+          type: blob.type || 'application/x-bittorrent',
+        })
+        setTorrentFile(file)
+        setMagnetLink('')
+
+        if (!prefilledData.contentType) {
+          const detected = detectContentType(file.name)
+          setContentType(detected)
+          if (detected === 'sports') {
+            const category = detectSportsCategory(file.name)
+            if (category) {
+              setSportsCategory(category)
+            }
+          }
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load torrent file')
+        }
+      }
+    }
+
+    loadTorrentFromUrl()
+
+    return () => {
+      cancelled = true
+    }
+  }, [prefilledData?.torrentUrl, prefilledData?.magnetLink, prefilledData?.contentType])
+
+  // Auto-analyze for prefilled magnet links.
+  useEffect(() => {
+    if (!prefilledData?.magnetLink || !settings.autoAnalyze || !magnetLink || step !== 'input') {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      handleAnalyze()
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [prefilledData?.magnetLink, settings.autoAnalyze, magnetLink, step])
+
+  // Auto-analyze for prefilled torrent URLs after the file is downloaded.
+  useEffect(() => {
+    if (!prefilledData?.torrentUrl || !settings.autoAnalyze || !torrentFile || magnetLink || step !== 'input') {
+      return
+    }
+
+    const timer = window.setTimeout(() => {
+      handleAnalyze()
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [prefilledData?.torrentUrl, settings.autoAnalyze, torrentFile, magnetLink, step])
 
   // Auto-detect content type and sports category from magnet link
   useEffect(() => {
@@ -198,27 +353,96 @@ export function ImportTab({ settings, prefilledData }: ImportTabProps) {
         return
       }
 
-      setAnalysisResult(result)
+      const fallbackTitle = result.torrent_name
+        || result.parsed_title
+        || (torrentFile ? torrentFile.name.replace(/\.torrent$/i, '') : '')
+        || (magnetLink ? extractTitleFromMagnet(magnetLink) || '' : '')
+
+      const normalizedResult: TorrentAnalyzeResponse = {
+        ...result,
+        torrent_name: result.torrent_name || fallbackTitle,
+        parsed_title: result.parsed_title || fallbackTitle,
+      }
+
+      const rawSearchTitle = normalizedResult.parsed_title || normalizedResult.torrent_name || fallbackTitle
+      const normalizedSearchTitle = normalizeTitleForManualSearch(rawSearchTitle)
+      const detectedYear =
+        normalizedResult.year
+          ? String(normalizedResult.year)
+          : extractYearFromText(rawSearchTitle)
+            || (torrentFile ? extractYearFromText(torrentFile.name) : '')
+            || (magnetLink ? extractYearFromText(magnetLink) : '')
+
+      setAnalysisResult(normalizedResult)
+      setManualSearchTitle(normalizedSearchTitle || rawSearchTitle)
+      setManualSearchYear(detectedYear)
+      setManualSearchError(null)
       
       // Auto-select first match if available
-      if (result.matches && result.matches.length > 0) {
-        setSelectedMatch(result.matches[0])
+      if (normalizedResult.matches && normalizedResult.matches.length > 0) {
+        setSelectedMatch(normalizedResult.matches[0])
       }
       
       // Initialize stream details from analysis
       setStreamDetails({
-        resolution: result.resolution,
-        quality: result.quality,
-        codec: result.codec,
-        audio: result.audio,
-        hdr: result.hdr,
-        languages: result.languages,
+        resolution: normalizedResult.resolution,
+        quality: normalizedResult.quality,
+        codec: normalizedResult.codec,
+        audio: normalizedResult.audio,
+        hdr: normalizedResult.hdr,
+        languages: normalizedResult.languages,
       })
       
       setStep('results')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Analysis failed')
       setStep('input')
+    }
+  }
+  
+  async function handleManualSearch() {
+    const queryTitle = manualSearchTitle.trim()
+    if (queryTitle.length < 2) {
+      setManualSearchError('Enter a title with at least 2 characters')
+      return
+    }
+
+    const year = manualSearchYear.trim()
+    const query = year ? `${queryTitle} ${year}` : queryTitle
+
+    setManualSearchError(null)
+    setManualSearching(true)
+    try {
+      const searchResult = await api.analyzeMagnet(query, contentType)
+      if (searchResult.status === 'error') {
+        setManualSearchError(searchResult.error || 'Metadata search failed')
+        return
+      }
+
+      const matches = searchResult.matches || []
+      setAnalysisResult((prev) => {
+        if (!prev) {
+          return {
+            ...searchResult,
+            matches,
+          }
+        }
+        return {
+          ...prev,
+          matches,
+        }
+      })
+
+      if (matches.length > 0) {
+        setSelectedMatch(matches[0])
+      } else {
+        setSelectedMatch(null)
+        setManualSearchError('No matches found for this search')
+      }
+    } catch (err) {
+      setManualSearchError(err instanceof Error ? err.message : 'Metadata search failed')
+    } finally {
+      setManualSearching(false)
     }
   }
 
@@ -258,6 +482,12 @@ export function ImportTab({ settings, prefilledData }: ImportTabProps) {
       }
 
       if (result.status === 'success' || result.status === 'processing') {
+        const completedTitle = torrentFile
+          ? normalizeTitleForManualSearch(torrentFile.name)
+          : normalizeTitleForManualSearch(magnetLink)
+        onImportComplete?.({
+          matchTitle: completedTitle || undefined,
+        })
         setImportSuccess(true)
         setStep('complete')
       } else if (result.status === 'needs_annotation') {
@@ -359,6 +589,10 @@ export function ImportTab({ settings, prefilledData }: ImportTabProps) {
       }
 
       if (result.status === 'success' || result.status === 'processing') {
+        onImportComplete?.({
+          matchTitle: selectedMatch?.title || analysisResult.parsed_title || analysisResult.torrent_name,
+          matchId: getMetaId(),
+        })
         setImportSuccess(true)
         setStep('complete')
       } else if (result.status === 'validation_failed') {
@@ -388,6 +622,10 @@ export function ImportTab({ settings, prefilledData }: ImportTabProps) {
         setStep('results')
       } else if (result.status === 'warning') {
         // Warning but treat as success
+        onImportComplete?.({
+          matchTitle: selectedMatch?.title || analysisResult.parsed_title || analysisResult.torrent_name,
+          matchId: getMetaId(),
+        })
         setImportSuccess(true)
         setStep('complete')
       } else {
@@ -432,6 +670,9 @@ export function ImportTab({ settings, prefilledData }: ImportTabProps) {
     setValidationErrors([])
     setShowValidationDialog(false)
     setLastImportRequest(null)
+    setManualSearchTitle('')
+    setManualSearchYear('')
+    setManualSearchError(null)
     setStep('input')
   }
 
@@ -541,6 +782,55 @@ export function ImportTab({ settings, prefilledData }: ImportTabProps) {
           importMode={importMode}
           onImportModeChange={setImportMode}
         />
+
+        {contentType !== 'sports' && (
+          <Card>
+            <CardContent className="pt-4 space-y-3">
+              <div>
+                <h4 className="text-sm font-medium">Search Metadata Manually</h4>
+                <p className="text-xs text-muted-foreground">
+                  When auto-match fails, search by title and optional year.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_110px] gap-2">
+                <Input
+                  value={manualSearchTitle}
+                  onChange={(e) => setManualSearchTitle(e.target.value)}
+                  placeholder="Title (e.g. Stardust)"
+                />
+                <Input
+                  value={manualSearchYear}
+                  onChange={(e) => setManualSearchYear(e.target.value.replace(/[^\d]/g, '').slice(0, 4))}
+                  placeholder="Year"
+                />
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleManualSearch}
+                disabled={manualSearching || manualSearchTitle.trim().length < 2}
+                className="w-full"
+              >
+                {manualSearching ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Searching...
+                  </>
+                ) : (
+                  <>
+                    <Search className="h-4 w-4 mr-2" />
+                    Search Matches
+                  </>
+                )}
+              </Button>
+              {manualSearchError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{manualSearchError}</AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Stream Details Editor */}
         <StreamDetailsEditor

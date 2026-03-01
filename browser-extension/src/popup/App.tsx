@@ -5,14 +5,16 @@ import { SettingsTab } from '@/components/SettingsTab'
 import { BulkUploadTab } from '@/components/BulkUploadTab'
 import { storage } from '@/lib/storage'
 import type { ExtensionSettings, PrefilledData } from '@/lib/types'
-import { Upload, Settings, LogOut, AlertCircle, Layers } from 'lucide-react'
+import { Upload, Settings, LogOut, AlertCircle, Layers, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 
 // Type for bulk upload data stored in extension storage
 interface BulkUploadData {
   torrents: Array<{
-    magnetLink: string
+    magnetLink?: string
+    url?: string
+    type?: 'magnet' | 'torrent'
     title: string
     size?: string
     seeders?: number
@@ -27,6 +29,16 @@ function App() {
   const [prefilledData, setPrefilledData] = useState<PrefilledData | null>(null)
   const [bulkData, setBulkData] = useState<BulkUploadData | null>(null)
   const [isBulkMode, setIsBulkMode] = useState(false)
+  const [isTabView, setIsTabView] = useState(false)
+  const [advancedPrefilledData, setAdvancedPrefilledData] = useState<PrefilledData | null>(null)
+  const [advancedBulkContext, setAdvancedBulkContext] = useState<{ itemKey: string; title: string } | null>(null)
+  const [advancedCompletionEvent, setAdvancedCompletionEvent] = useState<{
+    itemKey: string
+    matchTitle?: string
+    matchId?: string
+    completedAt: number
+  } | null>(null)
+  const [advancedImportKey, setAdvancedImportKey] = useState(0)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('import')
 
@@ -54,12 +66,24 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    document.body.classList.toggle('mediafusion-tab-view', isTabView)
+    document.documentElement.classList.toggle('mediafusion-tab-view', isTabView)
+
+    return () => {
+      document.body.classList.remove('mediafusion-tab-view')
+      document.documentElement.classList.remove('mediafusion-tab-view')
+    }
+  }, [isTabView])
+
   async function loadData() {
     try {
       // Check URL parameters for bulk mode
       const urlParams = new URLSearchParams(window.location.search)
       const isBulk = urlParams.get('bulk') === 'true'
+      const viewMode = urlParams.get('view')
       setIsBulkMode(isBulk)
+      setIsTabView(viewMode === 'tab' || isBulk)
 
       const [savedSettings, prefilled] = await Promise.all([
         storage.getSettings(),
@@ -94,43 +118,63 @@ function App() {
   }
 
   async function loadBulkData(): Promise<BulkUploadData | null> {
-    return new Promise((resolve) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const tryStorage = (storageApi: any) => {
-        storageApi.get(['bulkUploadData'], (result: { bulkUploadData?: BulkUploadData }) => {
-          if (result.bulkUploadData) {
-            // Clear the data after reading
-            storageApi.remove(['bulkUploadData'])
-            resolve(result.bulkUploadData)
-          } else {
-            resolve(null)
-          }
-        })
+    try {
+      if (typeof browser !== 'undefined' && browser.storage) {
+        // Firefox mobile can be inconsistent with storage.session; local is safer.
+        const firefoxStorage = browser.storage.local ?? browser.storage.session
+        if (!firefoxStorage) {
+          return null
+        }
+
+        const result = await firefoxStorage.get(['bulkUploadData']) as { bulkUploadData?: BulkUploadData }
+        if (!result.bulkUploadData) {
+          return null
+        }
+
+        await firefoxStorage.remove(['bulkUploadData'])
+        return result.bulkUploadData
       }
 
-      // Try session storage first, then local storage
       if (typeof chrome !== 'undefined' && chrome.storage) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const chromeStorage = chrome.storage as any
-        if (chromeStorage.session) {
-          tryStorage(chromeStorage.session)
-        } else if (chromeStorage.local) {
-          tryStorage(chromeStorage.local)
-        } else {
-          resolve(null)
+        const storageApi = chromeStorage.session ?? chromeStorage.local
+        if (!storageApi) {
+          return null
         }
-      } else if (typeof browser !== 'undefined' && browser.storage) {
-        if (browser.storage.session) {
-          tryStorage(browser.storage.session)
-        } else if (browser.storage.local) {
-          tryStorage(browser.storage.local)
-        } else {
-          resolve(null)
+
+        const result = await new Promise<{ bulkUploadData?: BulkUploadData }>((resolve, reject) => {
+          storageApi.get(['bulkUploadData'], (data: { bulkUploadData?: BulkUploadData }) => {
+            if (chrome.runtime?.lastError) {
+              reject(new Error(chrome.runtime.lastError.message))
+              return
+            }
+            resolve(data ?? {})
+          })
+        })
+
+        if (!result.bulkUploadData) {
+          return null
         }
-      } else {
-        resolve(null)
+
+        await new Promise<void>((resolve, reject) => {
+          storageApi.remove(['bulkUploadData'], () => {
+            if (chrome.runtime?.lastError) {
+              reject(new Error(chrome.runtime.lastError.message))
+              return
+            }
+            resolve()
+          })
+        })
+
+        return result.bulkUploadData
       }
-    })
+
+      return null
+    } catch (error) {
+      console.error('Failed to load bulk upload data:', error)
+      return null
+    }
   }
 
   async function handleLogout() {
@@ -145,9 +189,45 @@ function App() {
     setSettings(updated)
   }
 
+  function openAdvancedAnalyze(prefilledData: PrefilledData, context: { itemKey: string; title: string }) {
+    setAdvancedPrefilledData(prefilledData)
+    setAdvancedBulkContext(context)
+    setAdvancedImportKey((prev) => prev + 1)
+    setActiveTab('import')
+  }
+
+  function returnToBulk() {
+    setAdvancedPrefilledData(null)
+    setActiveTab('bulk')
+  }
+
+  function handleAdvancedImportComplete(details: { matchTitle?: string; matchId?: string }) {
+    if (isBulkMode && advancedBulkContext) {
+      setAdvancedCompletionEvent({
+        itemKey: advancedBulkContext.itemKey,
+        matchTitle: details.matchTitle || advancedBulkContext.title,
+        matchId: details.matchId,
+        completedAt: Date.now(),
+      })
+      setAdvancedBulkContext(null)
+      setAdvancedPrefilledData(null)
+      setActiveTab('bulk')
+    }
+  }
+
+  const importPrefilledData = advancedPrefilledData ?? prefilledData
+
+  const pageContainerClass = isTabView
+    ? 'w-full min-h-dvh bg-background overflow-auto'
+    : 'w-[380px] h-[500px] min-h-[500px] bg-background overflow-auto'
+
+  const loadingContainerClass = isTabView
+    ? 'flex items-center justify-center w-full min-h-dvh bg-background'
+    : 'flex items-center justify-center w-[380px] h-[500px] min-h-[500px] bg-background'
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center w-[380px] h-[500px] min-h-[500px] bg-background">
+      <div className={loadingContainerClass}>
         <div className="animate-pulse text-muted-foreground">Loading...</div>
       </div>
     )
@@ -159,7 +239,7 @@ function App() {
   // If not configured, show settings only
   if (!isConfigured) {
     return (
-      <div className="w-[380px] h-[500px] min-h-[500px] bg-background p-4 overflow-auto">
+      <div className={`${pageContainerClass} p-4`}>
         <Header />
         <SettingsTab 
           settings={settings!} 
@@ -172,7 +252,7 @@ function App() {
   }
 
   return (
-    <div className="w-[380px] h-[500px] min-h-[500px] bg-background overflow-auto">
+    <div className={pageContainerClass}>
       <div className="p-4 pb-2">
         <Header 
           user={settings?.user?.display_name} 
@@ -185,6 +265,10 @@ function App() {
           <TabsList className="w-full">
             {isBulkMode && bulkData ? (
               <>
+                <TabsTrigger value="import" className="flex-1 gap-1">
+                  <Upload className="h-4 w-4" />
+                  Import
+                </TabsTrigger>
                 <TabsTrigger value="bulk" className="flex-1 gap-1">
                   <Layers className="h-4 w-4" />
                   Bulk ({bulkData.torrents.length})
@@ -231,12 +315,25 @@ function App() {
               <BulkUploadTab 
                 bulkData={bulkData}
                 settings={settings!}
+                onOpenAdvancedAnalyze={openAdvancedAnalyze}
+                advancedCompletionEvent={advancedCompletionEvent}
               />
             )}
           </TabsContent>
         )}
 
         <TabsContent value="import" className="mt-0 p-4 pt-2">
+          {isBulkMode && bulkData && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mb-3 w-full"
+              onClick={returnToBulk}
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Bulk Upload
+            </Button>
+          )}
           {!isAuthenticated ? (
             <div className="space-y-4">
               <Alert>
@@ -255,8 +352,10 @@ function App() {
             </div>
           ) : (
             <ImportTab 
+              key={isBulkMode ? `bulk-import-${advancedImportKey}` : 'default-import'}
               settings={settings!}
-              prefilledData={prefilledData}
+              prefilledData={importPrefilledData}
+              onImportComplete={isBulkMode ? handleAdvancedImportComplete : undefined}
             />
           )}
         </TabsContent>
@@ -281,12 +380,12 @@ declare const browser: {
       removeListener(callback: () => void): void
     }
     session?: {
-      get(keys: string[], callback: (result: Record<string, unknown>) => void): void
-      remove(keys: string[]): void
+      get(keys: string[] | string): Promise<Record<string, unknown>>
+      remove(keys: string[] | string): Promise<void>
     }
     local: {
-      get(keys: string[], callback: (result: Record<string, unknown>) => void): void
-      remove(keys: string[]): void
+      get(keys: string[] | string): Promise<Record<string, unknown>>
+      remove(keys: string[] | string): Promise<void>
     }
   }
 }

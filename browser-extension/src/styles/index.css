@@ -80,6 +80,19 @@ body {
   overflow: auto;
 }
 
+html.mediafusion-tab-view,
+body.mediafusion-tab-view {
+  width: 100%;
+  min-width: 0;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: auto;
+}
+
+body.mediafusion-tab-view #root {
+  min-height: 100dvh;
+}
+
 /* ==========================================================================
    SCROLLBAR STYLES
    ========================================================================== */

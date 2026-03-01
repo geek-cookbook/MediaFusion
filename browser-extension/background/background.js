@@ -5,6 +5,209 @@
 const STORAGE_KEY = "mediafusion_settings";
 const PREFILLED_KEY = "mediafusion_prefilled_data";
 
+function hasFirefoxRuntime() {
+  return typeof browser !== "undefined" && !!browser.runtime;
+}
+
+function hasChromeRuntime() {
+  return typeof chrome !== "undefined" && !!chrome.runtime;
+}
+
+function isFirefoxMobile() {
+  return (
+    hasFirefoxRuntime() &&
+    typeof navigator !== "undefined" &&
+    /android/i.test(navigator.userAgent || "")
+  );
+}
+
+function getExtensionUrl(path) {
+  if (hasFirefoxRuntime()) {
+    return browser.runtime.getURL(path);
+  }
+  if (hasChromeRuntime()) {
+    return chrome.runtime.getURL(path);
+  }
+  throw new Error("Extension runtime not available");
+}
+
+function toTabViewUrl(url) {
+  try {
+    const parsedUrl = new URL(url);
+    parsedUrl.searchParams.set("view", "tab");
+    return parsedUrl.toString();
+  } catch {
+    const separator = url.includes("?") ? "&" : "?";
+    return `${url}${separator}view=tab`;
+  }
+}
+
+async function getCurrentWindowInfo() {
+  if (
+    hasFirefoxRuntime() &&
+    browser.windows &&
+    typeof browser.windows.getCurrent === "function"
+  ) {
+    return browser.windows.getCurrent();
+  }
+
+  if (
+    hasChromeRuntime() &&
+    chrome.windows &&
+    typeof chrome.windows.getCurrent === "function"
+  ) {
+    return new Promise((resolve, reject) => {
+      chrome.windows.getCurrent((window) => {
+        if (chrome.runtime && chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        resolve(window || null);
+      });
+    });
+  }
+
+  return null;
+}
+
+async function createPopupWindow(url, width, height) {
+  const currentWindow = await getCurrentWindowInfo();
+  let left = 100;
+  let top = 100;
+
+  if (currentWindow) {
+    const currentLeft = typeof currentWindow.left === "number" ? currentWindow.left : 0;
+    const currentTop = typeof currentWindow.top === "number" ? currentWindow.top : 0;
+    const currentWidth =
+      typeof currentWindow.width === "number" ? currentWindow.width : width;
+    const currentHeight =
+      typeof currentWindow.height === "number" ? currentWindow.height : height;
+
+    left = Math.round(currentLeft + (currentWidth - width) / 2);
+    top = Math.round(currentTop + (currentHeight - height) / 2);
+  }
+
+  const createData = {
+    url: url,
+    type: "popup",
+    width: width,
+    height: height,
+    left: left,
+    top: top,
+    focused: true,
+  };
+
+  if (
+    hasFirefoxRuntime() &&
+    browser.windows &&
+    typeof browser.windows.create === "function"
+  ) {
+    await browser.windows.create(createData);
+    return;
+  }
+
+  if (
+    hasChromeRuntime() &&
+    chrome.windows &&
+    typeof chrome.windows.create === "function"
+  ) {
+    await new Promise((resolve, reject) => {
+      chrome.windows.create(createData, () => {
+        if (chrome.runtime && chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        resolve();
+      });
+    });
+    return;
+  }
+
+  throw new Error("Windows API not available");
+}
+
+async function createTab(url) {
+  if (hasFirefoxRuntime() && browser.tabs && typeof browser.tabs.create === "function") {
+    await browser.tabs.create({ url: url });
+    return;
+  }
+
+  if (hasChromeRuntime() && chrome.tabs && typeof chrome.tabs.create === "function") {
+    await new Promise((resolve, reject) => {
+      chrome.tabs.create({ url: url }, () => {
+        if (chrome.runtime && chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        resolve();
+      });
+    });
+    return;
+  }
+
+  throw new Error("Tabs API not available");
+}
+
+async function openExtensionUi(url, options = {}) {
+  const width = options.width || 500;
+  const height = options.height || 700;
+  const forceTab = options.forceTab === true;
+  const tabUrl = toTabViewUrl(url);
+
+  // Firefox Android does not support popup windows like desktop Firefox.
+  if (forceTab || isFirefoxMobile()) {
+    await createTab(tabUrl);
+    return;
+  }
+
+  try {
+    await createPopupWindow(url, width, height);
+  } catch (error) {
+    const message = error && error.message ? error.message : String(error);
+    console.log("Popup window unavailable, falling back to tab:", message);
+    await createTab(tabUrl);
+  }
+}
+
+function getBulkStorageTarget() {
+  // Firefox mobile can be inconsistent with storage.session; local is safest here.
+  if (hasFirefoxRuntime() && browser.storage && browser.storage.local) {
+    return { area: browser.storage.local, mode: "promise" };
+  }
+
+  if (hasChromeRuntime() && chrome.storage) {
+    if (chrome.storage.session) {
+      return { area: chrome.storage.session, mode: "callback" };
+    }
+    if (chrome.storage.local) {
+      return { area: chrome.storage.local, mode: "callback" };
+    }
+  }
+
+  return null;
+}
+
+async function setBulkStorageData(target, data) {
+  if (!target) {
+    throw new Error("No storage API available");
+  }
+
+  if (target.mode === "promise") {
+    await target.area.set(data);
+    return;
+  }
+
+  await new Promise((resolve, reject) => {
+    target.area.set(data, () => {
+      if (chrome.runtime && chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
 class MediaFusionAPI {
   constructor() {
     this.baseUrl = "";
@@ -393,83 +596,8 @@ const handleMessage = async (message, sender, sendResponse) => {
             pageTitle: popupData.title,
           });
 
-          const popupUrl =
-            typeof browser !== "undefined" && browser.runtime
-              ? browser.runtime.getURL("popup/index.html")
-              : chrome.runtime.getURL("popup/index.html");
-
-          const fullUrl = popupUrl;
-
-          // Try to open in a popup window, fallback to new tab if windows API is not available
-          let windowOpened = false;
-
-          try {
-            // Get the current window to position popup relative to it
-            const getCurrentWindow = () => {
-              return new Promise((resolve) => {
-                if (typeof browser !== "undefined" && browser.windows) {
-                  browser.windows.getCurrent().then(resolve);
-                } else if (typeof chrome !== "undefined" && chrome.windows) {
-                  chrome.windows.getCurrent(resolve);
-                } else {
-                  resolve(null);
-                }
-              });
-            };
-
-            const currentWindow = await getCurrentWindow();
-
-            // Calculate centered position
-            const popupWidth = 500;
-            const popupHeight = 700;
-            let left = 100;
-            let top = 100;
-
-            if (currentWindow) {
-              left = Math.round(currentWindow.left + (currentWindow.width - popupWidth) / 2);
-              top = Math.round(currentWindow.top + (currentWindow.height - popupHeight) / 2);
-            }
-
-            if (typeof browser !== "undefined" && browser.windows) {
-              // Firefox with windows permission
-              await browser.windows.create({
-                url: fullUrl,
-                type: "popup",
-                width: popupWidth,
-                height: popupHeight,
-                left: left,
-                top: top,
-                focused: true,
-              });
-              windowOpened = true;
-            } else if (typeof chrome !== "undefined" && chrome.windows) {
-              // Chrome with windows permission
-              chrome.windows.create({
-                url: fullUrl,
-                type: "popup",
-                width: popupWidth,
-                height: popupHeight,
-                left: left,
-                top: top,
-                focused: true,
-              });
-              windowOpened = true;
-            }
-          } catch (error) {
-            console.log(
-              "Windows API not available, falling back to tab:",
-              error.message
-            );
-          }
-
-          // Fallback: open in new tab if popup window creation failed
-          if (!windowOpened) {
-            if (typeof browser !== "undefined" && browser.tabs) {
-              browser.tabs.create({ url: fullUrl });
-            } else if (typeof chrome !== "undefined" && chrome.tabs) {
-              chrome.tabs.create({ url: fullUrl });
-            }
-          }
+          const popupUrl = getExtensionUrl("popup/index.html");
+          await openExtensionUi(popupUrl, { width: 500, height: 700 });
 
           sendResponse({ success: true });
         } catch (error) {
@@ -565,10 +693,7 @@ const handleMessage = async (message, sender, sendResponse) => {
           const bulkData = message.data;
 
           // Create bulk upload popup URL with data
-          const popupUrl =
-            typeof browser !== "undefined" && browser.runtime
-              ? browser.runtime.getURL("popup/index.html")
-              : chrome.runtime.getURL("popup/index.html");
+          const popupUrl = getExtensionUrl("popup/index.html");
 
           const params = new URLSearchParams();
           params.append("bulk", "true");
@@ -584,94 +709,11 @@ const handleMessage = async (message, sender, sendResponse) => {
             timestamp: Date.now()
           };
 
-          // Use chrome.storage.session if available, otherwise use chrome.storage.local
-          const storageAPI = (typeof chrome !== "undefined" && chrome.storage.session)
-            ? chrome.storage.session
-            : (typeof browser !== "undefined" && browser.storage.session)
-            ? browser.storage.session
-            : (typeof chrome !== "undefined" && chrome.storage.local)
-            ? chrome.storage.local
-            : browser.storage.local;
-
-          await new Promise((resolve, reject) => {
-            storageAPI.set({ bulkUploadData: bulkSessionData }, () => {
-              if (chrome.runtime.lastError) {
-                reject(new Error(chrome.runtime.lastError.message));
-              } else {
-                resolve();
-              }
-            });
-          });
+          const storageTarget = getBulkStorageTarget();
+          await setBulkStorageData(storageTarget, { bulkUploadData: bulkSessionData });
 
           const fullUrl = `${popupUrl}?${params.toString()}`;
-
-          // Open bulk upload popup window
-          let windowOpened = false;
-          const popupWidth = 800;  // Wider for bulk upload
-          const popupHeight = 700;
-
-          try {
-            // Get the current window to position popup relative to it
-            const getCurrentWindow = () => {
-              if (typeof browser !== "undefined" && browser.windows) {
-                return browser.windows.getCurrent();
-              } else if (typeof chrome !== "undefined" && chrome.windows) {
-                return new Promise((resolve) => {
-                  chrome.windows.getCurrent(resolve);
-                });
-              }
-              return Promise.resolve(null);
-            };
-
-            const currentWindow = await getCurrentWindow();
-            let left = 100;
-            let top = 100;
-
-            if (currentWindow) {
-              left = Math.round(currentWindow.left + (currentWindow.width - popupWidth) / 2);
-              top = Math.round(currentWindow.top + (currentWindow.height - popupHeight) / 2);
-            }
-
-            if (typeof browser !== "undefined" && browser.windows) {
-              // Firefox with windows permission
-              await browser.windows.create({
-                url: fullUrl,
-                type: "popup",
-                width: popupWidth,
-                height: popupHeight,
-                left: left,
-                top: top,
-                focused: true,
-              });
-              windowOpened = true;
-            } else if (typeof chrome !== "undefined" && chrome.windows) {
-              // Chrome with windows permission
-              chrome.windows.create({
-                url: fullUrl,
-                type: "popup",
-                width: popupWidth,
-                height: popupHeight,
-                left: left,
-                top: top,
-                focused: true,
-              });
-              windowOpened = true;
-            }
-          } catch (error) {
-            console.log(
-              "Windows API not available, falling back to tab:",
-              error.message
-            );
-          }
-
-          // Fallback to new tab if popup window failed
-          if (!windowOpened) {
-            if (typeof browser !== "undefined" && browser.tabs) {
-              await browser.tabs.create({ url: fullUrl });
-            } else if (typeof chrome !== "undefined" && chrome.tabs) {
-              chrome.tabs.create({ url: fullUrl });
-            }
-          }
+          await openExtensionUi(fullUrl, { width: 800, height: 700 });
 
           sendResponse({ success: true });
         } catch (error) {

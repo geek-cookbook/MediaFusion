@@ -105,8 +105,8 @@ export function AnalysisResults({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          <div className="text-sm font-medium truncate" title={result.torrent_name}>
-            {result.torrent_name}
+          <div className="text-sm font-medium truncate" title={result.torrent_name || result.parsed_title || 'Unknown torrent'}>
+            {result.torrent_name || result.parsed_title || 'Unknown torrent'}
           </div>
           
           <div className="flex flex-wrap gap-2 text-xs">

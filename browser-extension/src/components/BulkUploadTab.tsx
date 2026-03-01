@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, forwardRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -15,7 +16,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { api } from '@/lib/api'
-import type { ContentType, ExtensionSettings, TorrentSourceType, SportsCategory } from '@/lib/types'
+import type { ContentType, ExtensionSettings, TorrentSourceType, SportsCategory, PrefilledData } from '@/lib/types'
 import {
   Upload,
   Check,
@@ -43,7 +44,7 @@ import {
 } from '@/lib/content-detection'
 
 interface TorrentItem {
-  magnetLink: string
+  magnetLink?: string
   title: string
   size?: string
   seeders?: number
@@ -77,13 +78,25 @@ interface ProcessedItem {
 interface BulkUploadTabProps {
   bulkData: BulkUploadData
   settings: ExtensionSettings
+  onOpenAdvancedAnalyze?: (prefilledData: PrefilledData, context: { itemKey: string; title: string }) => void
+  advancedCompletionEvent?: {
+    itemKey: string
+    matchTitle?: string
+    matchId?: string
+    completedAt: number
+  } | null
 }
 
 // Content type filter options
 type ContentFilter = 'all' | ContentType
 type SourceFilter = 'all' | TorrentSourceType
 
-export function BulkUploadTab({ bulkData, settings }: BulkUploadTabProps) {
+export function BulkUploadTab({
+  bulkData,
+  settings,
+  onOpenAdvancedAnalyze,
+  advancedCompletionEvent,
+}: BulkUploadTabProps) {
   // Items state with content type detection
   const [items, setItems] = useState<ProcessedItem[]>([])
   
@@ -101,18 +114,37 @@ export function BulkUploadTab({ bulkData, settings }: BulkUploadTabProps) {
   const [isProcessing, setIsProcessing] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
   const [currentIndex, setCurrentIndex] = useState(0)
+  const pauseRef = useRef(false)
+  const itemsRef = useRef<ProcessedItem[]>([])
   
   // Auto-scroll state
   const [autoScroll, setAutoScroll] = useState(true)
   const scrollRef = useRef<HTMLDivElement>(null)
   const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map())
 
+  useEffect(() => {
+    itemsRef.current = items
+  }, [items])
+
+  useEffect(() => {
+    pauseRef.current = isPaused
+  }, [isPaused])
+
   // Initialize items from bulk data with auto-detection
   useEffect(() => {
     const processedItems: ProcessedItem[] = bulkData.torrents.map((torrent) => {
+      // Normalize incoming data shape from content script/background.
+      const sourceType: TorrentSourceType =
+        torrent.type === 'torrent' || torrent.url?.endsWith('.torrent')
+          ? 'torrent'
+          : 'magnet'
+      const normalizedMagnetLink =
+        torrent.magnetLink || (sourceType === 'magnet' ? torrent.url : undefined)
+      const normalizedUrl = torrent.url || torrent.magnetLink
+
       // Extract title from magnet if available
-      const title = torrent.magnetLink 
-        ? extractTitleFromMagnet(torrent.magnetLink) || torrent.title
+      const title = normalizedMagnetLink 
+        ? extractTitleFromMagnet(normalizedMagnetLink) || torrent.title
         : torrent.title
       
       // Auto-detect content type
@@ -121,13 +153,13 @@ export function BulkUploadTab({ bulkData, settings }: BulkUploadTabProps) {
         ? guessSportsCategoryFromTitle(title) || undefined 
         : undefined
       
-      // Determine source type
-      const sourceType: TorrentSourceType = torrent.type === 'torrent' || torrent.url?.endsWith('.torrent')
-        ? 'torrent'
-        : 'magnet'
-
       return {
-        torrent: { ...torrent, title },
+        torrent: {
+          ...torrent,
+          title,
+          magnetLink: normalizedMagnetLink,
+          url: normalizedUrl,
+        },
         status: 'pending' as ItemStatus,
         contentType: detectedType,
         detectedContentType: detectedType,
@@ -206,6 +238,13 @@ export function BulkUploadTab({ bulkData, settings }: BulkUploadTabProps) {
     ))
   }, [])
 
+  const getItemKey = useCallback((item: ProcessedItem) => {
+    if (item.sourceType === 'torrent') {
+      return `torrent:${item.torrent.url || item.torrent.title}`
+    }
+    return `magnet:${item.torrent.magnetLink || item.torrent.url || item.torrent.title}`
+  }, [])
+
   const updateItemContentType = useCallback((index: number, newType: ContentType) => {
     setItems(prev => prev.map((item, i) => {
       if (i !== index) return item
@@ -226,14 +265,77 @@ export function BulkUploadTab({ bulkData, settings }: BulkUploadTabProps) {
     }
   }, [currentIndex, autoScroll, isProcessing])
 
+  // Mark one item as completed when advanced import succeeds in Import tab.
+  useEffect(() => {
+    if (!advancedCompletionEvent) return
+
+    setItems(prev => {
+      let updated = false
+      return prev.map((item) => {
+        if (updated) return item
+        if (getItemKey(item) !== advancedCompletionEvent.itemKey) return item
+
+        updated = true
+        return {
+          ...item,
+          status: 'success',
+          error: undefined,
+          matchTitle: advancedCompletionEvent.matchTitle || item.matchTitle || item.torrent.title,
+          matchId: advancedCompletionEvent.matchId || item.matchId,
+        }
+      })
+    })
+  }, [advancedCompletionEvent, getItemKey])
+
+  const downloadTorrentFile = useCallback(async (url: string, fallbackTitle: string) => {
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`Failed to download torrent file (${response.status})`)
+    }
+
+    const blob = await response.blob()
+    const fallbackFileName = (fallbackTitle || 'download').replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_')
+
+    let fileName = `${fallbackFileName}.torrent`
+    try {
+      const parsed = new URL(url)
+      const urlFileName = decodeURIComponent(parsed.pathname.split('/').pop() || '')
+      if (urlFileName) {
+        fileName = urlFileName.endsWith('.torrent') ? urlFileName : `${urlFileName}.torrent`
+      }
+    } catch {
+      // Keep fallback file name.
+    }
+
+    return new File([blob], fileName, {
+      type: blob.type || 'application/x-bittorrent',
+    })
+  }, [])
+
   const processItem = useCallback(async (index: number) => {
-    const item = items[index]
+    const item = itemsRef.current[index]
     if (!item || item.status !== 'pending') return
 
     try {
       // Analyze
       updateItem(index, { status: 'analyzing' })
-      const analysis = await api.analyzeMagnet(item.torrent.magnetLink, item.contentType)
+      const magnetLink = item.torrent.magnetLink || (item.sourceType === 'magnet' ? item.torrent.url : undefined)
+      let torrentFile: File | undefined
+
+      const analysis = item.sourceType === 'torrent'
+        ? await (async () => {
+            if (!item.torrent.url) {
+              throw new Error('Torrent URL not available')
+            }
+            torrentFile = await downloadTorrentFile(item.torrent.url, item.torrent.title)
+            return api.analyzeTorrent(torrentFile, item.contentType)
+          })()
+        : await (async () => {
+            if (!magnetLink) {
+              throw new Error('Magnet link not available')
+            }
+            return api.analyzeMagnet(magnetLink, item.contentType)
+          })()
 
       if (analysis.status === 'error') {
         updateItem(index, { status: 'error', error: analysis.error || 'Analysis failed' })
@@ -277,8 +379,7 @@ export function BulkUploadTab({ bulkData, settings }: BulkUploadTabProps) {
         ? (settings.anonymousDisplayName?.trim() || undefined)
         : undefined
 
-      const result = await api.importMagnet({
-        magnet_link: item.torrent.magnetLink,
+      const importRequest = {
         meta_type: item.contentType,
         meta_id: getMetaId(),
         title: matchTitle,
@@ -291,7 +392,25 @@ export function BulkUploadTab({ bulkData, settings }: BulkUploadTabProps) {
         sports_category: item.sportsCategory,
         is_anonymous: isAnonymous,
         anonymous_display_name: anonymousDisplayName,
-      })
+      }
+
+      const result = item.sourceType === 'torrent'
+        ? await (async () => {
+            if (!item.torrent.url && !torrentFile) {
+              throw new Error('Torrent source is missing')
+            }
+            const fileToImport = torrentFile || await downloadTorrentFile(item.torrent.url!, item.torrent.title)
+            return api.importTorrent(fileToImport, importRequest)
+          })()
+        : await (async () => {
+            if (!magnetLink) {
+              throw new Error('Magnet link not available')
+            }
+            return api.importMagnet({
+              magnet_link: magnetLink,
+              ...importRequest,
+            })
+          })()
 
       if (result.status === 'success' || result.status === 'processing') {
         updateItem(index, { status: 'success', matchTitle, matchId })
@@ -306,21 +425,29 @@ export function BulkUploadTab({ bulkData, settings }: BulkUploadTabProps) {
         error: error instanceof Error ? error.message : 'Processing failed' 
       })
     }
-  }, [items, autoImport, bulkImdbId, settings, updateItem])
+  }, [autoImport, bulkImdbId, settings, updateItem, downloadTorrentFile])
 
   const startProcessing = async () => {
+    if (isProcessing) return
+
     setIsProcessing(true)
     setIsPaused(false)
+    pauseRef.current = false
 
-    for (let i = currentIndex; i < items.length; i++) {
-      if (isPaused) {
+    for (let i = currentIndex; i < itemsRef.current.length; i++) {
+      if (pauseRef.current) {
         setCurrentIndex(i)
         break
       }
       
-      if (items[i].status === 'pending') {
+      const currentItem = itemsRef.current[i]
+      if (currentItem?.status === 'pending') {
         setCurrentIndex(i)
         await processItem(i)
+        if (pauseRef.current) {
+          setCurrentIndex(i + 1)
+          break
+        }
         // Small delay between items
         await new Promise(resolve => setTimeout(resolve, 500))
       }
@@ -330,7 +457,11 @@ export function BulkUploadTab({ bulkData, settings }: BulkUploadTabProps) {
   }
 
   const togglePause = () => {
-    setIsPaused(!isPaused)
+    setIsPaused(prev => {
+      const next = !prev
+      pauseRef.current = next
+      return next
+    })
   }
 
   const resetAll = () => {
@@ -344,6 +475,7 @@ export function BulkUploadTab({ bulkData, settings }: BulkUploadTabProps) {
     setCurrentIndex(0)
     setIsProcessing(false)
     setIsPaused(false)
+    pauseRef.current = false
   }
 
   const retryItem = async (index: number) => {
@@ -610,7 +742,7 @@ export function BulkUploadTab({ bulkData, settings }: BulkUploadTabProps) {
 
       {/* Torrent List */}
       <ScrollArea className="h-[200px] rounded-lg border" ref={scrollRef}>
-        <div className="p-2 space-y-1">
+        <div className="p-2 space-y-1 min-w-max">
           {filteredItems.map((item) => {
             const actualIndex = items.indexOf(item)
             return (
@@ -625,6 +757,19 @@ export function BulkUploadTab({ bulkData, settings }: BulkUploadTabProps) {
                 isCurrentlyProcessing={isProcessing && currentIndex === actualIndex}
                 onToggleSkip={() => toggleItemSkip(actualIndex)}
                 onRetry={() => retryItem(actualIndex)}
+                onAdvancedAnalyze={() => {
+                  const itemKey = getItemKey(item)
+                  const prefilledData: PrefilledData = {
+                    magnetLink: item.sourceType === 'magnet' ? item.torrent.magnetLink || item.torrent.url : undefined,
+                    torrentUrl: item.sourceType === 'torrent' ? item.torrent.url : undefined,
+                    contentType: item.contentType,
+                    pageTitle: item.torrent.title,
+                  }
+                  onOpenAdvancedAnalyze?.(prefilledData, {
+                    itemKey,
+                    title: item.torrent.title,
+                  })
+                }}
                 onContentTypeChange={(type) => updateItemContentType(actualIndex, type)}
                 disabled={isProcessing}
               />
@@ -688,19 +833,21 @@ interface TorrentItemRowProps {
   isCurrentlyProcessing: boolean
   onToggleSkip: () => void
   onRetry: () => void
+  onAdvancedAnalyze: () => void
   onContentTypeChange: (type: ContentType) => void
   disabled: boolean
 }
 
-const TorrentItemRow = ({ 
+const TorrentItemRow = forwardRef<HTMLDivElement, TorrentItemRowProps>(function TorrentItemRow({ 
   item, 
   displayIndex,
   isCurrentlyProcessing, 
   onToggleSkip, 
   onRetry,
+  onAdvancedAnalyze,
   onContentTypeChange,
   disabled,
-}: TorrentItemRowProps & { ref?: React.Ref<HTMLDivElement> }) => {
+}, ref) {
   const statusIcons = {
     pending: null,
     skipped: <X className="h-3 w-3 text-muted-foreground" />,
@@ -722,8 +869,9 @@ const TorrentItemRow = ({
 
   return (
     <div
+      ref={ref}
       className={cn(
-        "flex items-center gap-1.5 p-1.5 rounded text-xs transition-colors",
+        "flex items-center gap-1.5 p-1.5 rounded text-xs transition-colors min-w-[520px]",
         isCurrentlyProcessing && "bg-primary/10 border border-primary/30 ring-2 ring-primary/20",
         item.status === 'success' && "bg-green-500/5",
         item.status === 'warning' && "bg-yellow-500/5",
@@ -738,6 +886,19 @@ const TorrentItemRow = ({
       <div className="w-4 h-4 flex items-center justify-center flex-shrink-0">
         {statusIcons[item.status]}
       </div>
+
+      {/* Explicit select/deselect checkbox for this item */}
+      <Checkbox
+        checked={item.status !== 'skipped'}
+        disabled={disabled || (item.status !== 'pending' && item.status !== 'skipped')}
+        onCheckedChange={(checked) => {
+          if ((checked && item.status === 'skipped') || (!checked && item.status === 'pending')) {
+            onToggleSkip()
+          }
+        }}
+        aria-label={item.status === 'skipped' ? 'Select item' : 'Deselect item'}
+        className="h-4 w-4 flex-shrink-0"
+      />
 
       {/* Content type selector */}
       <Select 
@@ -808,6 +969,18 @@ const TorrentItemRow = ({
 
       {/* Actions */}
       <div className="flex gap-0.5 flex-shrink-0">
+        {!disabled && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-5 px-1.5 text-[9px]"
+            onClick={onAdvancedAnalyze}
+            title="Open full analysis flow for this item"
+          >
+            <Search className="h-2.5 w-2.5 mr-1" />
+            Analyze
+          </Button>
+        )}
         {(item.status === 'error' || item.status === 'warning') && !disabled && (
           <Button
             variant="ghost"
@@ -819,22 +992,7 @@ const TorrentItemRow = ({
             <RefreshCw className="h-3 w-3" />
           </Button>
         )}
-        {(item.status === 'pending' || item.status === 'skipped') && !disabled && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-5 w-5 p-0"
-            onClick={onToggleSkip}
-            title={item.status === 'skipped' ? 'Include' : 'Skip'}
-          >
-            {item.status === 'skipped' ? (
-              <RotateCcw className="h-3 w-3" />
-            ) : (
-              <X className="h-3 w-3" />
-            )}
-          </Button>
-        )}
       </div>
     </div>
   )
-}
+})

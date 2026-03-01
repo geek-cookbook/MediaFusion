@@ -20,7 +20,6 @@ def get_router() -> APIRouter:
     from .catalog import router as catalog_router
     from .config import router as config_router
     from .core import router as core_router
-    from .download import router as download_router
     from .manifest import router as manifest_router
     from .meta import router as meta_router
     from .poster import router as poster_router
@@ -36,7 +35,6 @@ def get_router() -> APIRouter:
     combined.include_router(stream_router)
     combined.include_router(poster_router)
     combined.include_router(config_router)
-    combined.include_router(download_router)
     _router = combined
     return _router
 

@@ -82,7 +82,6 @@ export interface StreamingProvider {
   url?: string
   stremthru_store_name?: string
   enable_watchlist_catalogs: boolean
-  download_via_browser: boolean
   only_show_cached_streams: boolean
   qbittorrent_config?: QBittorrentConfig
 }

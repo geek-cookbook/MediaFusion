@@ -84,7 +84,6 @@ export interface StreamingProviderConfig {
   pw?: string // password
   u?: string // url
   ewc?: boolean // enable_watchlist_catalogs
-  dvb?: boolean // download_via_browser
   oscs?: boolean // only_show_cached_streams
   stsn?: string // stremthru_store_name
 }

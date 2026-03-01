@@ -130,7 +130,7 @@ kubectl create secret tls mediafusion-tls \
 ## Configuring MediaFusion 🛠️
 
 > [!TIP]
-> For more configuration options, refer to the [Configuration](/docs/configuration.md) documentation.
+> For more configuration options, refer to the [Configuration](/docs/env-reference.md) documentation.
 
 Edit the `deployment/local-deployment.yaml` to set the required environment variables:
 

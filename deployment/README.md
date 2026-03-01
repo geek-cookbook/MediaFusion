@@ -98,7 +98,7 @@ EOF
 ```
 
 > [!TIP]
-> See [Configuration Guide](/docs/configuration.md) for all available options.
+> See [Configuration Guide](/docs/env-reference.md) for all available options.
 
 ### Step 5: Run Database Migrations
 
@@ -199,7 +199,7 @@ Before proceeding with any deployment method, make sure you have the required to
 
 All deployment methods require you to configure environment variables that are crucial for the operation of MediaFusion. These variables include API keys, database URIs, and other sensitive information which should be kept secure.
 
-See the [Configuration Guide](/docs/configuration.md) for detailed information on all available options.
+See the [Configuration Guide](/docs/env-reference.md) for detailed information on all available options.
 
 ## Support and Contributions 💡
 

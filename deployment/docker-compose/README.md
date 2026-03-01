@@ -40,7 +40,7 @@ MediaFusion uses PostgreSQL as the primary database.
 Rename `.env-sample` to `.env` and update the variables.
 
 > [!TIP]
-> For more configuration options, refer to the [Configuration](/docs/configuration.md) documentation.
+> For more configuration options, refer to the [Configuration](/docs/env-reference.md) documentation.
 
 
 ### Linux/macOS

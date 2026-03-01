@@ -5251,6 +5251,18 @@ class TelegramContentBot:
         Returns:
             Dict with result message
         """
+        # Security guard: never issue login tokens in group chats.
+        # In a private chat, Telegram chat_id == user_id for normal users.
+        if chat_id != telegram_user_id:
+            return {
+                "success": False,
+                "message": (
+                    "🔒 *Private Chat Required*\n\n"
+                    "For security, `/login` only works in a private chat.\n\n"
+                    "Please open a direct chat with this bot and send `/login` there."
+                ),
+            }
+
         # Generate a secure login token
         login_token = secrets.token_urlsafe(32)
 

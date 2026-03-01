@@ -45,7 +45,7 @@ export function MyLibraryTab() {
   // Transform library items to ContentCardData format and create ID mapping
   const { contentItems, libraryItemIdMap } = useMemo(() => {
     const idMap = new Map<number, number>() // media_id -> library_item_id
-    const items: ContentCardData[] = (data?.items || []).map((item) => {
+    const items: ContentCardData[] = (data?.items || []).filter(Boolean).map((item) => {
       idMap.set(item.media_id, item.id)
       return {
         id: item.media_id, // Use media_id for navigation

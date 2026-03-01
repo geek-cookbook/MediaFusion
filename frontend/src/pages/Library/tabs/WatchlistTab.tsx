@@ -114,7 +114,7 @@ export function WatchlistTab() {
 
     const hashesMap = new Map<number, string[]>()
     const items = watchlistData.pages.flatMap((page) =>
-      page.items.map((item: WatchlistItem) => {
+      (page.items ?? []).filter(Boolean).map((item: WatchlistItem) => {
         hashesMap.set(item.id, item.info_hashes || [])
         return {
           id: item.id,

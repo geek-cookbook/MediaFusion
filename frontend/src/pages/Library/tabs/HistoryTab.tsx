@@ -394,7 +394,7 @@ export function HistoryTab() {
     }
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
-  const items = data?.pages.flatMap((page) => page.items) ?? []
+  const items = data?.pages.flatMap((page) => page.items ?? []).filter(Boolean) ?? []
 
   const handleClearAll = async () => {
     // Clear only the selected profile's history, or all if 'all' is selected

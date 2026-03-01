@@ -242,7 +242,7 @@ export function BrowseTab() {
     setRestoredScroll(true)
   }, [])
 
-  const items = data?.pages.flatMap((page) => page.items) ?? []
+  const items = data?.pages.flatMap((page) => page.items ?? []).filter(Boolean) ?? []
 
   const catalogs =
     catalogType === 'movie'

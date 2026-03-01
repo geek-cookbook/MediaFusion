@@ -43,6 +43,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Trophy,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -62,11 +65,15 @@ const roleConfig: Record<UserRole, { label: string; icon: typeof Shield; color: 
 }
 
 const allRoles: UserRole[] = ['admin', 'moderator', 'paid_user', 'user']
+type SortField = 'user' | 'role' | 'contribution' | 'status' | 'joined'
+type SortDirection = 'asc' | 'desc'
 
 export function UserManagementPage() {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<UserRole | undefined>()
+  const [sortField, setSortField] = useState<SortField>('joined')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [editUserId, setEditUserId] = useState<string | null>(null)
   const [roleDialogUser, setRoleDialogUser] = useState<{ id: string; role: UserRole } | null>(null)
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null)
@@ -105,6 +112,60 @@ export function UserManagementPage() {
     await deleteUser.mutateAsync(deleteUserId)
     setDeleteUserId(null)
   }
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+
+    setSortField(field)
+    setSortDirection(field === 'contribution' || field === 'joined' ? 'desc' : 'asc')
+  }
+
+  const sortedUsers = (() => {
+    if (!usersData?.items) return []
+
+    const roleSortOrder: Record<UserRole, number> = {
+      admin: 4,
+      moderator: 3,
+      paid_user: 2,
+      user: 1,
+    }
+
+    const sorted = [...usersData.items]
+    sorted.sort((a, b) => {
+      let comparison = 0
+
+      switch (sortField) {
+        case 'user': {
+          const aName = (a.username || a.email || '').toLowerCase()
+          const bName = (b.username || b.email || '').toLowerCase()
+          comparison = aName.localeCompare(bName)
+          break
+        }
+        case 'role':
+          comparison = roleSortOrder[a.role] - roleSortOrder[b.role]
+          break
+        case 'contribution':
+          comparison = (a.contribution_points ?? 0) - (b.contribution_points ?? 0)
+          break
+        case 'status': {
+          const aStatusRank = (a.is_active ? 2 : 0) + (a.is_verified ? 1 : 0)
+          const bStatusRank = (b.is_active ? 2 : 0) + (b.is_verified ? 1 : 0)
+          comparison = aStatusRank - bStatusRank
+          break
+        }
+        case 'joined':
+          comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          break
+      }
+
+      return sortDirection === 'asc' ? comparison : -comparison
+    })
+
+    return sorted
+  })()
 
   const selectedUser = usersData?.items.find((u) => u.id === editUserId)
 
@@ -252,16 +313,101 @@ export function UserManagementPage() {
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
-                      <TableHead>User</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Contribution</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Joined</TableHead>
+                      <TableHead>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                          onClick={() => handleSort('user')}
+                        >
+                          User
+                          {sortField === 'user' ? (
+                            sortDirection === 'asc' ? (
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            ) : (
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-3.5 w-3.5 opacity-60" />
+                          )}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                          onClick={() => handleSort('role')}
+                        >
+                          Role
+                          {sortField === 'role' ? (
+                            sortDirection === 'asc' ? (
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            ) : (
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-3.5 w-3.5 opacity-60" />
+                          )}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                          onClick={() => handleSort('contribution')}
+                        >
+                          Contribution
+                          {sortField === 'contribution' ? (
+                            sortDirection === 'asc' ? (
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            ) : (
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-3.5 w-3.5 opacity-60" />
+                          )}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                          onClick={() => handleSort('status')}
+                        >
+                          Status
+                          {sortField === 'status' ? (
+                            sortDirection === 'asc' ? (
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            ) : (
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-3.5 w-3.5 opacity-60" />
+                          )}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+                          onClick={() => handleSort('joined')}
+                        >
+                          Joined
+                          {sortField === 'joined' ? (
+                            sortDirection === 'asc' ? (
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            ) : (
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-3.5 w-3.5 opacity-60" />
+                          )}
+                        </button>
+                      </TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {usersData?.items.map((user) => {
+                    {sortedUsers.map((user) => {
                       const role = roleConfig[user.role]
                       const RoleIcon = role?.icon ?? UserIcon
 

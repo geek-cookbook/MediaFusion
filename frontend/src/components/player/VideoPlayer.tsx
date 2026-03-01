@@ -125,6 +125,23 @@ function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+function getMediaErrorMessage(mediaError: MediaError | null): string {
+  if (!mediaError) return 'Failed to load video'
+
+  switch (mediaError.code) {
+    case MediaError.MEDIA_ERR_ABORTED:
+      return 'Playback was aborted before the video finished loading'
+    case MediaError.MEDIA_ERR_NETWORK:
+      return 'Network error while loading the stream. Please try another source'
+    case MediaError.MEDIA_ERR_DECODE:
+      return 'This video codec is not supported by your browser. Try external player or transcode'
+    case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+      return 'This stream format is not supported by browser playback'
+    default:
+      return 'Failed to load video'
+  }
+}
+
 export function VideoPlayer({
   sources,
   poster,
@@ -221,7 +238,9 @@ export function VideoPlayer({
       })
       hlsRef.current = hls
       let networkRetries = 0
+      let mediaRecoveryAttempts = 0
       const MAX_NETWORK_RETRIES = 3
+      const MAX_MEDIA_RECOVERY_ATTEMPTS = 2
 
       hls.loadSource(src)
       hls.attachMedia(video)
@@ -250,17 +269,32 @@ export function VideoPlayer({
               } else {
                 console.log('[VideoPlayer] HLS network error, max retries reached - stopping')
                 setError('Network error: unable to load stream')
+                setIsLoading(false)
                 onError?.('Network error: unable to load stream')
                 hls.destroy()
                 hlsRef.current = null
               }
               break
             case Hls.ErrorTypes.MEDIA_ERROR:
-              // Try to recover from media error
-              hls.recoverMediaError()
+              mediaRecoveryAttempts++
+              if (mediaRecoveryAttempts <= MAX_MEDIA_RECOVERY_ATTEMPTS) {
+                console.log(
+                  `[VideoPlayer] HLS media error, recovery attempt ${mediaRecoveryAttempts}/${MAX_MEDIA_RECOVERY_ATTEMPTS}`,
+                )
+                hls.recoverMediaError()
+              } else {
+                const codecError =
+                  'This video format is not supported by your browser. Try external player or transcode'
+                setError(codecError)
+                setIsLoading(false)
+                onError?.(codecError)
+                hls.destroy()
+                hlsRef.current = null
+              }
               break
             default:
               setError('Failed to load HLS stream')
+              setIsLoading(false)
               onError?.('Failed to load HLS stream')
               hls.destroy()
               hlsRef.current = null
@@ -357,7 +391,15 @@ export function VideoPlayer({
     const handleError = () => {
       // Skip native error if HLS.js is handling the stream
       if (hlsRef.current) return
-      const errorMessage = video.error?.message || 'Failed to load video'
+      const errorMessage = getMediaErrorMessage(video.error)
+      console.error('[VideoPlayer] Native media error', {
+        code: video.error?.code,
+        networkState: video.networkState,
+        readyState: video.readyState,
+        source: currentSource?.src,
+      })
+      setIsLoading(false)
+      setIsPlaying(false)
       setError(errorMessage)
       onError?.(errorMessage)
     }
@@ -391,7 +433,7 @@ export function VideoPlayer({
         clearTimeout(audioCheckTimeoutRef.current)
       }
     }
-  }, [onTimeUpdate, onEnded, onError, onAudioIssue, startTime, audioIssueDetected, isPlaying])
+  }, [onTimeUpdate, onEnded, onError, onAudioIssue, startTime, audioIssueDetected, isPlaying, currentSource?.src])
 
   // Cleanup video element on unmount to stop buffering
   useEffect(() => {
@@ -455,7 +497,18 @@ export function VideoPlayer({
     if (isPlaying) {
       video.pause()
     } else {
-      video.play()
+      video.play().catch((err: unknown) => {
+        let message = 'Unable to start playback in browser'
+        if (err instanceof DOMException) {
+          if (err.name === 'NotAllowedError') {
+            message = 'Playback was blocked by browser policy. Tap play again or unmute first'
+          } else if (err.name === 'NotSupportedError') {
+            message = 'This stream format is not supported by your browser. Try external player'
+          }
+        }
+        setError(message)
+        onError?.(message)
+      })
     }
   }
 
@@ -663,12 +716,17 @@ export function VideoPlayer({
       {!isDownloadOnly && !checkingStream && (
         <div
           className={cn(
-            'absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 transition-opacity duration-300',
+            'absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent pt-3 sm:pt-4 transition-opacity duration-300',
             showControls ? 'opacity-100' : 'opacity-0 pointer-events-none',
           )}
+          style={{
+            paddingLeft: 'max(0.5rem, env(safe-area-inset-left))',
+            paddingRight: 'max(0.5rem, env(safe-area-inset-right))',
+            paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))',
+          }}
         >
           {/* Progress bar */}
-          <div className="mb-3">
+          <div className="mb-2 sm:mb-3">
             <Slider
               value={[currentTime]}
               max={duration || 100}
@@ -683,8 +741,8 @@ export function VideoPlayer({
           </div>
 
           {/* Control buttons */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2 sm:gap-3">
+            <div className="flex items-center gap-1 sm:gap-2 min-w-0">
               <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20" onClick={togglePlay}>
                 {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
               </Button>
@@ -692,7 +750,7 @@ export function VideoPlayer({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-white hover:bg-white/20"
+                className="hidden sm:inline-flex h-8 w-8 text-white hover:bg-white/20"
                 onClick={() => skip(-10)}
               >
                 <SkipBack className="h-4 w-4" />
@@ -701,7 +759,7 @@ export function VideoPlayer({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 text-white hover:bg-white/20"
+                className="hidden sm:inline-flex h-8 w-8 text-white hover:bg-white/20"
                 onClick={() => skip(10)}
               >
                 <SkipForward className="h-4 w-4" />
@@ -728,14 +786,16 @@ export function VideoPlayer({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="ml-auto flex items-center gap-1 sm:gap-2 shrink-0">
               {/* Quality selector */}
               {sources.length > 1 && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8 text-white hover:bg-white/20 text-xs">
-                      <Settings className="h-4 w-4 mr-1" />
-                      {currentSource.quality || currentSource.label || 'Quality'}
+                    <Button variant="ghost" size="sm" className="h-8 px-2 sm:px-3 text-white hover:bg-white/20 text-xs">
+                      <Settings className="h-4 w-4 sm:mr-1" />
+                      <span className="hidden sm:inline max-w-[8rem] truncate">
+                        {currentSource.quality || currentSource.label || 'Quality'}
+                      </span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">

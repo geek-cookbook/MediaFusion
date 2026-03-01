@@ -107,6 +107,7 @@ async def get_cached_stream_url_and_redirect(
     filename: str | None = None,
     streaming_provider: schemas.StreamingProvider | None = None,
     respect_provider_mediaflow: bool = True,
+    transcode: bool = False,
 ) -> RedirectResponse | None:
     """
     Checks for cached stream URL and returns a RedirectResponse if available.
@@ -121,6 +122,7 @@ async def get_cached_stream_url_and_redirect(
         filename: Optional filename hint for content-type mapping
         streaming_provider: Provider for per-provider MediaFlow check
         respect_provider_mediaflow: Whether to apply per-provider use_mediaflow toggle
+        transcode: Whether to return MediaFlow transcode playlist endpoint
 
     Returns:
         RedirectResponse if cached URL exists, None otherwise
@@ -142,16 +144,19 @@ async def get_cached_stream_url_and_redirect(
         )
         if should_proxy:
             response_headers = {}
-            file_extension = path.splitext(cached_stream_url)[-1]
-            if not file_extension and cached_filename:
-                file_extension = path.splitext(cached_filename)[-1]
-            content_type = CONTENT_TYPE_HEADERS_MAPPING.get(file_extension)
-            if content_type:
-                response_headers["Content-Type"] = content_type
+            if not transcode:
+                file_extension = path.splitext(cached_stream_url)[-1]
+                if not file_extension and cached_filename:
+                    file_extension = path.splitext(cached_filename)[-1]
+                content_type = CONTENT_TYPE_HEADERS_MAPPING.get(file_extension)
+                if content_type:
+                    response_headers["Content-Type"] = content_type
+
+            mediaflow_endpoint = "/proxy/transcode/playlist.m3u8" if transcode else "/proxy/stream"
 
             cached_stream_url = encode_mediaflow_proxy_url(
                 user_data.mediaflow_config.proxy_url,
-                "/proxy/stream",
+                mediaflow_endpoint,
                 cached_stream_url,
                 query_params={"api_password": user_data.mediaflow_config.api_password},
                 response_headers=response_headers,
@@ -253,6 +258,7 @@ def apply_mediaflow_proxy_if_needed(
     streaming_provider: schemas.StreamingProvider | None = None,
     respect_provider_mediaflow: bool = True,
     filename: str | None = None,
+    transcode: bool = False,
 ) -> str:
     """
     Applies mediaflow proxy to the video URL for Stremio/Kodi playback.
@@ -266,6 +272,7 @@ def apply_mediaflow_proxy_if_needed(
         streaming_provider: The streaming provider to check for MediaFlow setting
         respect_provider_mediaflow: Whether to apply per-provider use_mediaflow toggle
         filename: Optional filename hint for content-type mapping
+        transcode: Whether to use MediaFlow HLS transcode playlist endpoint
 
     Returns:
         Proxied URL if MediaFlow should be applied, original URL otherwise
@@ -282,16 +289,19 @@ def apply_mediaflow_proxy_if_needed(
         return video_url
 
     response_headers = {}
-    file_extension = path.splitext(video_url)[-1]
-    if not file_extension and filename:
-        file_extension = path.splitext(filename)[-1]
-    content_type = CONTENT_TYPE_HEADERS_MAPPING.get(file_extension)
-    if content_type:
-        response_headers["Content-Type"] = content_type
+    if not transcode:
+        file_extension = path.splitext(video_url)[-1]
+        if not file_extension and filename:
+            file_extension = path.splitext(filename)[-1]
+        content_type = CONTENT_TYPE_HEADERS_MAPPING.get(file_extension)
+        if content_type:
+            response_headers["Content-Type"] = content_type
+
+    mediaflow_endpoint = "/proxy/transcode/playlist.m3u8" if transcode else "/proxy/stream"
 
     return encode_mediaflow_proxy_url(
         user_data.mediaflow_config.proxy_url,
-        "/proxy/stream",
+        mediaflow_endpoint,
         video_url,
         query_params={"api_password": user_data.mediaflow_config.api_password},
         response_headers=response_headers,
@@ -582,11 +592,14 @@ async def streaming_provider_endpoint(
     season: int = None,
     episode: int = None,
     filename: str = None,
+    transcode: bool = False,
 ):
     """
     Handles streaming provider requests with multi-debrid support.
     Uses caching for performance and locking mechanisms to prevent duplicate tasks.
     Tracks playback for authenticated users and anonymous users separately.
+    Query params:
+        transcode: Enable MediaFlow transcode HLS playlist endpoint for browser playback.
     """
     response.headers.update(const.NO_CACHE_HEADERS)
     info_hash = info_hash.lower()
@@ -629,6 +642,7 @@ async def streaming_provider_endpoint(
             filename=filename,
             streaming_provider=streaming_provider,
             respect_provider_mediaflow=respect_provider_mediaflow,
+            transcode=transcode,
         )
         if cached_stream_url:
             return cached_stream_url
@@ -660,6 +674,7 @@ async def streaming_provider_endpoint(
             streaming_provider,
             respect_provider_mediaflow=respect_provider_mediaflow,
             filename=resolved_filename,
+            transcode=transcode,
         )
         redirect_status_code = 302
 

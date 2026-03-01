@@ -711,6 +711,7 @@ async def list_pending_suggestions(
     for s in suggestions:
         media_context = media_context_map.get(s.media_id, _empty_media_context())
         username = await get_username(session, s.user_id)
+        reviewer_name = await get_username(session, int(s.reviewed_by)) if s.reviewed_by else None
 
         # Get user contribution info
         user_query = select(User).where(User.id == s.user_id)
@@ -733,10 +734,10 @@ async def list_pending_suggestions(
                 suggested_value=s.suggested_value,
                 reason=s.reason,
                 status=s.status,
-                was_auto_approved=False,
-                reviewed_by=None,
-                reviewed_at=None,
-                review_notes=None,
+                was_auto_approved=s.status == STATUS_AUTO_APPROVED,
+                reviewed_by=reviewer_name,
+                reviewed_at=s.reviewed_at,
+                review_notes=s.review_notes,
                 created_at=s.created_at,
                 updated_at=s.updated_at,
                 user_contribution_level=suggestion_user.contribution_level if suggestion_user else None,

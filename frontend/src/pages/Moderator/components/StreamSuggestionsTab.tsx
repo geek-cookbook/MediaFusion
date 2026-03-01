@@ -40,6 +40,34 @@ export function StreamSuggestionsTab({ statusFilter, onStatusFilterChange }: Str
   })
   const { data: stats } = useStreamSuggestionStats()
   const reviewSuggestion = useReviewStreamSuggestion()
+  const getReviewerLabel = (suggestion: StreamSuggestion): string | null => {
+    if (suggestion.status === 'pending') return null
+    if (suggestion.reviewer_name) return suggestion.reviewer_name
+    if (suggestion.reviewed_by === 'auto') return 'Auto-approved'
+    if (suggestion.reviewed_by) return `User #${suggestion.reviewed_by}`
+    return null
+  }
+  const getReviewBadge = (suggestion: StreamSuggestion): { label: string; className: string } | null => {
+    if (suggestion.status === 'pending') return null
+    if (suggestion.status === 'auto_approved' || suggestion.reviewed_by === 'auto') {
+      return {
+        label: 'Auto',
+        className: 'bg-blue-500/10 border-blue-500/30 text-blue-500',
+      }
+    }
+    if (suggestion.status === 'approved') {
+      return {
+        label: 'Approved',
+        className: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500',
+      }
+    }
+    return {
+      label: 'Rejected',
+      className: 'bg-red-500/10 border-red-500/30 text-red-500',
+    }
+  }
+  const selectedReviewerLabel = selectedSuggestion ? getReviewerLabel(selectedSuggestion) : null
+  const selectedReviewBadge = selectedSuggestion ? getReviewBadge(selectedSuggestion) : null
 
   const handleReview = async (action: 'approve' | 'reject') => {
     if (!selectedSuggestion) return
@@ -144,6 +172,8 @@ export function StreamSuggestionsTab({ statusFilter, onStatusFilterChange }: Str
           {data.suggestions.map((suggestion) => {
             const episodeInfo = parseEpisodeLinkField(suggestion.field_name)
             const isEpisodeLink = !!episodeInfo
+            const reviewerLabel = getReviewerLabel(suggestion)
+            const reviewBadge = getReviewBadge(suggestion)
 
             return (
               <Card key={suggestion.id} className="glass border-border/50 hover:border-primary/30 transition-colors">
@@ -236,6 +266,17 @@ export function StreamSuggestionsTab({ statusFilter, onStatusFilterChange }: Str
                         <span>by {suggestion.username || 'User'}</span>
                         <span>•</span>
                         <span>{formatTimeAgo(suggestion.created_at)}</span>
+                        {reviewerLabel && reviewBadge && (
+                          <>
+                            <span>•</span>
+                            <span className="inline-flex items-center gap-1.5" title={reviewerLabel}>
+                              <Badge variant="outline" className={`h-5 px-1.5 text-[10px] ${reviewBadge.className}`}>
+                                {reviewBadge.label}
+                              </Badge>
+                              <span>Reviewed by: {reviewerLabel}</span>
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
 
@@ -392,6 +433,23 @@ export function StreamSuggestionsTab({ statusFilter, onStatusFilterChange }: Str
                 <span>Submitted by: {selectedSuggestion.username || selectedSuggestion.user_id}</span>
                 <span>•</span>
                 <span>{formatTimeAgo(selectedSuggestion.created_at)}</span>
+                {selectedReviewerLabel && selectedReviewBadge && (
+                  <>
+                    <span>•</span>
+                    <span className="inline-flex items-center gap-1.5" title={selectedReviewerLabel}>
+                      <Badge variant="outline" className={`h-5 px-1.5 text-[10px] ${selectedReviewBadge.className}`}>
+                        {selectedReviewBadge.label}
+                      </Badge>
+                      <span>Reviewed by: {selectedReviewerLabel}</span>
+                    </span>
+                    {selectedSuggestion.reviewed_at && (
+                      <>
+                        <span>•</span>
+                        <span>Reviewed: {formatTimeAgo(selectedSuggestion.reviewed_at)}</span>
+                      </>
+                    )}
+                  </>
+                )}
               </div>
 
               <div className="space-y-2">

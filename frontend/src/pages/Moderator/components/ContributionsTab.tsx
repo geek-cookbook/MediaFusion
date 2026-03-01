@@ -94,6 +94,34 @@ export function ContributionsTab({ statusFilter, onStatusFilterChange }: Contrib
   const reviewContribution = useReviewContribution()
   const bulkReviewContributions = useBulkReviewContributions()
   const pendingContributions = (data?.items ?? []).filter((contribution) => contribution.status === 'pending')
+  const getReviewerLabel = (contribution: Contribution): string | null => {
+    if (contribution.status === 'pending') return null
+    if (contribution.reviewer_name) return contribution.reviewer_name
+    if (contribution.reviewed_by === 'auto') return 'Auto-approved'
+    if (contribution.reviewed_by) return `User #${contribution.reviewed_by}`
+    return null
+  }
+  const getReviewBadge = (contribution: Contribution): { label: string; className: string } | null => {
+    if (contribution.status === 'pending') return null
+    if (contribution.reviewed_by === 'auto') {
+      return {
+        label: 'Auto',
+        className: 'bg-blue-500/10 border-blue-500/30 text-blue-500',
+      }
+    }
+    if (contribution.status === 'approved') {
+      return {
+        label: 'Approved',
+        className: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500',
+      }
+    }
+    return {
+      label: 'Rejected',
+      className: 'bg-red-500/10 border-red-500/30 text-red-500',
+    }
+  }
+  const selectedReviewerLabel = selectedContribution ? getReviewerLabel(selectedContribution) : null
+  const selectedReviewBadge = selectedContribution ? getReviewBadge(selectedContribution) : null
 
   const handleReview = async (action: 'approved' | 'rejected') => {
     if (!selectedContribution) return
@@ -217,6 +245,8 @@ export function ContributionsTab({ statusFilter, onStatusFilterChange }: Contrib
             const isPending = contribution.status === 'pending'
             const torrentData = contribution.data as Record<string, unknown>
             const uploaderLabel = getContributionUploaderLabel(contribution)
+            const reviewerLabel = getReviewerLabel(contribution)
+            const reviewBadge = getReviewBadge(contribution)
 
             return (
               <Card key={contribution.id} className="glass border-border/50 hover:border-primary/30 transition-colors">
@@ -301,6 +331,17 @@ export function ContributionsTab({ statusFilter, onStatusFilterChange }: Contrib
 
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
                         <span>{formatTimeAgo(contribution.created_at)}</span>
+                        {reviewerLabel && reviewBadge && (
+                          <>
+                            <span>•</span>
+                            <span className="inline-flex items-center gap-1.5" title={reviewerLabel}>
+                              <Badge variant="outline" className={`h-5 px-1.5 text-[10px] ${reviewBadge.className}`}>
+                                {reviewBadge.label}
+                              </Badge>
+                              <span>Reviewed by: {reviewerLabel}</span>
+                            </span>
+                          </>
+                        )}
                         {!!torrentData.total_size && (
                           <>
                             <span>•</span>
@@ -520,6 +561,23 @@ export function ContributionsTab({ statusFilter, onStatusFilterChange }: Contrib
                 <span>By: {getContributionUploaderLabel(selectedContribution)}</span>
                 <span>•</span>
                 <span>Submitted: {formatTimeAgo(selectedContribution.created_at)}</span>
+                {selectedReviewerLabel && selectedReviewBadge && (
+                  <>
+                    <span>•</span>
+                    <span className="inline-flex items-center gap-1.5" title={selectedReviewerLabel}>
+                      <Badge variant="outline" className={`h-5 px-1.5 text-[10px] ${selectedReviewBadge.className}`}>
+                        {selectedReviewBadge.label}
+                      </Badge>
+                      <span>Reviewed by: {selectedReviewerLabel}</span>
+                    </span>
+                    {selectedContribution.reviewed_at && (
+                      <>
+                        <span>•</span>
+                        <span>Reviewed: {formatTimeAgo(selectedContribution.reviewed_at)}</span>
+                      </>
+                    )}
+                  </>
+                )}
               </div>
 
               <div className="space-y-2">

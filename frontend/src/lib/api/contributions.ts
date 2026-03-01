@@ -18,6 +18,7 @@ export interface Contribution {
   data: ContributionData
   status: ContributionStatus
   reviewed_by?: string
+  reviewer_name?: string | null
   reviewed_at?: string
   review_notes?: string
   created_at: string

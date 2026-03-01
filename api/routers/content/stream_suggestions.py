@@ -1184,6 +1184,7 @@ async def get_pending_stream_suggestions(
     responses = []
     for s in suggestions:
         username = await get_username(session, s.user_id)
+        reviewer_name = await get_username(session, s.reviewed_by) if s.reviewed_by else None
 
         stream_query = select(Stream).where(Stream.id == s.stream_id)
         stream_result = await session.exec(stream_query)
@@ -1194,7 +1195,7 @@ async def get_pending_stream_suggestions(
         user_result = await session.exec(user_query)
         user = user_result.first()
 
-        responses.append(build_suggestion_response(s, username, stream=stream, reviewer_name=None, user=user))
+        responses.append(build_suggestion_response(s, username, stream=stream, reviewer_name=reviewer_name, user=user))
 
     return StreamSuggestionListResponse(
         suggestions=responses,
@@ -1255,35 +1256,40 @@ async def review_stream_suggestion(
     suggestion.review_notes = request.review_notes
     suggestion.updated_at = now
 
-    if request.action == "approve" and stream:
-        # Parse suggestion type to get field name if applicable
-        suggestion_type = suggestion.suggestion_type
-        field_name = None
-        if ":" in suggestion_type:
-            suggestion_type, field_name = suggestion_type.split(":", 1)
+    if request.action == "approve":
+        if stream:
+            # Parse suggestion type to get field name if applicable
+            suggestion_type = suggestion.suggestion_type
+            field_name = None
+            if ":" in suggestion_type:
+                suggestion_type, field_name = suggestion_type.split(":", 1)
 
-        # For relink/add_link suggestions, parse target_media_id and file_index from suggested_value
-        target_media_id = None
-        file_index = None
-        if suggestion_type in ("relink_media", "add_media_link") and suggestion.suggested_value:
-            try:
-                link_data = json.loads(suggestion.suggested_value)
-                target_media_id = link_data.get("target_media_id")
-                file_index = link_data.get("file_index")
-            except json.JSONDecodeError:
-                logger.warning(f"Failed to parse link data from suggestion {suggestion.id}")
+            # For relink/add_link suggestions, parse target_media_id and file_index from suggested_value
+            target_media_id = None
+            file_index = None
+            if suggestion_type in ("relink_media", "add_media_link") and suggestion.suggested_value:
+                try:
+                    link_data = json.loads(suggestion.suggested_value)
+                    target_media_id = link_data.get("target_media_id")
+                    file_index = link_data.get("file_index")
+                except json.JSONDecodeError:
+                    logger.warning(f"Failed to parse link data from suggestion {suggestion.id}")
 
-        apply_success = await apply_stream_changes(
-            stream,
-            suggestion_type,
-            field_name,
-            suggestion.suggested_value,
-            session,
-            target_media_id=target_media_id,
-            file_index=file_index,
-        )
+            apply_success = await apply_stream_changes(
+                stream,
+                suggestion_type,
+                field_name,
+                suggestion.suggested_value,
+                session,
+                target_media_id=target_media_id,
+                file_index=file_index,
+            )
+            if not apply_success:
+                logger.warning("Approved suggestion %s but failed to apply stream changes", suggestion.id)
+        else:
+            logger.warning("Approved suggestion %s but stream %s was not found", suggestion.id, suggestion.stream_id)
 
-        if apply_success and author:
+        if author:
             await award_points(author, settings.points_per_stream_edit, session)
     elif request.action == "reject" and author:
         if settings.points_for_rejection_penalty < 0:

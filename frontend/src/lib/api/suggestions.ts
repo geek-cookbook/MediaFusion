@@ -47,7 +47,7 @@ export interface Suggestion {
   reason: string | null
   status: SuggestionStatus
   was_auto_approved: boolean
-  reviewed_by: string | null // UUID
+  reviewed_by: string | null // Reviewer username
   reviewed_at: string | null
   review_notes: string | null
   created_at: string

@@ -578,6 +578,34 @@ export function ContentImportPage() {
         <p className="text-muted-foreground mt-1">Import torrents and playlists to expand your content library</p>
       </div>
 
+      <Card className="glass border-border/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">How content import approval works</CardTitle>
+          <CardDescription className="text-sm">
+            Quick overview of what happens after you submit an import.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>
+            <span className="font-medium text-foreground">1) Linked account import:</span> If you submit with your
+            account identity (not anonymous) and your account is active, the import is auto-approved and published
+            immediately.
+          </p>
+          <p>
+            <span className="font-medium text-foreground">2) Anonymous import:</span> Anonymous submissions are not
+            linked to your account and always go to moderator review before they become public.
+          </p>
+          <p>
+            <span className="font-medium text-foreground">3) Moderator review:</span> Pending imports are reviewed in
+            the moderator queue. Once approved, they are published and available to all users.
+          </p>
+          <p>
+            <span className="font-medium text-foreground">4) About points:</span> Points-based auto-approval applies to
+            metadata/stream edit suggestions. Content imports use account status + anonymous mode rules above.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* Browser Extension */}
       <Card className="glass border-border/50 overflow-hidden">
         <CardContent className="p-0">

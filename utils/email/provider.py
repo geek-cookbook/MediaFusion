@@ -7,6 +7,8 @@ To add new providers (SendGrid, SES, Resend, etc.), subclass EmailProvider.
 
 import logging
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -17,11 +19,28 @@ from db.config import settings
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class InlineImage:
+    """Inline image attachment rendered via CID in HTML emails."""
+
+    content_id: str
+    content: bytes
+    mime_subtype: str
+    filename: str
+
+
 class EmailProvider(ABC):
     """Abstract base class for email sending providers."""
 
     @abstractmethod
-    async def send(self, to: str, subject: str, html: str, text: str) -> None:
+    async def send(
+        self,
+        to: str,
+        subject: str,
+        html: str,
+        text: str,
+        inline_images: list[InlineImage] | None = None,
+    ) -> None:
         """Send an email.
 
         Args:
@@ -29,6 +48,7 @@ class EmailProvider(ABC):
             subject: Email subject line.
             html: HTML body content.
             text: Plain-text fallback body.
+            inline_images: Optional inline images referenced via cid: URLs.
 
         Raises:
             Exception: If sending fails.
@@ -59,14 +79,37 @@ class SMTPProvider(EmailProvider):
         self.use_tls = use_tls
         self.use_ssl = use_ssl
 
-    async def send(self, to: str, subject: str, html: str, text: str) -> None:
-        message = MIMEMultipart("alternative")
+    async def send(
+        self,
+        to: str,
+        subject: str,
+        html: str,
+        text: str,
+        inline_images: list[InlineImage] | None = None,
+    ) -> None:
+        message = MIMEMultipart("related") if inline_images else MIMEMultipart("alternative")
         message["From"] = f"{self.from_name} <{self.from_email}>"
         message["To"] = to
         message["Subject"] = subject
 
-        message.attach(MIMEText(text, "plain", "utf-8"))
-        message.attach(MIMEText(html, "html", "utf-8"))
+        if inline_images:
+            alternative = MIMEMultipart("alternative")
+            alternative.attach(MIMEText(text, "plain", "utf-8"))
+            alternative.attach(MIMEText(html, "html", "utf-8"))
+            message.attach(alternative)
+
+            for image in inline_images:
+                mime_image = MIMEImage(
+                    image.content,
+                    _subtype=image.mime_subtype,
+                    name=image.filename,
+                )
+                mime_image.add_header("Content-ID", f"<{image.content_id}>")
+                mime_image.add_header("Content-Disposition", "inline", filename=image.filename)
+                message.attach(mime_image)
+        else:
+            message.attach(MIMEText(text, "plain", "utf-8"))
+            message.attach(MIMEText(html, "html", "utf-8"))
 
         try:
             await aiosmtplib.send(

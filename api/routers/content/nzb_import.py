@@ -17,6 +17,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from api.routers.content.anonymous_utils import normalize_anonymous_display_name, resolve_uploader_identity
+from api.routers.content.contributions import award_import_approval_points
 from api.routers.content.torrent_import import fetch_and_create_media_from_external
 from api.routers.user.auth import require_auth
 from db.config import settings
@@ -593,6 +594,13 @@ async def import_nzb_file(
 
         session.add(contribution)
         await session.flush()
+        if should_auto_approve:
+            await award_import_approval_points(
+                session,
+                contribution.user_id,
+                contribution.contribution_type,
+                logger,
+            )
 
         import_result = None
         try:
@@ -767,6 +775,13 @@ async def import_nzb_url(
 
         session.add(contribution)
         await session.flush()
+        if should_auto_approve:
+            await award_import_approval_points(
+                session,
+                contribution.user_id,
+                contribution.contribution_type,
+                logger,
+            )
 
         import_result = None
         try:

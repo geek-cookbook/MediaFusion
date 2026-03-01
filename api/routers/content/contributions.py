@@ -13,23 +13,21 @@ from pydantic import BaseModel, Field
 from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from api.routers.content.acestream_import import process_acestream_import
 from api.routers.content.anonymous_utils import resolve_uploader_identity
-from api.routers.content.http_import import process_http_import
-from api.routers.content.nzb_import import process_nzb_import
-from api.routers.content.torrent_import import process_torrent_import
-from api.routers.content.youtube_import import process_youtube_import
 from api.routers.user.auth import require_auth, require_role
 from db.crud.media import get_media_by_external_id
 from db.database import get_async_session, get_read_session
 from db.enums import ContributionStatus, UserRole
-from db.models import Contribution, Stream, StreamSuggestion, TelegramStream, User
+from db.models import Contribution, ContributionSettings, Stream, StreamSuggestion, TelegramStream, User
 from utils.notification_registry import send_pending_contribution_notification
 
 router = APIRouter(prefix="/api/v1/contributions", tags=["Contributions"])
+logger = logging.getLogger(__name__)
 
 CONTRIBUTION_TYPES = ["metadata", "stream", "torrent", "telegram", "youtube", "nzb", "http", "acestream"]
 _CONTRIBUTION_TYPE_PATTERN = "^(" + "|".join(CONTRIBUTION_TYPES) + ")$"
+POINT_ELIGIBLE_IMPORT_TYPES = {"stream", "torrent", "telegram", "youtube", "nzb", "http", "acestream"}
+PROCESSABLE_IMPORT_TYPES = {"torrent", "telegram", "youtube", "nzb", "http", "acestream"}
 
 
 # ============================================
@@ -81,6 +79,7 @@ class ContributionResponse(BaseModel):
     data: dict[str, Any]
     status: str
     reviewed_by: str | None = None  # User ID string
+    reviewer_name: str | None = None  # Reviewer's username or auto label
     reviewed_at: datetime | None = None
     review_notes: str | None = None
     created_at: datetime
@@ -119,6 +118,7 @@ def contribution_to_response(
     contribution: Contribution,
     username: str | None = None,
     media_id: int | None = None,
+    reviewer_name: str | None = None,
 ) -> ContributionResponse:
     """Convert a Contribution model to response schema."""
     return ContributionResponse(
@@ -132,6 +132,7 @@ def contribution_to_response(
         data=contribution.data,
         status=contribution.status.value if hasattr(contribution.status, "value") else str(contribution.status),
         reviewed_by=contribution.reviewed_by,
+        reviewer_name=reviewer_name,
         reviewed_at=contribution.reviewed_at,
         review_notes=contribution.review_notes,
         created_at=contribution.created_at,
@@ -156,6 +157,39 @@ async def get_contribution_username(session: AsyncSession, user_id: int | None) 
 
     result = await session.exec(select(User.username).where(User.id == user_id))
     return result.first()
+
+
+async def get_reviewer_name_map(session: AsyncSession, reviewed_by_values: set[str]) -> dict[str, str]:
+    """Build reviewed_by value to reviewer display name map."""
+    if not reviewed_by_values:
+        return {}
+
+    reviewer_map: dict[str, str] = {}
+    reviewer_ids: set[int] = set()
+
+    for reviewed_by in reviewed_by_values:
+        if reviewed_by == "auto":
+            reviewer_map[reviewed_by] = "Auto-approved"
+            continue
+        try:
+            reviewer_ids.add(int(reviewed_by))
+        except (TypeError, ValueError):
+            reviewer_map[reviewed_by] = reviewed_by
+
+    if reviewer_ids:
+        result = await session.exec(select(User.id, User.username).where(User.id.in_(reviewer_ids)))
+        for reviewer_id, username in result.all():
+            reviewer_map[str(reviewer_id)] = username or f"User #{reviewer_id}"
+
+    return reviewer_map
+
+
+async def get_reviewer_name(session: AsyncSession, reviewed_by: str | None) -> str | None:
+    """Resolve reviewer label from reviewed_by value."""
+    if not reviewed_by:
+        return None
+    reviewer_map = await get_reviewer_name_map(session, {reviewed_by})
+    return reviewer_map.get(reviewed_by)
 
 
 def _extract_contribution_meta_candidates(contribution: Contribution) -> list[str]:
@@ -224,6 +258,93 @@ def _append_review_note(existing_notes: str | None, note: str) -> str:
     return f"{existing_notes or ''}\n{note}".strip()
 
 
+async def get_contribution_settings(session: AsyncSession) -> ContributionSettings:
+    """Get contribution settings row or create the default one."""
+    result = await session.exec(select(ContributionSettings).where(ContributionSettings.id == "default"))
+    settings = result.first()
+    if settings:
+        return settings
+
+    settings = ContributionSettings(id="default")
+    session.add(settings)
+    await session.flush()
+    return settings
+
+
+def calculate_contribution_level(points: int, settings: ContributionSettings) -> str:
+    """Map contribution points to the configured level."""
+    if points >= settings.expert_threshold:
+        return "expert"
+    if points >= settings.trusted_threshold:
+        return "trusted"
+    if points >= settings.contributor_threshold:
+        return "contributor"
+    return "new"
+
+
+async def award_import_approval_points(
+    session: AsyncSession,
+    user_id: int | None,
+    contribution_type: str,
+    logger: logging.Logger | None = None,
+) -> bool:
+    """Award points for approved import contributions when eligible."""
+    if user_id is None or contribution_type not in POINT_ELIGIBLE_IMPORT_TYPES:
+        return False
+
+    user = await session.get(User, user_id)
+    if not user:
+        if logger:
+            logger.warning("Skipping points award: user_id=%s not found", user_id)
+        return False
+
+    settings = await get_contribution_settings(session)
+    user.contribution_points = max(0, user.contribution_points + settings.points_per_stream_edit)
+    user.stream_edits_approved += 1
+    user.contribution_level = calculate_contribution_level(user.contribution_points, settings)
+    session.add(user)
+
+    if logger:
+        logger.info(
+            "Awarded %s points for %s contribution to user_id=%s",
+            settings.points_per_stream_edit,
+            contribution_type,
+            user_id,
+        )
+
+    return True
+
+
+def get_import_processor(contribution_type: str):
+    """Return the import processor for a contribution type.
+
+    Imports are local to avoid circular imports with dedicated import routers.
+    """
+    if contribution_type == "torrent":
+        from api.routers.content.torrent_import import process_torrent_import
+
+        return process_torrent_import
+    if contribution_type == "nzb":
+        from api.routers.content.nzb_import import process_nzb_import
+
+        return process_nzb_import
+    if contribution_type == "youtube":
+        from api.routers.content.youtube_import import process_youtube_import
+
+        return process_youtube_import
+    if contribution_type == "http":
+        from api.routers.content.http_import import process_http_import
+
+        return process_http_import
+    if contribution_type == "acestream":
+        from api.routers.content.acestream_import import process_acestream_import
+
+        return process_acestream_import
+    if contribution_type == "telegram":
+        return process_telegram_import
+    return None
+
+
 async def _apply_contribution_review(
     session: AsyncSession,
     contribution: Contribution,
@@ -241,26 +362,18 @@ async def _apply_contribution_review(
     if review_status != ContributionStatus.APPROVED:
         return
 
-    if contribution.contribution_type not in {
-        "torrent",
-        "nzb",
-        "telegram",
-        "youtube",
-        "http",
-        "acestream",
-    }:
+    await award_import_approval_points(
+        session,
+        contribution.user_id,
+        contribution.contribution_type,
+        logger,
+    )
+
+    if contribution.contribution_type not in PROCESSABLE_IMPORT_TYPES:
         return
 
     try:
-        process_fn = {
-            "torrent": process_torrent_import,
-            "nzb": process_nzb_import,
-            "telegram": process_telegram_import,
-            "youtube": process_youtube_import,
-            "http": process_http_import,
-            "acestream": process_acestream_import,
-        }.get(contribution.contribution_type)
-
+        process_fn = get_import_processor(contribution.contribution_type)
         if process_fn is None:
             raise ValueError(f"Unsupported contribution type: {contribution.contribution_type}")
 
@@ -332,11 +445,17 @@ async def list_contributions(
     items = result.all()
 
     username_map = await get_username_map(session, {item.user_id for item in items if item.user_id is not None})
+    reviewer_name_map = await get_reviewer_name_map(session, {item.reviewed_by for item in items if item.reviewed_by})
     media_ids = await asyncio.gather(*(resolve_contribution_media_id(session, item) for item in items))
 
     return ContributionListResponse(
         items=[
-            contribution_to_response(item, username_map.get(item.user_id), media_ids[idx])
+            contribution_to_response(
+                item,
+                username_map.get(item.user_id),
+                media_ids[idx],
+                reviewer_name_map.get(item.reviewed_by) if item.reviewed_by else None,
+            )
             for idx, item in enumerate(items)
         ],
         total=total,
@@ -460,8 +579,9 @@ async def get_contribution(
         )
 
     username = await get_contribution_username(session, contribution.user_id)
+    reviewer_name = await get_reviewer_name(session, contribution.reviewed_by)
     media_id = await resolve_contribution_media_id(session, contribution)
-    return contribution_to_response(contribution, username, media_id)
+    return contribution_to_response(contribution, username, media_id, reviewer_name)
 
 
 @router.post("", response_model=ContributionResponse, status_code=status.HTTP_201_CREATED)
@@ -509,6 +629,13 @@ async def create_contribution(
     )
 
     session.add(contribution)
+    if should_auto_approve:
+        await award_import_approval_points(
+            session,
+            contribution.user_id,
+            contribution.contribution_type,
+            logger,
+        )
     await session.commit()
     await session.refresh(contribution)
 
@@ -529,10 +656,12 @@ async def create_contribution(
         )
 
     media_id = await resolve_contribution_media_id(session, contribution)
+    reviewer_name = await get_reviewer_name(session, contribution.reviewed_by)
     return contribution_to_response(
         contribution,
         user.username if contribution.user_id is not None else None,
         media_id,
+        reviewer_name,
     )
 
 
@@ -601,11 +730,17 @@ async def list_pending_contributions(
     items = result.all()
 
     username_map = await get_username_map(session, {item.user_id for item in items if item.user_id is not None})
+    reviewer_name_map = await get_reviewer_name_map(session, {item.reviewed_by for item in items if item.reviewed_by})
     media_ids = await asyncio.gather(*(resolve_contribution_media_id(session, item) for item in items))
 
     return ContributionListResponse(
         items=[
-            contribution_to_response(item, username_map.get(item.user_id), media_ids[idx])
+            contribution_to_response(
+                item,
+                username_map.get(item.user_id),
+                media_ids[idx],
+                reviewer_name_map.get(item.reviewed_by) if item.reviewed_by else None,
+            )
             for idx, item in enumerate(items)
         ],
         total=total,
@@ -656,8 +791,9 @@ async def review_contribution(
     await session.refresh(contribution)
 
     username = await get_contribution_username(session, contribution.user_id)
+    reviewer_name = await get_reviewer_name(session, contribution.reviewed_by)
     media_id = await resolve_contribution_media_id(session, contribution)
-    return contribution_to_response(contribution, username, media_id)
+    return contribution_to_response(contribution, username, media_id, reviewer_name)
 
 
 @router.post("/review/bulk", response_model=BulkContributionReviewResponse)

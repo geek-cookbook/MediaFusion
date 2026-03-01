@@ -22,6 +22,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from thefuzz import fuzz
 
 from api.routers.content.anonymous_utils import normalize_anonymous_display_name, resolve_uploader_identity
+from api.routers.content.contributions import award_import_approval_points
 from api.routers.user.auth import require_auth
 from db.database import get_read_session, get_async_session
 from db.enums import ContributionStatus, MediaType, UserRole
@@ -1281,6 +1282,13 @@ async def import_torrents(
                         )
                         write_session.add(contribution)
                         await write_session.flush()
+                        if should_auto_approve:
+                            await award_import_approval_points(
+                                write_session,
+                                contribution.user_id,
+                                contribution.contribution_type,
+                                logger,
+                            )
                         if contribution.status == ContributionStatus.PENDING:
                             pending_notifications.append(
                                 _pending_contribution_payload(
@@ -1549,6 +1557,13 @@ async def advanced_import_torrents(
                 try:
                     write_session.add(contribution)
                     await write_session.flush()
+                    if should_auto_approve:
+                        await award_import_approval_points(
+                            write_session,
+                            contribution.user_id,
+                            contribution.contribution_type,
+                            logger,
+                        )
 
                     if should_auto_approve:
                         import_result = await process_torrent_import(

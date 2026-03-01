@@ -15,6 +15,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from api.routers.user.auth import require_auth
 from api.routers.content.anonymous_utils import normalize_anonymous_display_name, resolve_uploader_identity
+from api.routers.content.contributions import award_import_approval_points
 from db.config import settings
 from db.crud.media import get_media_by_external_id, add_external_id, parse_external_id
 from db.crud.reference import get_or_create_language
@@ -712,6 +713,13 @@ async def import_magnet(
 
         session.add(contribution)
         await session.flush()
+        if should_auto_approve:
+            await award_import_approval_points(
+                session,
+                contribution.user_id,
+                contribution.contribution_type,
+                logger,
+            )
 
         import_result = None
         try:
@@ -903,6 +911,13 @@ async def import_torrent_file(
 
         session.add(contribution)
         await session.flush()
+        if should_auto_approve:
+            await award_import_approval_points(
+                session,
+                contribution.user_id,
+                contribution.contribution_type,
+                logger,
+            )
 
         import_result = None
         try:

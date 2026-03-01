@@ -1,3 +1,4 @@
+import re
 from datetime import timedelta
 from typing import Any
 
@@ -88,8 +89,14 @@ class TorrentioScraper(StremioScraper):
             source = stream["name"].splitlines()[0].split()[-1]
             info_hash = stream.get("infoHash")
             if not info_hash:
-                url = stream["url"]
-                info_hash = url.split("/")[5]
+                url = stream.get("url", "")
+                match = re.search(r"\b([a-fA-F0-9]{40})\b", url)
+                if match:
+                    info_hash = match.group(1)
+                if not info_hash:
+                    raise ValueError(
+                        f"Cannot extract info_hash from stream: no infoHash and URL has unexpected format: {url!r}"
+                    )
 
             is_cached = "+" in stream["name"]
             metadata.update(

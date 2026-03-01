@@ -13,10 +13,19 @@ from db.config import settings
 from db.redis_database import REDIS_ASYNC_CLIENT
 from utils import torrent
 from utils.lock import (
+    acquire_redis_lock,
     acquire_scheduler_lock,
     maintain_heartbeat,
+    release_redis_lock,
     release_scheduler_lock,
 )
+from utils.telegram_bot import telegram_content_bot
+
+TELEGRAM_COMMANDS_REGISTERED_KEY = "mediafusion:telegram:commands:registered:v1"
+TELEGRAM_COMMANDS_REGISTER_LOCK_KEY = "mediafusion:telegram:commands:register-lock"
+TELEGRAM_COMMANDS_REGISTER_TTL_SECONDS = 60 * 60 * 24
+TELEGRAM_COMMANDS_REGISTER_RETRIES = 5
+TELEGRAM_COMMANDS_REGISTER_RETRY_DELAY_SECONDS = 1
 
 
 async def ensure_redis_available() -> None:
@@ -28,6 +37,44 @@ async def ensure_redis_available() -> None:
             f"Cannot connect to Redis at {settings.redis_url}. "
             "Ensure Redis is running and REDIS_URL is configured correctly."
         ) from error
+
+
+async def register_telegram_commands_once() -> None:
+    """Register Telegram bot commands once across all workers/pods."""
+    for _ in range(TELEGRAM_COMMANDS_REGISTER_RETRIES):
+        if await REDIS_ASYNC_CLIENT.exists(TELEGRAM_COMMANDS_REGISTERED_KEY):
+            logging.debug("Telegram bot commands already registered recently, skipping")
+            return
+
+        acquired, lock = await acquire_redis_lock(
+            TELEGRAM_COMMANDS_REGISTER_LOCK_KEY,
+            timeout=60,
+            block=False,
+        )
+        if not acquired:
+            await asyncio.sleep(TELEGRAM_COMMANDS_REGISTER_RETRY_DELAY_SECONDS)
+            continue
+
+        try:
+            if await REDIS_ASYNC_CLIENT.exists(TELEGRAM_COMMANDS_REGISTERED_KEY):
+                logging.debug("Telegram bot commands already registered recently, skipping")
+                return
+
+            registered = await telegram_content_bot.register_bot_commands()
+            if registered:
+                await REDIS_ASYNC_CLIENT.set(
+                    TELEGRAM_COMMANDS_REGISTERED_KEY,
+                    "1",
+                    ex=TELEGRAM_COMMANDS_REGISTER_TTL_SECONDS,
+                )
+                logging.info("Telegram bot commands registered")
+            else:
+                logging.warning("Failed to register Telegram bot commands")
+            return
+        finally:
+            await release_redis_lock(lock)
+
+    logging.debug("Skipped bot command registration; another worker is handling it")
 
 
 @asynccontextmanager
@@ -50,10 +97,7 @@ async def lifespan(_: FastAPI):
     # Register Telegram bot commands if enabled
     if settings.telegram_bot_token:
         try:
-            from utils.telegram_bot import telegram_content_bot
-
-            await telegram_content_bot.register_bot_commands()
-            logging.info("Telegram bot commands registered")
+            await register_telegram_commands_once()
         except Exception as e:
             logging.warning(f"Failed to register Telegram bot commands: {e}")
 

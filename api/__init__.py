@@ -43,21 +43,21 @@ worker_middlewares = [
 ]
 if settings.enable_worker_memory_metrics and settings.worker_memory_metrics_history_size > 0:
     worker_middlewares.append(WorkerMemoryTelemetry(settings.worker_memory_metrics_history_size))
-    logging.info(
+    logging.debug(
         "Worker memory telemetry enabled (history_size=%s).",
         settings.worker_memory_metrics_history_size,
     )
 else:
-    logging.info("Worker memory telemetry disabled.")
+    logging.debug("Worker memory telemetry disabled.")
 
 if settings.enable_worker_max_tasks_per_child and settings.worker_max_tasks_per_child > 0:
     worker_middlewares.append(MaxTasksPerChild(settings.worker_max_tasks_per_child))
-    logging.info(
+    logging.debug(
         "MaxTasksPerChild enabled: worker recycles every %s tasks.",
         settings.worker_max_tasks_per_child,
     )
 else:
-    logging.info("MaxTasksPerChild disabled: worker runs continuously.")
+    logging.debug("MaxTasksPerChild disabled: worker runs continuously.")
 
 worker_middlewares.extend(
     [

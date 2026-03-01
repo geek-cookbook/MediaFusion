@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import re
 from collections import OrderedDict
@@ -24,16 +25,52 @@ from torf import Magnet, MagnetError
 
 import utils.runtime_const
 from db.config import settings
+from db.redis_database import REDIS_ASYNC_CLIENT
+from utils.lock import acquire_redis_lock, release_redis_lock
 from utils.parser import is_contain_18_plus_keywords
 from utils.runtime_const import TRACKERS
 from utils.validation_helper import is_video_file
 
 _VALID_TRACKER_SCHEMES = ("http://", "https://", "udp://", "wss://")
+_TRACKERS_CACHE_KEY = "mediafusion:trackers:best:v1"
+_TRACKERS_REFRESH_LOCK_KEY = "mediafusion:trackers:refresh_lock"
+_TRACKERS_CACHE_TTL_SECONDS = 60 * 60 * 24
+_TRACKERS_CACHE_WAIT_SECONDS = 5
 
 
 def _filter_valid_trackers(trackers: list[str]) -> list[str]:
     """Filter out tracker URLs with invalid schemes (e.g. asterisk-prefixed URLs)."""
     return [t for t in trackers if any(t.startswith(s) for s in _VALID_TRACKER_SCHEMES)]
+
+
+def _merge_trackers(trackers: list[str]) -> None:
+    """Merge trackers into runtime tracker set for this process."""
+    valid_trackers = _filter_valid_trackers(trackers)
+    if not valid_trackers:
+        return
+    utils.runtime_const.TRACKERS.extend(valid_trackers)
+    utils.runtime_const.TRACKERS = list(set(utils.runtime_const.TRACKERS))
+
+
+async def _get_cached_best_trackers() -> list[str]:
+    cached_trackers = await REDIS_ASYNC_CLIENT.get(_TRACKERS_CACHE_KEY)
+    if not cached_trackers:
+        return []
+
+    try:
+        if isinstance(cached_trackers, bytes):
+            cached_trackers = cached_trackers.decode("utf-8")
+        if not isinstance(cached_trackers, str):
+            return []
+
+        parsed_trackers = json.loads(cached_trackers)
+        if not isinstance(parsed_trackers, list):
+            return []
+
+        return _filter_valid_trackers([tracker for tracker in parsed_trackers if isinstance(tracker, str)])
+    except (UnicodeDecodeError, json.JSONDecodeError, TypeError):
+        logging.warning("Invalid best trackers payload in Redis cache")
+        return []
 
 
 # remove logging from demagnetize
@@ -274,24 +311,58 @@ async def info_hashes_to_torrent_metadata(
 
 
 async def init_best_trackers():
-    # get the best trackers from https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_best.txt
+    # Load best trackers from Redis cache when available.
+    cached_trackers = await _get_cached_best_trackers()
+    if cached_trackers:
+        _merge_trackers(cached_trackers)
+        logging.debug(
+            f"Loaded {len(cached_trackers)} trackers from Redis cache. Total: {len(utils.runtime_const.TRACKERS)}"
+        )
+        return
 
+    # One worker/pod fetches from upstream and publishes to Redis.
+    acquired, lock = await acquire_redis_lock(_TRACKERS_REFRESH_LOCK_KEY, timeout=60, block=False)
+    if not acquired:
+        logging.debug("Another worker is fetching best trackers. Waiting for Redis cache warm-up.")
+        for _ in range(_TRACKERS_CACHE_WAIT_SECONDS):
+            await anyio.sleep(1)
+            cached_trackers = await _get_cached_best_trackers()
+            if cached_trackers:
+                _merge_trackers(cached_trackers)
+                logging.debug(
+                    f"Loaded {len(cached_trackers)} trackers from Redis cache. Total: {len(utils.runtime_const.TRACKERS)}"
+                )
+                return
+        return
+
+    # get the best trackers from https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_best.txt
     try:
+        # Another process may have populated the cache while we were acquiring the lock.
+        cached_trackers = await _get_cached_best_trackers()
+        if cached_trackers:
+            _merge_trackers(cached_trackers)
+            logging.debug(
+                f"Loaded {len(cached_trackers)} trackers from Redis cache. Total: {len(utils.runtime_const.TRACKERS)}"
+            )
+            return
+
         async with httpx.AsyncClient(proxy=settings.requests_proxy_url) as client:
             response = await client.get(
                 "https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_best.txt",
                 timeout=30,
             )
             if response.status_code == 200:
-                trackers = [tracker for tracker in response.text.split("\n") if tracker]
-                utils.runtime_const.TRACKERS.extend(trackers)
-                utils.runtime_const.TRACKERS = list(set(utils.runtime_const.TRACKERS))
+                trackers = _filter_valid_trackers([tracker for tracker in response.text.split("\n") if tracker])
+                await REDIS_ASYNC_CLIENT.set(_TRACKERS_CACHE_KEY, json.dumps(trackers), ex=_TRACKERS_CACHE_TTL_SECONDS)
+                _merge_trackers(trackers)
 
                 logging.info(f"Loaded {len(trackers)} trackers. Total: {len(utils.runtime_const.TRACKERS)}")
             else:
                 logging.error(f"Failed to load trackers: {response.status_code}")
     except (httpx.ConnectTimeout, Exception) as e:
         logging.error(f"Failed to load trackers: {e}")
+    finally:
+        await release_redis_lock(lock)
 
 
 def parse_magnet(magnet_link: str) -> tuple[str, list[str]]:

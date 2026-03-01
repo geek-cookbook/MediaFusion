@@ -54,7 +54,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useUsers, useUpdateUser, useUpdateUserRole, useDeleteUser } from '@/hooks'
+import { useUsers, useUpdateUser, useUpdateUserRole, useDeleteUser, useUserStats } from '@/hooks'
 import type { UserRole } from '@/types'
 
 const roleConfig: Record<UserRole, { label: string; icon: typeof Shield; color: string }> = {
@@ -84,6 +84,7 @@ export function UserManagementPage() {
     search: search || undefined,
     role: roleFilter,
   })
+  const { data: userStats } = useUserStats()
   const updateUser = useUpdateUser()
   const updateRole = useUpdateUserRole()
   const deleteUser = useDeleteUser()
@@ -193,7 +194,7 @@ export function UserManagementPage() {
                 <Users className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{usersData?.total ?? 0}</p>
+                <p className="text-2xl font-bold">{userStats?.total_users ?? usersData?.total ?? 0}</p>
                 <p className="text-xs text-muted-foreground">Total Users</p>
               </div>
             </div>
@@ -206,7 +207,7 @@ export function UserManagementPage() {
                 <ShieldAlert className="h-4 w-4 text-red-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{usersData?.items.filter((u) => u.role === 'admin').length ?? 0}</p>
+                <p className="text-2xl font-bold">{userStats?.users_by_role?.admin ?? 0}</p>
                 <p className="text-xs text-muted-foreground">Admins</p>
               </div>
             </div>
@@ -219,9 +220,7 @@ export function UserManagementPage() {
                 <ShieldCheck className="h-4 w-4 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold">
-                  {usersData?.items.filter((u) => u.role === 'moderator').length ?? 0}
-                </p>
+                <p className="text-2xl font-bold">{userStats?.users_by_role?.moderator ?? 0}</p>
                 <p className="text-xs text-muted-foreground">Moderators</p>
               </div>
             </div>
@@ -234,7 +233,7 @@ export function UserManagementPage() {
                 <CheckCircle className="h-4 w-4 text-emerald-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{usersData?.items.filter((u) => u.is_verified).length ?? 0}</p>
+                <p className="text-2xl font-bold">{userStats?.verified_users ?? 0}</p>
                 <p className="text-xs text-muted-foreground">Verified</p>
               </div>
             </div>

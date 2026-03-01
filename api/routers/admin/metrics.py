@@ -585,7 +585,11 @@ async def get_user_stats(
         role_counts_result = await session.exec(
             select(User.role, func.count(User.id).label("count")).group_by(User.role)
         )
-        users_by_role = {row.role.value: row.count for row in role_counts_result.all()}
+        users_by_role: dict[str, int] = {role.value: 0 for role in UserRole}
+        for role_value, count in role_counts_result.all():
+            normalized_role = role_value.value if isinstance(role_value, UserRole) else str(role_value).lower()
+            if normalized_role in users_by_role:
+                users_by_role[normalized_role] = count
 
         # Verified vs unverified
         verified_result = await session.exec(select(func.count(User.id)).where(User.is_verified.is_(True)))
@@ -595,7 +599,9 @@ async def get_user_stats(
         contribution_level_result = await session.exec(
             select(User.contribution_level, func.count(User.id).label("count")).group_by(User.contribution_level)
         )
-        users_by_contribution_level = {row.contribution_level: row.count for row in contribution_level_result.all()}
+        users_by_contribution_level = {
+            contribution_level: count for contribution_level, count in contribution_level_result.all()
+        }
 
         # New users (registered in last 7 days)
         new_users_result = await session.exec(select(func.count(User.id)).where(User.created_at >= week_ago))

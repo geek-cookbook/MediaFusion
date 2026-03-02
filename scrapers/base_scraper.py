@@ -14,6 +14,7 @@ from typing import Any, Literal
 import httpx
 import PTT
 from ratelimit import limits, sleep_and_retry
+from sqlalchemy.exc import IntegrityError
 from sqlmodel.ext.asyncio.session import AsyncSession
 from tenacity import retry, stop_after_attempt, wait_exponential
 from torf import Magnet, MagnetError
@@ -43,6 +44,22 @@ SCRAPER_METRICS_LATEST_KEY = "scraper_metrics_latest:"
 SCRAPER_METRICS_AGGREGATED_KEY = "scraper_metrics_aggregated:"
 SCRAPER_METRICS_TTL = 86400 * 7  # 7 days TTL for individual metrics
 SCRAPER_METRICS_HISTORY_MAX = 100  # Keep last 100 runs per scraper
+
+
+def _is_duplicate_info_hash_error(exc: BaseException) -> bool:
+    """Detect unique-constraint collisions for torrent info_hash inserts."""
+    current: BaseException | None = exc
+    visited: set[int] = set()
+    while current is not None and id(current) not in visited:
+        visited.add(id(current))
+        message = str(current).lower()
+        if "ix_torrent_stream_info_hash" in message or (
+            "duplicate key value violates unique constraint" in message and "info_hash" in message
+        ):
+            return True
+        next_exc = getattr(current, "__cause__", None) or getattr(current, "__context__", None)
+        current = next_exc if isinstance(next_exc, BaseException) else None
+    return False
 
 
 @dataclass
@@ -631,7 +648,7 @@ class BaseScraper(abc.ABC):
                 return response
             raise ScraperError(f"Runtime error occurred: {e}")
         except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404 and is_expected_to_fail:
+            if is_expected_to_fail:
                 return e.response
             self.logger.error(f"HTTP error occurred: {e}")
             raise ScraperError(f"HTTP error occurred: {e}")
@@ -780,12 +797,26 @@ class BaseScraper(abc.ABC):
         """
         if session is None:
             async with get_background_session() as managed_session:
-                await crud.store_new_torrent_streams(managed_session, [s.model_dump(by_alias=True) for s in streams])
-                await managed_session.commit()
+                try:
+                    await crud.store_new_torrent_streams(
+                        managed_session, [s.model_dump(by_alias=True) for s in streams]
+                    )
+                    await managed_session.commit()
+                except IntegrityError as exc:
+                    if _is_duplicate_info_hash_error(exc):
+                        await managed_session.rollback()
+                        return
+                    raise
             return
 
-        await crud.store_new_torrent_streams(session, [s.model_dump(by_alias=True) for s in streams])
-        await session.commit()
+        try:
+            await crud.store_new_torrent_streams(session, [s.model_dump(by_alias=True) for s in streams])
+            await session.commit()
+        except IntegrityError as exc:
+            if _is_duplicate_info_hash_error(exc):
+                await session.rollback()
+                return
+            raise
 
     @property
     def search_query_timeout(self) -> int:

@@ -118,7 +118,7 @@ class DebridClient(AsyncContextDecorator):
             if error.status == 429:
                 raise ProviderException("Too many requests", "too_many_requests.mp4")
 
-            if error.status in [502, 503, 504]:
+            if error.status in [500, 502, 503, 504]:
                 raise ProviderException("Debrid service is down.", "debrid_service_down_error.mp4")
 
             raise ProviderException(
@@ -197,7 +197,7 @@ class DebridClient(AsyncContextDecorator):
         normalized_target = _normalize_status(target_status)
 
         # if torrent_info is available, check the status from it
-        if torrent_info:
+        if isinstance(torrent_info, dict) and torrent_info:
             if _normalize_status(torrent_info.get("status")) == normalized_target:
                 return torrent_info
 
@@ -214,6 +214,15 @@ class DebridClient(AsyncContextDecorator):
                         "torrent_not_downloaded.mp4",
                     )
                 raise
+
+            if not isinstance(torrent_info, dict):
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(retry_interval)
+                    continue
+                raise ProviderException(
+                    "Torrent info response was invalid.",
+                    "torrent_not_downloaded.mp4",
+                )
 
             current = _normalize_status(torrent_info.get("status"))
             if current == normalized_target:

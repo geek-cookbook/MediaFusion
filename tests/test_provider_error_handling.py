@@ -9,6 +9,7 @@ from streaming_providers.debrid_client import DebridClient
 from streaming_providers.easydebrid import utils as easydebrid_utils
 from streaming_providers.exceptions import ProviderException
 from streaming_providers.pikpak import utils as pikpak_utils
+from streaming_providers.premiumize import utils as premiumize_utils
 from streaming_providers.realdebrid.client import RealDebrid
 from streaming_providers.realdebrid import utils as realdebrid_utils
 from streaming_providers.parser import _get_episode_date
@@ -47,12 +48,38 @@ class _DummyErrorResponse:
         return {}
 
 
+class _DummyServerErrorResponse:
+    headers = {"Content-Type": "text/html"}
+
+    def raise_for_status(self):
+        raise aiohttp.ClientResponseError(
+            request_info=None,
+            history=(),
+            status=500,
+            message="Internal Server Error",
+        )
+
+    async def text(self):
+        return "<html>Internal Server Error</html>"
+
+    async def json(self):
+        return {}
+
+
 @pytest.mark.asyncio
 async def test_debrid_client_maps_429_to_too_many_requests():
     client = _DummyDebridClient(token=None)
     with pytest.raises(ProviderException) as exc:
         await client._check_response_status(_DummyErrorResponse(), is_expected_to_fail=False)
     assert exc.value.video_file_name == "too_many_requests.mp4"
+
+
+@pytest.mark.asyncio
+async def test_debrid_client_maps_500_to_service_down():
+    client = _DummyDebridClient(token=None)
+    with pytest.raises(ProviderException) as exc:
+        await client._check_response_status(_DummyServerErrorResponse(), is_expected_to_fail=False)
+    assert exc.value.video_file_name == "debrid_service_down_error.mp4"
 
 
 @pytest.mark.asyncio
@@ -156,6 +183,52 @@ async def test_realdebrid_maps_hoster_not_free_error():
     with pytest.raises(ProviderException) as exc:
         await client.create_download_link("https://example.com/file")
     assert exc.value.video_file_name == "need_premium.mp4"
+
+
+@pytest.mark.asyncio
+async def test_realdebrid_maps_fair_usage_limit_error():
+    client = RealDebrid(token=None)
+
+    async def fake_make_request(*args, **kwargs):
+        return {"error": "fair_usage_limit", "error_code": 36}
+
+    client._make_request = fake_make_request
+
+    with pytest.raises(ProviderException) as exc:
+        await client.create_download_link("https://example.com/file")
+    assert exc.value.video_file_name == "exceed_remote_traffic_limit.mp4"
+
+
+@pytest.mark.asyncio
+async def test_realdebrid_maps_unknown_resource_error_to_torrent_not_downloaded():
+    client = RealDebrid(token=None)
+
+    with pytest.raises(ProviderException) as exc:
+        await client._handle_service_specific_errors({"error": "unknown_ressource", "error_code": 7}, 404)
+    assert exc.value.video_file_name == "torrent_not_downloaded.mp4"
+
+
+@pytest.mark.asyncio
+async def test_premiumize_add_new_torrent_falls_back_when_cache_check_is_down():
+    class FakePMClient:
+        async def get_torrent_instant_availability(self, torrent_hashes):
+            raise ProviderException("Debrid service is down.", "debrid_service_down_error.mp4")
+
+        async def get_folder_list(self):
+            return {"content": [{"name": "abc123", "id": "folder-1"}]}
+
+        async def add_magnet_link(self, magnet_link, folder_id):
+            return {"id": "transfer-1"}
+
+    stream = SimpleNamespace(torrent_file=None)
+
+    result = await premiumize_utils.add_new_torrent(
+        FakePMClient(),
+        "magnet:?xt=urn:btih:abc123",
+        stream,
+        "abc123",
+    )
+    assert result["id"] == "transfer-1"
 
 
 @pytest.mark.asyncio

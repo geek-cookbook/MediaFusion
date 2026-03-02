@@ -28,9 +28,18 @@ async def create_or_get_folder_id(pm_client: Premiumize, info_hash: str):
 
 async def add_new_torrent(pm_client: Premiumize, magnet_link: str, stream: TorrentStreamData, info_hash: str) -> dict:
     # Check if the torrent is already cached
-    instant_availability_data = await pm_client.get_torrent_instant_availability([info_hash])
-    if instant_availability_data.get("response")[0]:
-        return await pm_client.create_direct_download(magnet_link)
+    try:
+        instant_availability_data = await pm_client.get_torrent_instant_availability([info_hash])
+        if instant_availability_data.get("response")[0]:
+            return await pm_client.create_direct_download(magnet_link)
+    except ProviderException as error:
+        if error.video_file_name == "debrid_service_down_error.mp4":
+            logger.warning(
+                "Premiumize cache/check unavailable for hash=%s; falling back to normal transfer/create.",
+                info_hash,
+            )
+        else:
+            raise
 
     folder_id = await create_or_get_folder_id(pm_client, info_hash)
     if stream.torrent_file:

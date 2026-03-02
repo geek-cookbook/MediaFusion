@@ -77,6 +77,25 @@ async def _get_cached_best_trackers() -> list[str]:
 logging.getLogger("demagnetize").setLevel(logging.CRITICAL)
 
 
+def _normalize_unix_timestamp(value: int | float | bytes | str | None) -> int | None:
+    """Normalize bencoded timestamp values to int seconds."""
+    if value is None:
+        return None
+    if isinstance(value, bytes):
+        try:
+            value = value.decode("utf-8", errors="ignore").strip()
+        except Exception:
+            return None
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def extract_torrent_metadata(
     content: bytes,
     parsed_data: dict = None,
@@ -122,9 +141,10 @@ def extract_torrent_metadata(
                 raise ValueError("Torrent name contains 18+ keywords")
             return {}
 
-        if created_at:
+        created_at_int = _normalize_unix_timestamp(created_at)
+        if created_at_int:
             # Convert to UTC datetime
-            metadata["created_at"] = datetime.fromtimestamp(created_at, tz=UTC)
+            metadata["created_at"] = datetime.fromtimestamp(created_at_int, tz=UTC)
 
         file_data = []
         seasons = set()

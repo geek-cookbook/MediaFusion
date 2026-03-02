@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 import aiohttp
@@ -63,13 +64,41 @@ class Torbox(DebridClient):
         full_url = self.BASE_URL + url
         return await super()._make_request(method=method, url=full_url, params=params, **kwargs)
 
+    @staticmethod
+    def _normalize_response_dict(response: dict | list | str, context: str) -> dict:
+        """Ensure Torbox responses are dict-like before accessing keys."""
+        if isinstance(response, dict):
+            return response
+        if isinstance(response, list):
+            return {"success": True, "data": response}
+        if isinstance(response, str):
+            stripped = response.strip()
+            if stripped.startswith("{") or stripped.startswith("["):
+                try:
+                    parsed = json.loads(stripped)
+                    if isinstance(parsed, dict):
+                        return parsed
+                    if isinstance(parsed, list):
+                        return {"success": True, "data": parsed}
+                except ValueError:
+                    pass
+            raise ProviderException(
+                f"Unexpected Torbox API response format while {context}: {stripped[:200]}",
+                "api_error.mp4",
+            )
+        raise ProviderException(
+            f"Unexpected Torbox API response type while {context}: {type(response).__name__}",
+            "api_error.mp4",
+        )
+
     async def add_magnet_link(self, magnet_link):
-        response_data = await self._make_request(
+        raw_response = await self._make_request(
             "POST",
             "/torrents/createtorrent",
             data={"magnet": magnet_link},
             is_expected_to_fail=True,
         )
+        response_data = self._normalize_response_dict(raw_response, "adding magnet link")
 
         if response_data.get("error"):
             await self._handle_service_specific_errors(response_data, 200)
@@ -87,12 +116,13 @@ class Torbox(DebridClient):
             filename=torrent_name,
             content_type="application/x-bittorrent",
         )
-        response = await self._make_request(
+        raw_response = await self._make_request(
             "POST",
             "/torrents/createtorrent",
             data=data,
             is_expected_to_fail=True,
         )
+        response = self._normalize_response_dict(raw_response, "adding torrent file")
         if response.get("error"):
             await self._handle_service_specific_errors(response, 200)
 
@@ -103,12 +133,13 @@ class Torbox(DebridClient):
         return response
 
     async def get_user_torrent_list(self):
-        response = await self._make_request(
+        raw_response = await self._make_request(
             "GET",
             "/torrents/mylist",
             params={"bypass_cache": "true"},
             is_expected_to_fail=True,
         )
+        response = self._normalize_response_dict(raw_response, "fetching torrent list")
         if response.get("success"):
             return response
         return {"data": []}
@@ -122,11 +153,12 @@ class Torbox(DebridClient):
         return {}
 
     async def get_torrent_instant_availability(self, torrent_hashes: list[str]):
-        response = await self._make_request(
+        raw_response = await self._make_request(
             "GET",
             "/torrents/checkcached",
             params={"hash": torrent_hashes, "format": "object"},
         )
+        response = self._normalize_response_dict(raw_response, "checking torrent availability")
         return response.get("data", [])
 
     async def get_available_torrent(self, info_hash) -> dict[str, Any] | None:
@@ -139,7 +171,7 @@ class Torbox(DebridClient):
 
     async def get_queued_torrents(self):
         try:
-            response = await self._make_request(
+            raw_response = await self._make_request(
                 "GET",
                 "/queued/getqueued",
                 params={"type": "torrent", "bypass_cache": "true"},
@@ -153,9 +185,10 @@ class Torbox(DebridClient):
                 )
             raise
 
-        if isinstance(response, dict) and response.get("error") == "PLAN_RESTRICTED_FEATURE":
+        response = self._normalize_response_dict(raw_response, "fetching queued torrents")
+        if response.get("error") == "PLAN_RESTRICTED_FEATURE":
             await self._handle_service_specific_errors(response, 403)
-        if isinstance(response, dict) and response.get("success"):
+        if response.get("success"):
             return response
         return {"data": []}
 
@@ -167,12 +200,13 @@ class Torbox(DebridClient):
         }
         if user_ip:
             params["user_ip"] = user_ip
-        response = await self._make_request(
+        raw_response = await self._make_request(
             "GET",
             "/torrents/requestdl",
             params=params,
             is_expected_to_fail=True,
         )
+        response = self._normalize_response_dict(raw_response, "creating torrent download link")
         if response.get("success"):
             return response
 
@@ -213,12 +247,13 @@ class Torbox(DebridClient):
             filename=f"{name}.nzb",
             content_type="application/x-nzb",
         )
-        response = await self._make_request(
+        raw_response = await self._make_request(
             "POST",
             "/usenet/createusenetdownload",
             data=data,
             is_expected_to_fail=True,
         )
+        response = self._normalize_response_dict(raw_response, "adding usenet download")
         if response.get("error"):
             await self._handle_service_specific_errors(response, 200)
             raise ProviderException(
@@ -236,12 +271,13 @@ class Torbox(DebridClient):
         Returns:
             Response data with usenet_id
         """
-        response = await self._make_request(
+        raw_response = await self._make_request(
             "POST",
             "/usenet/createusenetdownload",
             data={"link": nzb_url},
             is_expected_to_fail=True,
         )
+        response = self._normalize_response_dict(raw_response, "adding usenet link")
         if response.get("error"):
             await self._handle_service_specific_errors(response, 200)
             raise ProviderException(
@@ -256,12 +292,13 @@ class Torbox(DebridClient):
         Returns:
             Response with list of usenet downloads
         """
-        response = await self._make_request(
+        raw_response = await self._make_request(
             "GET",
             "/usenet/mylist",
             params={"bypass_cache": "true"},
             is_expected_to_fail=True,
         )
+        response = self._normalize_response_dict(raw_response, "fetching usenet list")
         if response.get("success"):
             return response
         return {"data": []}
@@ -307,11 +344,12 @@ class Torbox(DebridClient):
         Returns:
             Availability data
         """
-        response = await self._make_request(
+        raw_response = await self._make_request(
             "GET",
             "/usenet/checkcached",
             params={"hash": nzb_hashes, "format": "object"},
         )
+        response = self._normalize_response_dict(raw_response, "checking usenet availability")
         return response.get("data", {})
 
     async def create_usenet_download_link(self, usenet_id: int, file_id: int, user_ip: str | None = None) -> dict:
@@ -332,12 +370,13 @@ class Torbox(DebridClient):
         }
         if user_ip:
             params["user_ip"] = user_ip
-        response = await self._make_request(
+        raw_response = await self._make_request(
             "GET",
             "/usenet/requestdl",
             params=params,
             is_expected_to_fail=True,
         )
+        response = self._normalize_response_dict(raw_response, "creating usenet download link")
         if response.get("success"):
             return response
 

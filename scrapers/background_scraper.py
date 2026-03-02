@@ -344,7 +344,7 @@ async def _run_background_search_async():
 @dramatiq.actor(
     priority=10,
     max_retries=3,
-    time_limit=60 * 60 * 1000,  # 1 hour
+    time_limit=2 * 60 * 60 * 1000,  # 2 hours
     min_backoff=600000,  # 10 minutes
     max_backoff=3600000,  # 1 hour
 )

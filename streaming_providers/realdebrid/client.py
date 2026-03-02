@@ -21,7 +21,7 @@ class RealDebrid(DebridClient):
             case 9:
                 raise ProviderException("Real-Debrid Permission denied", "invalid_token.mp4")
             case 7:
-                raise ProviderException("Real-Debrid resource not found", "api_error.mp4")
+                raise ProviderException("Real-Debrid resource not found", "torrent_not_downloaded.mp4")
             case 22:
                 raise ProviderException("IP address not allowed", "ip_not_allowed.mp4")
             case 34:
@@ -32,10 +32,6 @@ class RealDebrid(DebridClient):
                 raise ProviderException("Active torrents limit reached", "torrent_limit.mp4")
             case 30:
                 raise ProviderException("Invalid magnet link", "transfer_error.mp4")
-
-    def _should_retry_torrent_info_error(self, error: ProviderException) -> bool:
-        message = (error.message or "").lower()
-        return "unknown_ressource" in message or "resource not found" in message
 
     async def _make_request(
         self,
@@ -186,6 +182,8 @@ class RealDebrid(DebridClient):
                 raise ProviderException("Hoster not available for free users", "need_premium.mp4")
             if response["error_code"] == 23:
                 raise ProviderException("Exceed remote traffic limit", "exceed_remote_traffic_limit.mp4")
+            if response["error_code"] == 36:
+                raise ProviderException("Fair usage limit reached", "exceed_remote_traffic_limit.mp4")
         raise ProviderException(f"Failed to create download link. response: {response}", "api_error.mp4")
 
     async def delete_torrent(self, torrent_id) -> dict:

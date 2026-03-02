@@ -15,8 +15,56 @@ from db.config import settings
 from db.schemas import SeriesEpisodeData
 from utils.const import UA_HEADER
 
+MOVIE_TYPE_IDS = {"movie", "tvMovie", "short", "tvShort", "tvSpecial", "video"}
+SERIES_TYPE_IDS = {"series", "tvSeries", "tvMiniSeries"}
+
+
+def _canonical_media_type(media_type: str) -> str:
+    """Normalize media type aliases/IMDb type IDs to movie|series."""
+    if media_type in MOVIE_TYPE_IDS:
+        return "movie"
+    if media_type in SERIES_TYPE_IDS:
+        return "series"
+    return media_type
+
+
+def _parse_iso_date(value: str | None) -> date | None:
+    """Parse ISO-like datetime/date strings into a date object."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).date()
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_release_info_years(release_info: str | None) -> tuple[int | None, int | None]:
+    """Parse releaseInfo formats like '2019', '2019-2021', '2019–'."""
+    if not release_info:
+        return None, None
+    parts = str(release_info).replace("-", "–").split("–")
+    try:
+        start_year = int(parts[0]) if parts and parts[0].strip().isdigit() else None
+    except (TypeError, ValueError):
+        start_year = None
+    try:
+        end_year = int(parts[1]) if len(parts) > 1 and parts[1].strip().isdigit() else None
+    except (TypeError, ValueError):
+        end_year = None
+    return start_year, end_year
+
+
+def _safe_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+
 
 async def get_imdb_title(imdb_id: str, media_type: str) -> model.Title | None:
+    media_type = _canonical_media_type(media_type)
     try:
         title = await web.get_title_async(imdb_id, httpx_kwargs={"proxy": settings.requests_proxy_url})
         if media_type == "series":
@@ -30,17 +78,10 @@ async def get_imdb_title(imdb_id: str, media_type: str) -> model.Title | None:
     if not title:
         return None
 
-    if media_type == "movie" and title.type_id not in [
-        "movie",
-        "tvMovie",
-        "short",
-        "tvShort",
-        "tvSpecial",
-        "video",  # Music videos, direct-to-video releases, etc.
-    ]:
+    if media_type == "movie" and title.type_id not in MOVIE_TYPE_IDS:
         logging.warning(f"IMDB ID {imdb_id} is not a movie. found {title.type_id}")
         return None
-    elif media_type == "series" and title.type_id not in ["tvSeries", "tvMiniSeries"]:
+    elif media_type == "series" and title.type_id not in {"tvSeries", "tvMiniSeries"}:
         logging.warning(f"IMDB ID {imdb_id} is not a series. found {title.type_id}")
         return None
 
@@ -458,47 +499,80 @@ async def get_season_episodes(series_id: str, series_title: str, season: int) ->
 
 
 async def get_imdb_data_via_cinemeta(title_id: str, media_type: str) -> model.Title | None:
+    media_type = _canonical_media_type(media_type)
     url = f"https://v3-cinemeta.strem.io/meta/{media_type}/{title_id}.json"
-    try:
-        async with httpx.AsyncClient(proxy=settings.requests_proxy_url) as client:
-            response = await client.get(url, timeout=10, headers=UA_HEADER, follow_redirects=True)
-            response.raise_for_status()
-    except httpx.RequestError as e:
-        logging.error(f"Error fetching Cinemeta data: {e}")
+    response: httpx.Response | None = None
+
+    proxy_candidates = [settings.requests_proxy_url, None] if settings.requests_proxy_url else [None]
+    for proxy_url in proxy_candidates:
+        try:
+            async with httpx.AsyncClient(proxy=proxy_url) as client:
+                response = await client.get(url, timeout=10, headers=UA_HEADER, follow_redirects=True)
+                response.raise_for_status()
+                break
+        except httpx.RequestError as e:
+            if proxy_url is None:
+                logging.error(f"Error fetching Cinemeta data: {e}")
+                return None
+
+    if response is None:
         return None
 
-    data = response.json()["meta"]
+    try:
+        payload = response.json() if response.content else {}
+    except ValueError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+
+    raw_meta = payload.get("meta")
+    if not isinstance(raw_meta, dict):
+        return None
+
+    cast_names = raw_meta.get("cast")
+    if not isinstance(cast_names, list):
+        cast_names = []
+
+    data = dict(raw_meta)
+    start_year, end_year = _parse_release_info_years(data.get("releaseInfo"))
     data.update(
         {
             "title": data.get("name") or data.get("title", ""),
             "rating": data.get("imdbRating") or None,
-            "primary_image": data.get("poster"),
-            "plot": {"en-US": data.get("description", "")},
+            "primary_image": data.get("poster") or None,
+            "plot": {"en-US": data.get("description") or ""},
             "type_id": "movie" if media_type == "movie" else "tvSeries",
-            "cast": [{"name": cast, "imdb_id": ""} for cast in data.get("cast", [])],
+            "cast": [{"name": cast, "imdb_id": ""} for cast in cast_names if cast],
             "runtime": data.get("runtime") or None,
+            "year": start_year,
+            "end_year": end_year,
         }
     )
-    year = data.get("releaseInfo", "").split("–")
-    if len(year) == 2:
-        data["year"] = int(year[0])
-        data["end_year"] = int(year[1]) if year[1] else None
-    elif len(year) == 1:
-        data["year"] = int(year[0])
+
     if media_type == "series":
         episode_data = []
-        for video in data.get("videos", []):
-            release_date = datetime.strptime(video["released"], "%Y-%m-%dT%H:%M:%S.%fZ").date()
+        videos = data.get("videos")
+        if not isinstance(videos, list):
+            videos = []
+
+        for video in videos:
+            if not isinstance(video, dict):
+                continue
+            release_date = _parse_iso_date(video.get("released"))
+            video_id = str(video.get("id") or "")
+            imdb_episode_id = video_id.split(":")[0] if video_id else ""
+            season_number = _safe_int(video.get("season"))
+            episode_number = _safe_int(video.get("episode"))
             episode_data.append(
                 {
-                    "title": video.get("title") or video.get("name"),
+                    "title": video.get("title") or video.get("name") or "",
                     "type_id": "tvEpisode",
-                    "imdb_id": video["id"].split(":")[0],
-                    "release_date": release_date.isoformat(),
-                    "year": release_date.year,
-                    "season": video["season"],
-                    "episode": video["episode"],
-                    "plot": {"en-US": video.get("overview")},
+                    "imdb_id": imdb_episode_id,
+                    "release_date": release_date.isoformat() if release_date else None,
+                    "year": release_date.year if release_date else None,
+                    "season": season_number,
+                    "episode": episode_number,
+                    "plot": {"en-US": video.get("overview") or ""},
                     "rating": video.get("imdbRating"),
                     "primary_image": video.get("thumbnail"),
                 }

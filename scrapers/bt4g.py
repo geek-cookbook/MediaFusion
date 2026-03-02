@@ -191,6 +191,11 @@ class BT4GScraper(BaseScraper):
                 await asyncio.sleep(0.5)
                 response = await self.make_request(rss_url, is_expected_to_fail=True)
 
+            if response.status_code == 429:
+                self.logger.warning("BT4G rate limited RSS request for '%s'", search_query)
+                self.metrics.record_error("rate_limited")
+                return
+
             if not response.text or "cloudflare" in response.text.lower():
                 self.logger.warning(f"Cloudflare blocked RSS request for: {search_query}")
                 return

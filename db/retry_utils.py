@@ -16,6 +16,8 @@ RETRYABLE_DB_ERROR_MARKERS = (
     "another operation is in progress",
     "cannot switch to state",
     "can't reconnect until invalid transaction is rolled back",
+    "too many open files",
+    "unexpected connection_lost() call",
 )
 
 

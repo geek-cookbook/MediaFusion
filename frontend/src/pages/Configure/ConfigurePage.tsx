@@ -43,7 +43,7 @@ import { useProfiles, useCreateProfile, useUpdateProfile, useDeleteProfile, useS
 import { useAuth } from '@/contexts/AuthContext'
 import { useInstance } from '@/contexts/InstanceContext'
 import type { Profile } from '@/lib/api'
-import { encryptUserData, generateManifestUrls, associateKodiManifest } from '@/lib/api/anonymous'
+import { encryptUserData, decryptUserData, generateManifestUrls, associateKodiManifest } from '@/lib/api/anonymous'
 import { cn } from '@/lib/utils'
 import {
   MultiProviderConfig,
@@ -325,12 +325,17 @@ function AnonymousInstallUrls({ encryptedStr, onReset }: { encryptedStr: string;
 
 // Anonymous Configuration Editor
 function AnonymousConfigEditor() {
+  const [searchParams] = useSearchParams()
   const { isApiKeyRequired, isApiKeySet, setApiKey, apiKey } = useInstance()
   const [config, setConfig] = useState<ProfileConfig>({ ...DEFAULT_CONFIG })
   const [activeTab, setActiveTab] = useState('provider')
   const [isGenerating, setIsGenerating] = useState(false)
+  const [isLoadingExistingConfig, setIsLoadingExistingConfig] = useState(false)
   const [encryptedStr, setEncryptedStr] = useState<string | null>(null)
+  const [existingSecretStr, setExistingSecretStr] = useState<string | null>(null)
+  const [loadedSecretStr, setLoadedSecretStr] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const secretStrParam = searchParams.get('secret_str')
 
   // API Key input state for private instances
   const [apiKeyInput, setApiKeyInput] = useState('')
@@ -343,6 +348,49 @@ function AnonymousConfigEditor() {
       setApiKeyInput(apiKey)
     }
   }, [apiKey])
+
+  useEffect(() => {
+    if (!secretStrParam) {
+      setExistingSecretStr(null)
+      setLoadedSecretStr(null)
+      return
+    }
+
+    if (loadedSecretStr === secretStrParam) {
+      return
+    }
+
+    let isCancelled = false
+    const loadExistingConfig = async () => {
+      setIsLoadingExistingConfig(true)
+      setError(null)
+
+      const result = await decryptUserData(secretStrParam)
+      if (isCancelled) {
+        return
+      }
+
+      if (result.status === 'error' || !result.config) {
+        setExistingSecretStr(null)
+        setError(result.message || 'Failed to load existing configuration')
+        return
+      }
+
+      setConfig(sanitizeProfileConfig(result.config as ProfileConfig))
+      setExistingSecretStr(secretStrParam)
+      setLoadedSecretStr(secretStrParam)
+    }
+
+    void loadExistingConfig().finally(() => {
+      if (!isCancelled) {
+        setIsLoadingExistingConfig(false)
+      }
+    })
+
+    return () => {
+      isCancelled = true
+    }
+  }, [apiKey, loadedSecretStr, secretStrParam])
 
   const handleSaveApiKey = () => {
     if (!apiKeyInput.trim()) {
@@ -363,7 +411,7 @@ function AnonymousConfigEditor() {
     setError(null)
 
     try {
-      const result = await encryptUserData(sanitizeProfileConfig(config))
+      const result = await encryptUserData(sanitizeProfileConfig(config), existingSecretStr ?? undefined)
 
       if (result.status === 'error') {
         setError(result.message || 'Failed to generate configuration')
@@ -394,11 +442,15 @@ function AnonymousConfigEditor() {
           <p className="text-muted-foreground">Set up your streaming preferences without an account</p>
         </div>
 
-        <Button onClick={handleGenerate} disabled={isGenerating || (isApiKeyRequired && !isApiKeySet)} variant="gold">
-          {isGenerating ? (
+        <Button
+          onClick={handleGenerate}
+          disabled={isGenerating || isLoadingExistingConfig || (isApiKeyRequired && !isApiKeySet)}
+          variant="gold"
+        >
+          {isGenerating || isLoadingExistingConfig ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Generating...
+              {isLoadingExistingConfig ? 'Loading...' : 'Generating...'}
             </>
           ) : (
             <>
@@ -414,6 +466,13 @@ function AnonymousConfigEditor() {
         <Alert variant="destructive">
           <XCircle className="h-4 w-4" />
           <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {isLoadingExistingConfig && (
+        <Alert>
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <AlertDescription>Loading your existing configuration...</AlertDescription>
         </Alert>
       )}
 
@@ -575,11 +634,11 @@ function AnonymousConfigEditor() {
 
       {/* Bottom Generate Button */}
       <div className="flex justify-end pt-4 border-t">
-        <Button onClick={handleGenerate} disabled={isGenerating} variant="gold" size="lg">
-          {isGenerating ? (
+        <Button onClick={handleGenerate} disabled={isGenerating || isLoadingExistingConfig} variant="gold" size="lg">
+          {isGenerating || isLoadingExistingConfig ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Generating...
+              {isLoadingExistingConfig ? 'Loading...' : 'Generating...'}
             </>
           ) : (
             <>
@@ -1137,6 +1196,8 @@ function AuthenticatedConfigurePage() {
 // Main Configure Page - Switches between authenticated and anonymous modes
 export function ConfigurePage() {
   const { isAuthenticated, isLoading } = useAuth()
+  const [searchParams] = useSearchParams()
+  const hasAnonymousSecret = !!searchParams.get('secret_str')
 
   // Show loading state while checking auth
   if (isLoading) {
@@ -1158,7 +1219,7 @@ export function ConfigurePage() {
   }
 
   // Show anonymous config for non-authenticated users
-  if (!isAuthenticated) {
+  if (!isAuthenticated || hasAnonymousSecret) {
     return <AnonymousConfigEditor />
   }
 

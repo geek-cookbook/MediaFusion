@@ -139,6 +139,12 @@ export interface EncryptUserDataResponse {
   encrypted_str?: string
 }
 
+export interface DecryptUserDataResponse {
+  status: 'success' | 'error'
+  message?: string
+  config?: Record<string, unknown>
+}
+
 // UserData format expected by the backend (matches db/schemas/config.py)
 export interface UserDataPayload {
   // Streaming providers (multi-provider format)
@@ -507,6 +513,55 @@ export async function encryptUserData(
 }
 
 /**
+ * Decrypt and load existing user configuration (anonymous update flow)
+ */
+export async function decryptUserData(secretStr: string): Promise<DecryptUserDataResponse> {
+  const headers: Record<string, string> = {}
+
+  const apiKey = getStoredApiKey()
+  if (apiKey) {
+    headers['X-API-Key'] = apiKey
+  }
+
+  const response = await fetch(`/decrypt-user-data/${encodeURIComponent(secretStr)}`, {
+    method: 'GET',
+    headers,
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Request failed' }))
+    const message =
+      (typeof error.detail === 'string' && error.detail) ||
+      (typeof error.message === 'string' && error.message) ||
+      'Failed to load existing configuration'
+    return {
+      status: 'error',
+      message,
+    }
+  }
+
+  const data = await response.json().catch(() => null)
+  if (!data || data.status === 'error') {
+    return {
+      status: 'error',
+      message: (data && typeof data.message === 'string' && data.message) || 'Failed to load existing configuration',
+    }
+  }
+
+  if (!data.config || typeof data.config !== 'object') {
+    return {
+      status: 'error',
+      message: 'Invalid configuration payload',
+    }
+  }
+
+  return {
+    status: 'success',
+    config: data.config as Record<string, unknown>,
+  }
+}
+
+/**
  * Generate manifest URLs from encrypted string
  */
 export function generateManifestUrls(encryptedStr: string): {
@@ -586,6 +641,7 @@ export async function associateKodiManifest(code: string, manifestUrl: string): 
 
 export const anonymousApi = {
   encryptUserData,
+  decryptUserData,
   generateManifestUrls,
   associateKodiManifest,
   profileConfigToUserData,

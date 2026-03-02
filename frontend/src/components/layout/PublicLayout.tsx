@@ -45,30 +45,53 @@ export function PublicLayout({ children }: PublicLayoutProps) {
 
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <LogoWithText size="md" addonName={addonName} brandingSvg={brandingSvg} />
+        <div className="container mx-auto px-4 flex h-16 items-center justify-between">
+          <Link to="/" className="hover:opacity-80 transition-opacity min-w-0">
+            <LogoWithText
+              size="lg"
+              addonName={addonName}
+              brandingSvg={brandingSvg}
+              suffixClassName="hidden sm:inline"
+              brandingClassName="hidden sm:inline"
+            />
           </Link>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-3 shrink-0">
             <ThemeSelector />
 
             {isAuthenticated ? (
-              <Button asChild variant="gold" size="sm">
-                <Link to="/dashboard">
-                  <LayoutDashboard className="mr-2 h-4 w-4" />
-                  Dashboard
-                </Link>
-              </Button>
+              <>
+                <Button asChild variant="gold" size="icon" className="sm:hidden">
+                  <Link to="/dashboard">
+                    <LayoutDashboard className="h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button asChild variant="gold" className="hidden sm:inline-flex">
+                  <Link to="/dashboard">
+                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                    Dashboard
+                  </Link>
+                </Button>
+              </>
             ) : (
               <>
-                <Button asChild variant="ghost" size="sm">
+                <Button asChild variant="ghost" size="icon" className="sm:hidden">
+                  <Link to="/login">
+                    <LogIn className="h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button asChild variant="ghost" className="hidden sm:inline-flex">
                   <Link to="/login">
                     <LogIn className="mr-2 h-4 w-4" />
                     Login
                   </Link>
                 </Button>
-                <Button asChild variant="gold" size="sm">
+                <Button asChild variant="gold" size="icon" className="sm:hidden">
+                  <Link to="/register">
+                    <UserPlus className="h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button asChild variant="gold" className="hidden sm:inline-flex">
                   <Link to="/register">
                     <UserPlus className="mr-2 h-4 w-4" />
                     Register

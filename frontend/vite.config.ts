@@ -34,7 +34,11 @@ export default defineConfig({
       '/encrypt-user-data': {
         target: 'http://localhost:8001',
         changeOrigin: true,
-      }
+      },
+      '/decrypt-user-data': {
+        target: 'http://localhost:8001',
+        changeOrigin: true,
+      },
     },
   },
   build: {

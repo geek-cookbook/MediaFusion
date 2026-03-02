@@ -286,7 +286,10 @@ export function M3UTab({ onSuccess, onError, iptvSettings }: M3UTabProps) {
 
       {/* Preview Dialog */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="glass border-border/50 sm:max-w-[800px] max-h-[90vh] flex flex-col">
+        <DialogContent
+          scrollMode="contained"
+          className="glass border-border/50 sm:max-w-[800px] max-h-[90vh] min-h-0 flex flex-col overflow-hidden"
+        >
           <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <FileVideo className="h-5 w-5 text-primary" />
@@ -296,7 +299,7 @@ export function M3UTab({ onSuccess, onError, iptvSettings }: M3UTabProps) {
           </DialogHeader>
 
           {analysis && (
-            <ScrollArea className="flex-1 pr-4">
+            <ScrollArea className="flex-1 min-h-0 pr-4">
               <div className="space-y-4">
                 {/* Summary - Clickable filters with dynamic counts */}
                 <div className="flex flex-wrap gap-2 p-3 rounded-xl bg-muted/50">

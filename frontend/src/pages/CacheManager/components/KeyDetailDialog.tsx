@@ -178,8 +178,8 @@ export function KeyDetailDialog({ cacheKey, open, onOpenChange, onDeleted }: Key
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-        <DialogHeader className="space-y-3">
+      <DialogContent scrollMode="contained" className="max-w-4xl max-h-[90vh] min-h-0 flex flex-col overflow-hidden">
+        <DialogHeader className="space-y-3 shrink-0">
           <div className="flex items-center gap-2">
             <Eye className="h-5 w-5 text-muted-foreground" />
             <DialogTitle className="text-xl">Cache Key Details</DialogTitle>
@@ -204,7 +204,7 @@ export function KeyDetailDialog({ cacheKey, open, onOpenChange, onDeleted }: Key
         ) : keyValue ? (
           <>
             {/* Key metadata badges */}
-            <div className="flex flex-wrap items-center gap-2 py-2">
+            <div className="flex flex-wrap items-center gap-2 py-2 shrink-0">
               <TypeBadge type={keyValue.type} />
               <Badge variant="outline" className="gap-1.5 px-2.5 py-1">
                 <Clock className="h-3.5 w-3.5" />

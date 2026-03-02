@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   GitPullRequest,
   Filter,
@@ -276,7 +277,7 @@ function ContributionDetailsContent({
       {parsedFields.length > 0 && (
         <div className="space-y-3">
           <h4 className="text-sm font-medium text-muted-foreground">Details</h4>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {parsedFields
               .filter((f) => f.label !== 'Torrent Name' && f.label !== 'Title')
               .map((field, idx) => (
@@ -284,7 +285,7 @@ function ContributionDetailsContent({
                   key={idx}
                   className={`p-3 rounded-md bg-muted/40 border border-border/50 ${
                     field.type === 'code' || (field.type === 'text' && String(field.value).length > 40)
-                      ? 'col-span-2'
+                      ? 'sm:col-span-2'
                       : ''
                   }`}
                 >
@@ -349,7 +350,7 @@ function ContributionDetailsContent({
       )}
 
       {/* Timeline */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/50">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground pt-2 border-t border-border/50">
         <span>Submitted: {new Date(contribution.created_at).toLocaleString()}</span>
         {contribution.reviewed_at && <span>Reviewed: {new Date(contribution.reviewed_at).toLocaleString()}</span>}
       </div>
@@ -893,8 +894,11 @@ export function ContributionsPage() {
 
       {/* Details Dialog */}
       <Dialog open={!!detailsDialogOpen} onOpenChange={() => setDetailsDialogOpen(null)}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent
+          scrollMode="contained"
+          className="sm:max-w-[700px] max-h-[90vh] flex flex-col overflow-hidden min-h-0"
+        >
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               {selectedContribution &&
                 (() => {
@@ -910,7 +914,9 @@ export function ContributionsPage() {
               Contribution Details
             </DialogTitle>
           </DialogHeader>
-          {selectedContribution && <ContributionDetailsContent contribution={selectedContribution} />}
+          <ScrollArea className="flex-1 min-h-0 pr-1">
+            {selectedContribution && <ContributionDetailsContent contribution={selectedContribution} />}
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 
@@ -937,87 +943,92 @@ export function ContributionsPage() {
 
       {/* Stream Suggestion Details Dialog */}
       <Dialog open={!!streamDetailsOpen} onOpenChange={() => setStreamDetailsOpen(null)}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
+        <DialogContent
+          scrollMode="contained"
+          className="sm:max-w-[600px] max-h-[90vh] flex flex-col overflow-hidden min-h-0"
+        >
+          <DialogHeader className="shrink-0">
             <DialogTitle>Stream Edit Details</DialogTitle>
           </DialogHeader>
-          {streamDetailsOpen && (
-            <div className="space-y-4 py-4">
-              <div className="flex items-center gap-4 flex-wrap">
-                <Badge
-                  variant="secondary"
-                  className={`${streamStatusConfig[streamDetailsOpen.status]?.color} bg-opacity-10`}
-                >
-                  {streamStatusConfig[streamDetailsOpen.status]?.label}
-                </Badge>
-                <Badge variant="outline">{formatSuggestionType(streamDetailsOpen.suggestion_type)}</Badge>
-                {streamDetailsOpen.field_name && (
-                  <Badge variant="outline">{formatFieldName(streamDetailsOpen.field_name)}</Badge>
-                )}
-                {streamDetailsOpen.was_auto_approved && (
-                  <Badge variant="outline" className="text-blue-500">
-                    <Zap className="h-3 w-3 mr-1" />
-                    Auto-Approved
+          <ScrollArea className="flex-1 min-h-0 pr-1">
+            {streamDetailsOpen && (
+              <div className="space-y-4 py-4">
+                <div className="flex items-center gap-4 flex-wrap">
+                  <Badge
+                    variant="secondary"
+                    className={`${streamStatusConfig[streamDetailsOpen.status]?.color} bg-opacity-10`}
+                  >
+                    {streamStatusConfig[streamDetailsOpen.status]?.label}
                   </Badge>
+                  <Badge variant="outline">{formatSuggestionType(streamDetailsOpen.suggestion_type)}</Badge>
+                  {streamDetailsOpen.field_name && (
+                    <Badge variant="outline">{formatFieldName(streamDetailsOpen.field_name)}</Badge>
+                  )}
+                  {streamDetailsOpen.was_auto_approved && (
+                    <Badge variant="outline" className="text-blue-500">
+                      <Zap className="h-3 w-3 mr-1" />
+                      Auto-Approved
+                    </Badge>
+                  )}
+                </div>
+
+                {streamDetailsOpen.stream_name && (
+                  <div>
+                    <Label className="text-muted-foreground">Stream</Label>
+                    <p className="text-sm font-mono break-all">{streamDetailsOpen.stream_name}</p>
+                  </div>
                 )}
-              </div>
 
-              {streamDetailsOpen.stream_name && (
-                <div>
-                  <Label className="text-muted-foreground">Stream</Label>
-                  <p className="text-sm font-mono break-all">{streamDetailsOpen.stream_name}</p>
-                </div>
-              )}
+                {streamDetailsOpen.media_id && (
+                  <div>
+                    <Label className="text-muted-foreground">Media ID</Label>
+                    <p className="font-mono text-sm">{streamDetailsOpen.media_id}</p>
+                  </div>
+                )}
 
-              {streamDetailsOpen.media_id && (
-                <div>
-                  <Label className="text-muted-foreground">Media ID</Label>
-                  <p className="font-mono text-sm">{streamDetailsOpen.media_id}</p>
-                </div>
-              )}
-
-              {/* Value changes */}
-              {(streamDetailsOpen.current_value || streamDetailsOpen.suggested_value) && (
-                <div className="p-4 rounded-md bg-muted/50 space-y-2">
-                  <Label className="text-muted-foreground">Change</Label>
-                  <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-start">
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Current</p>
-                      <p className="text-sm text-red-400 break-all">{streamDetailsOpen.current_value || '(empty)'}</p>
-                    </div>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground mt-5" />
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Suggested</p>
-                      <p className="text-sm text-emerald-400 break-all">
-                        {streamDetailsOpen.suggested_value || '(empty)'}
-                      </p>
+                {/* Value changes */}
+                {(streamDetailsOpen.current_value || streamDetailsOpen.suggested_value) && (
+                  <div className="p-4 rounded-md bg-muted/50 space-y-2">
+                    <Label className="text-muted-foreground">Change</Label>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto_1fr] sm:gap-2 items-start">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Current</p>
+                        <p className="text-sm text-red-400 break-all">{streamDetailsOpen.current_value || '(empty)'}</p>
+                      </div>
+                      <ArrowRight className="hidden h-4 w-4 text-muted-foreground mt-5 sm:block" />
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Suggested</p>
+                        <p className="text-sm text-emerald-400 break-all">
+                          {streamDetailsOpen.suggested_value || '(empty)'}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {streamDetailsOpen.reason && (
-                <div>
-                  <Label className="text-muted-foreground">Reason</Label>
-                  <p className="text-sm mt-1">{streamDetailsOpen.reason}</p>
-                </div>
-              )}
+                {streamDetailsOpen.reason && (
+                  <div>
+                    <Label className="text-muted-foreground">Reason</Label>
+                    <p className="text-sm mt-1">{streamDetailsOpen.reason}</p>
+                  </div>
+                )}
 
-              <div className="flex justify-between text-sm text-muted-foreground">
-                <span>Submitted: {new Date(streamDetailsOpen.created_at).toLocaleString()}</span>
-                {streamDetailsOpen.reviewed_at && (
-                  <span>Reviewed: {new Date(streamDetailsOpen.reviewed_at).toLocaleString()}</span>
+                <div className="flex flex-wrap justify-between gap-2 text-sm text-muted-foreground">
+                  <span>Submitted: {new Date(streamDetailsOpen.created_at).toLocaleString()}</span>
+                  {streamDetailsOpen.reviewed_at && (
+                    <span>Reviewed: {new Date(streamDetailsOpen.reviewed_at).toLocaleString()}</span>
+                  )}
+                </div>
+
+                {streamDetailsOpen.review_notes && (
+                  <div className="p-4 rounded-md bg-muted/50">
+                    <Label className="text-muted-foreground">Reviewer Notes</Label>
+                    <p className="text-sm mt-1">{streamDetailsOpen.review_notes}</p>
+                  </div>
                 )}
               </div>
-
-              {streamDetailsOpen.review_notes && (
-                <div className="p-4 rounded-md bg-muted/50">
-                  <Label className="text-muted-foreground">Reviewer Notes</Label>
-                  <p className="text-sm mt-1">{streamDetailsOpen.review_notes}</p>
-                </div>
-              )}
-            </div>
-          )}
+            )}
+          </ScrollArea>
         </DialogContent>
       </Dialog>
 

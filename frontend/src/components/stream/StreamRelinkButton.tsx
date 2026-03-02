@@ -222,8 +222,11 @@ export function StreamRelinkButton({
       </TooltipProvider>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[550px] max-h-[85vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent
+          scrollMode="contained"
+          className="sm:max-w-[550px] max-h-[85vh] flex flex-col overflow-hidden min-h-0"
+        >
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Link2 className="h-5 w-5 text-primary" />
               Link Stream to Media
@@ -233,270 +236,283 @@ export function StreamRelinkButton({
             </DialogDescription>
           </DialogHeader>
 
-          {/* Stream Info */}
-          <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
-            <div className="flex items-start gap-3">
-              <div className="p-2 rounded bg-primary/10">
-                <HardDrive className="h-5 w-5 text-primary" />
+          <ScrollArea className="flex-1 min-h-0 pr-1">
+            <div className="space-y-4 py-1">
+              {/* Stream Info */}
+              <div className="p-3 rounded-lg bg-muted/30 border border-border/50">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded bg-primary/10">
+                    <HardDrive className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-medium text-sm truncate">{streamName || `Stream #${streamId}`}</h4>
+                    {currentMediaTitle && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Currently linked to: <span className="font-medium">{currentMediaTitle}</span>
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="font-medium text-sm truncate">{streamName || `Stream #${streamId}`}</h4>
-                {currentMediaTitle && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Currently linked to: <span className="font-medium">{currentMediaTitle}</span>
-                  </p>
+
+              <Separator />
+
+              {/* Existing Links */}
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Current Links</Label>
+
+                {isLoadingLinks ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                ) : existingLinks.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-4 text-center">
+                    <AlertCircle className="h-6 w-6 text-muted-foreground/50 mb-1" />
+                    <p className="text-xs text-muted-foreground">No metadata linked yet</p>
+                  </div>
+                ) : (
+                  <ScrollArea className="max-h-[120px]">
+                    <div className="space-y-1.5">
+                      {existingLinks.map((link) => (
+                        <div
+                          key={link.link_id}
+                          className="flex items-center gap-2 p-2 rounded-lg border border-border/50 bg-background/50"
+                        >
+                          <div className="p-1 rounded bg-muted">
+                            {link.type === 'series' ? (
+                              <Tv className="h-3.5 w-3.5 text-green-500" />
+                            ) : (
+                              <Film className="h-3.5 w-3.5 text-blue-500" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium truncate">{link.title}</p>
+                            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                              {link.year && <span>{link.year}</span>}
+                              <span className="font-mono">{link.external_id}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
                 )}
               </div>
-            </div>
-          </div>
 
-          <Separator />
+              <Separator />
 
-          {/* Existing Links */}
-          <div className="space-y-2">
-            <Label className="text-sm text-muted-foreground">Current Links</Label>
-
-            {isLoadingLinks ? (
-              <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              {/* Link Action Type */}
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Action</Label>
+                <RadioGroup
+                  value={linkAction}
+                  onValueChange={(v) => setLinkAction(v as 'relink' | 'add')}
+                  className="grid grid-cols-2 gap-2"
+                >
+                  <div className="flex items-center space-x-2 p-2 rounded-lg border border-border/50 hover:bg-muted/30 cursor-pointer">
+                    <RadioGroupItem value="add" id="add" />
+                    <Label htmlFor="add" className="text-sm cursor-pointer flex-1">
+                      <span className="font-medium">Add Link</span>
+                      <p className="text-[10px] text-muted-foreground">Keep existing links, add new one</p>
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2 p-2 rounded-lg border border-border/50 hover:bg-muted/30 cursor-pointer">
+                    <RadioGroupItem value="relink" id="relink" />
+                    <Label htmlFor="relink" className="text-sm cursor-pointer flex-1">
+                      <span className="font-medium">Replace Link</span>
+                      <p className="text-[10px] text-muted-foreground">Remove existing, link to new</p>
+                    </Label>
+                  </div>
+                </RadioGroup>
               </div>
-            ) : existingLinks.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-4 text-center">
-                <AlertCircle className="h-6 w-6 text-muted-foreground/50 mb-1" />
-                <p className="text-xs text-muted-foreground">No metadata linked yet</p>
-              </div>
-            ) : (
-              <ScrollArea className="max-h-[120px]">
-                <div className="space-y-1.5">
-                  {existingLinks.map((link) => (
-                    <div
-                      key={link.link_id}
-                      className="flex items-center gap-2 p-2 rounded-lg border border-border/50 bg-background/50"
-                    >
-                      <div className="p-1 rounded bg-muted">
-                        {link.type === 'series' ? (
-                          <Tv className="h-3.5 w-3.5 text-green-500" />
+
+              {/* Target Media Selection */}
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">Target Media</Label>
+                {selectedMedia ? (
+                  <div className="flex items-center gap-2 p-2 rounded-lg border border-primary/30 bg-primary/5">
+                    {selectedMedia.poster ? (
+                      <img src={selectedMedia.poster} alt="" className="w-10 h-14 rounded object-cover" />
+                    ) : (
+                      <div className="w-10 h-14 rounded bg-muted flex items-center justify-center">
+                        {selectedMedia.type === 'series' ? (
+                          <Tv className="h-4 w-4 text-muted-foreground" />
                         ) : (
-                          <Film className="h-3.5 w-3.5 text-blue-500" />
+                          <Film className="h-4 w-4 text-muted-foreground" />
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">{link.title}</p>
-                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                          {link.year && <span>{link.year}</span>}
-                          <span className="font-mono">{link.external_id}</span>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{selectedMedia.title}</p>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        {selectedMedia.year && <span>{selectedMedia.year}</span>}
+                        <Badge variant="outline" className="text-[10px] px-1 py-0">
+                          {selectedMedia.type}
+                        </Badge>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                      onClick={() => setSelectedMedia(null)}
+                    >
+                      <Unlink className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Popover open={searchOpen} onOpenChange={setSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start text-muted-foreground">
+                        <Search className="h-4 w-4 mr-2" />
+                        Search for media...
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className="w-[calc(100vw-2rem)] sm:w-[400px] p-0 overflow-hidden flex flex-col"
+                      align="start"
+                      style={{
+                        height: '360px',
+                        maxHeight: 'calc(var(--radix-popover-content-available-height) - 10px)',
+                      }}
+                    >
+                      <div className="p-2 border-b shrink-0">
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Search movies, series..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="h-9"
+                            autoFocus
+                          />
+                          <Input
+                            type="number"
+                            inputMode="numeric"
+                            min={1878}
+                            max={9999}
+                            step={1}
+                            placeholder="Year"
+                            value={searchYear}
+                            onChange={(e) => setSearchYear(e.target.value)}
+                            className="h-9 w-24 shrink-0"
+                          />
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            )}
-          </div>
-
-          <Separator />
-
-          {/* Link Action Type */}
-          <div className="space-y-2">
-            <Label className="text-sm text-muted-foreground">Action</Label>
-            <RadioGroup
-              value={linkAction}
-              onValueChange={(v) => setLinkAction(v as 'relink' | 'add')}
-              className="grid grid-cols-2 gap-2"
-            >
-              <div className="flex items-center space-x-2 p-2 rounded-lg border border-border/50 hover:bg-muted/30 cursor-pointer">
-                <RadioGroupItem value="add" id="add" />
-                <Label htmlFor="add" className="text-sm cursor-pointer flex-1">
-                  <span className="font-medium">Add Link</span>
-                  <p className="text-[10px] text-muted-foreground">Keep existing links, add new one</p>
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2 p-2 rounded-lg border border-border/50 hover:bg-muted/30 cursor-pointer">
-                <RadioGroupItem value="relink" id="relink" />
-                <Label htmlFor="relink" className="text-sm cursor-pointer flex-1">
-                  <span className="font-medium">Replace Link</span>
-                  <p className="text-[10px] text-muted-foreground">Remove existing, link to new</p>
-                </Label>
-              </div>
-            </RadioGroup>
-          </div>
-
-          {/* Target Media Selection */}
-          <div className="space-y-2">
-            <Label className="text-sm text-muted-foreground">Target Media</Label>
-            {selectedMedia ? (
-              <div className="flex items-center gap-2 p-2 rounded-lg border border-primary/30 bg-primary/5">
-                {selectedMedia.poster ? (
-                  <img src={selectedMedia.poster} alt="" className="w-10 h-14 rounded object-cover" />
-                ) : (
-                  <div className="w-10 h-14 rounded bg-muted flex items-center justify-center">
-                    {selectedMedia.type === 'series' ? (
-                      <Tv className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Film className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{selectedMedia.title}</p>
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    {selectedMedia.year && <span>{selectedMedia.year}</span>}
-                    <Badge variant="outline" className="text-[10px] px-1 py-0">
-                      {selectedMedia.type}
-                    </Badge>
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                  onClick={() => setSelectedMedia(null)}
-                >
-                  <Unlink className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ) : (
-              <Popover open={searchOpen} onOpenChange={setSearchOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start text-muted-foreground">
-                    <Search className="h-4 w-4 mr-2" />
-                    Search for media...
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[400px] p-0" align="start">
-                  <div className="p-2 border-b">
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Search movies, series..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="h-9"
-                        autoFocus
-                      />
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        min={1878}
-                        max={9999}
-                        step={1}
-                        placeholder="Year"
-                        value={searchYear}
-                        onChange={(e) => setSearchYear(e.target.value)}
-                        className="h-9 w-24 shrink-0"
-                      />
-                    </div>
-                  </div>
-                  <ScrollArea className="max-h-[250px]">
-                    {isSearching && searchResults.length === 0 && (
-                      <div className="flex items-center justify-center py-6">
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      </div>
-                    )}
-                    {!isSearching && !isFetchingSearch && searchQuery.length >= 2 && searchResults.length === 0 && (
-                      <div className="py-6 text-center text-sm text-muted-foreground">No results found</div>
-                    )}
-                    {!isSearching && searchQuery.length < 2 && (
-                      <div className="py-6 text-center text-xs text-muted-foreground">
-                        Type at least 2 characters to search
-                      </div>
-                    )}
-                    {searchResults.length > 0 && (
-                      <div className="p-1">
-                        {isFetchingSearch && (
-                          <div className="flex items-center justify-center py-2 text-xs text-muted-foreground gap-1.5">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            <span>Loading...</span>
+                      <ScrollArea className="flex-1 min-h-0">
+                        {isSearching && searchResults.length === 0 && (
+                          <div className="flex items-center justify-center py-6">
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                           </div>
                         )}
-                        {searchResults.map((result) => {
-                          const isExternal = result.source === 'external'
-                          return (
-                            <button
-                              key={result.id}
-                              onClick={() => handleSelectMedia(result)}
-                              disabled={isExternal}
-                              className={`w-full flex items-center gap-2 p-2 rounded-md text-left ${
-                                isExternal ? 'opacity-50 cursor-not-allowed' : 'hover:bg-muted cursor-pointer'
-                              }`}
-                              title={isExternal ? 'External results must be imported first' : undefined}
-                            >
-                              {result.poster ? (
-                                <img
-                                  src={result.poster}
-                                  alt=""
-                                  className="w-8 h-12 rounded object-cover flex-shrink-0"
-                                />
-                              ) : (
-                                <div className="w-8 h-12 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                                  {result.type === 'series' ? (
-                                    <Tv className="h-4 w-4 text-muted-foreground" />
-                                  ) : (
-                                    <Film className="h-4 w-4 text-muted-foreground" />
-                                  )}
-                                </div>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{result.title}</p>
-                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                  {result.year && <span>{result.year}</span>}
-                                  <Badge variant="outline" className="text-[10px] px-1 py-0">
-                                    {result.type}
-                                  </Badge>
-                                  {result.source === 'internal' ? (
-                                    <Badge
-                                      variant="secondary"
-                                      className="text-[10px] px-1 py-0 bg-green-500/20 text-green-700"
-                                    >
-                                      In Library
-                                    </Badge>
-                                  ) : (
-                                    <Badge
-                                      variant="secondary"
-                                      className="text-[10px] px-1 py-0 bg-yellow-500/20 text-yellow-700"
-                                    >
-                                      External
-                                    </Badge>
-                                  )}
-                                </div>
+                        {!isSearching && !isFetchingSearch && searchQuery.length >= 2 && searchResults.length === 0 && (
+                          <div className="py-6 text-center text-sm text-muted-foreground">No results found</div>
+                        )}
+                        {!isSearching && searchQuery.length < 2 && (
+                          <div className="py-6 text-center text-xs text-muted-foreground">
+                            Type at least 2 characters to search
+                          </div>
+                        )}
+                        {searchResults.length > 0 && (
+                          <div className="p-1">
+                            {isFetchingSearch && (
+                              <div className="flex items-center justify-center py-2 text-xs text-muted-foreground gap-1.5">
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                                <span>Loading...</span>
                               </div>
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </ScrollArea>
-                </PopoverContent>
-              </Popover>
-            )}
-          </div>
+                            )}
+                            {searchResults.map((result) => {
+                              const isExternal = result.source === 'external'
+                              return (
+                                <button
+                                  key={result.id}
+                                  onClick={() => handleSelectMedia(result)}
+                                  disabled={isExternal}
+                                  className={`w-full flex items-center gap-2 p-2 rounded-md text-left ${
+                                    isExternal ? 'opacity-50 cursor-not-allowed' : 'hover:bg-muted cursor-pointer'
+                                  }`}
+                                  title={isExternal ? 'External results must be imported first' : undefined}
+                                >
+                                  {result.poster ? (
+                                    <img
+                                      src={result.poster}
+                                      alt=""
+                                      className="w-8 h-12 rounded object-cover flex-shrink-0"
+                                    />
+                                  ) : (
+                                    <div className="w-8 h-12 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                                      {result.type === 'series' ? (
+                                        <Tv className="h-4 w-4 text-muted-foreground" />
+                                      ) : (
+                                        <Film className="h-4 w-4 text-muted-foreground" />
+                                      )}
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium truncate">{result.title}</p>
+                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                      {result.year && <span>{result.year}</span>}
+                                      <Badge variant="outline" className="text-[10px] px-1 py-0">
+                                        {result.type}
+                                      </Badge>
+                                      {result.source === 'internal' ? (
+                                        <Badge
+                                          variant="secondary"
+                                          className="text-[10px] px-1 py-0 bg-green-500/20 text-green-700"
+                                        >
+                                          In Library
+                                        </Badge>
+                                      ) : (
+                                        <Badge
+                                          variant="secondary"
+                                          className="text-[10px] px-1 py-0 bg-yellow-500/20 text-yellow-700"
+                                        >
+                                          External
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </div>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </ScrollArea>
+                    </PopoverContent>
+                  </Popover>
+                )}
+              </div>
 
-          {/* Optional file index for multi-file torrents */}
-          {selectedMedia && (
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">File Index (optional, for multi-file torrents)</Label>
-              <Input
-                type="number"
-                min={0}
-                value={fileIndex}
-                onChange={(e) => setFileIndex(e.target.value)}
-                placeholder="Leave empty for whole stream"
-                className="h-8 text-sm"
-              />
+              {/* Optional file index for multi-file torrents */}
+              {selectedMedia && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">
+                    File Index (optional, for multi-file torrents)
+                  </Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={fileIndex}
+                    onChange={(e) => setFileIndex(e.target.value)}
+                    placeholder="Leave empty for whole stream"
+                    className="h-8 text-sm"
+                  />
+                </div>
+              )}
+
+              {/* Reason */}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Reason (optional)</Label>
+                <Textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Why should this stream be linked to different media?"
+                  className="h-16 resize-none text-sm"
+                />
+              </div>
             </div>
-          )}
+          </ScrollArea>
 
-          {/* Reason */}
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Reason (optional)</Label>
-            <Textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Why should this stream be linked to different media?"
-              className="h-16 resize-none text-sm"
-            />
-          </div>
-
-          <DialogFooter>
+          <DialogFooter className="shrink-0">
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>

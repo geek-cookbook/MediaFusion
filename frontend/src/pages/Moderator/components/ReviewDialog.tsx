@@ -59,8 +59,11 @@ export function ReviewDialog({ open, onOpenChange, suggestion, onReview, isRevie
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[720px]">
-          <DialogHeader>
+        <DialogContent
+          scrollMode="contained"
+          className="sm:max-w-[720px] max-h-[90vh] flex flex-col overflow-hidden min-h-0"
+        >
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5 text-primary" />
               Review Suggestion
@@ -68,87 +71,89 @@ export function ReviewDialog({ open, onOpenChange, suggestion, onReview, isRevie
             <DialogDescription>Review and approve or reject this metadata correction suggestion.</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6 py-4">
-            <div className="rounded-lg border border-border/50 bg-muted/20 p-4">
-              <div className="flex items-start gap-4">
-                <div className="h-24 w-16 shrink-0 overflow-hidden rounded-md border border-border/50 bg-muted">
-                  <ModeratorMediaPoster
-                    mediaType={suggestion.media_type}
-                    mediaId={suggestion.media_id}
-                    posterUrl={suggestion.media_poster_url}
-                    title={suggestion.media_title}
-                    fallbackIconSizeClassName="h-5 w-5"
-                  />
-                </div>
-                <div className="min-w-0 flex-1 space-y-2">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Media</p>
-                      <p className="truncate text-base font-semibold">{suggestion.media_title || 'Unknown title'}</p>
-                    </div>
-                    {contentPath ? (
-                      <Button asChild variant="outline" size="sm" className="h-8 rounded-lg">
-                        <Link to={contentPath}>
-                          <ExternalLink className="mr-2 h-3.5 w-3.5" />
-                          Open
-                        </Link>
-                      </Button>
-                    ) : null}
+          <ScrollArea className="flex-1 min-h-0 pr-1">
+            <div className="space-y-6 py-4">
+              <div className="rounded-lg border border-border/50 bg-muted/20 p-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                  <div className="h-24 w-16 shrink-0 overflow-hidden rounded-md border border-border/50 bg-muted">
+                    <ModeratorMediaPoster
+                      mediaType={suggestion.media_type}
+                      mediaId={suggestion.media_id}
+                      posterUrl={suggestion.media_poster_url}
+                      title={suggestion.media_title}
+                      fallbackIconSizeClassName="h-5 w-5"
+                    />
                   </div>
-                  <p className="text-xs text-muted-foreground">{getSuggestionMediaSummary(suggestion)}</p>
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Media</p>
+                        <p className="truncate text-base font-semibold">{suggestion.media_title || 'Unknown title'}</p>
+                      </div>
+                      {contentPath ? (
+                        <Button asChild variant="outline" size="sm" className="h-8 rounded-lg">
+                          <Link to={contentPath}>
+                            <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                            Open
+                          </Link>
+                        </Button>
+                      ) : null}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{getSuggestionMediaSummary(suggestion)}</p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Field</label>
-                <p className="font-medium capitalize">{suggestion.field_name}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Current Value</label>
-                <ScrollArea className="max-h-52 rounded-lg border border-red-500/20 bg-red-500/5">
-                  <p className="whitespace-pre-wrap break-all p-3 text-sm">{suggestion.current_value || '(empty)'}</p>
-                </ScrollArea>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Suggested Value</label>
-                <ScrollArea className="max-h-52 rounded-lg border border-emerald-500/20 bg-emerald-500/5">
-                  <p className="whitespace-pre-wrap break-all p-3 text-sm">{suggestion.suggested_value}</p>
-                </ScrollArea>
-              </div>
-            </div>
-
-            {suggestion.reason && (
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">User's Reason</label>
-                <div className="p-3 rounded-lg bg-muted/50">
-                  <p className="text-sm">{suggestion.reason}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Field</label>
+                  <p className="font-medium capitalize">{suggestion.field_name}</p>
                 </div>
               </div>
-            )}
 
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <span>Submitted by: {suggestion.username || suggestion.user_id}</span>
-              <span>•</span>
-              <span>{formatTimeAgo(suggestion.created_at)}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Current Value</label>
+                  <ScrollArea className="max-h-52 rounded-lg border border-red-500/20 bg-red-500/5">
+                    <p className="whitespace-pre-wrap break-all p-3 text-sm">{suggestion.current_value || '(empty)'}</p>
+                  </ScrollArea>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Suggested Value</label>
+                  <ScrollArea className="max-h-52 rounded-lg border border-emerald-500/20 bg-emerald-500/5">
+                    <p className="whitespace-pre-wrap break-all p-3 text-sm">{suggestion.suggested_value}</p>
+                  </ScrollArea>
+                </div>
+              </div>
+
+              {suggestion.reason && (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">User's Reason</label>
+                  <div className="p-3 rounded-lg bg-muted/50">
+                    <p className="text-sm">{suggestion.reason}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                <span>Submitted by: {suggestion.username || suggestion.user_id}</span>
+                <span>•</span>
+                <span>{formatTimeAgo(suggestion.created_at)}</span>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Review Notes (optional)</label>
+                <Textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Add notes about your decision..."
+                  rows={3}
+                />
+              </div>
             </div>
+          </ScrollArea>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Review Notes (optional)</label>
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Add notes about your decision..."
-                rows={3}
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 shrink-0">
             <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isReviewing}>
               Cancel
             </Button>

@@ -34,7 +34,10 @@ export function MetadataDetailDialog({ open, onOpenChange, media, onEdit }: Meta
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[85vh] flex flex-col p-0 overflow-hidden">
+      <DialogContent
+        scrollMode="contained"
+        className="sm:max-w-[700px] max-h-[85vh] min-h-0 flex flex-col p-0 overflow-hidden"
+      >
         {/* Header with backdrop */}
         <div className="relative h-32 bg-gradient-to-b from-primary/20 to-background overflow-hidden">
           {media.background_url && (
@@ -59,8 +62,8 @@ export function MetadataDetailDialog({ open, onOpenChange, media, onEdit }: Meta
         </div>
 
         {/* Content */}
-        <div className="px-6 pt-12 pb-6 flex-1 overflow-hidden flex flex-col">
-          <DialogHeader className="text-left">
+        <div className="px-6 pt-12 pb-6 flex-1 min-h-0 overflow-hidden flex flex-col">
+          <DialogHeader className="text-left shrink-0">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <DialogTitle className="text-xl flex items-center gap-2">
@@ -101,7 +104,7 @@ export function MetadataDetailDialog({ open, onOpenChange, media, onEdit }: Meta
             </div>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 mt-4 -mx-6 px-6">
+          <ScrollArea className="flex-1 min-h-0 mt-4 -mx-6 px-6">
             <div className="space-y-6">
               {/* Description */}
               {media.description && (

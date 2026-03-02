@@ -362,7 +362,7 @@ export function AdvancedImportDialog({
           scrollMode="contained"
           className={cn(
             'flex min-h-0 flex-col overflow-hidden',
-            isMultiContentMode ? 'max-w-4xl h-[85vh] p-0 gap-0' : 'max-w-2xl h-[85vh]',
+            isMultiContentMode ? 'max-w-4xl max-h-[85vh] p-0 gap-0' : 'max-w-2xl max-h-[85vh]',
           )}
         >
           {isMultiContentMode ? (

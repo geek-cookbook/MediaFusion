@@ -191,9 +191,10 @@ export function StreamFilters({
             </Button>
           </PopoverTrigger>
           <PopoverContent
-            className="w-[calc(100vw-2rem)] sm:w-[420px] p-0 max-h-[80vh] flex flex-col"
+            className="w-[calc(100vw-2rem)] sm:w-[420px] p-0 max-h-[80vh] overflow-hidden flex flex-col"
             align="start"
             sideOffset={8}
+            style={{ height: 'min(80dvh, calc(var(--radix-popover-content-available-height) - 10px))' }}
           >
             <div className="p-3 sm:p-4 border-b border-border/50 shrink-0">
               <div className="flex items-center justify-between">
@@ -212,7 +213,7 @@ export function StreamFilters({
               </div>
             </div>
 
-            <ScrollArea className="flex-1 overscroll-contain">
+            <ScrollArea className="flex-1 min-h-0 overscroll-contain">
               <div className="p-3 sm:p-4 space-y-4 sm:space-y-5">
                 {/* Last Played Filter */}
                 {hasLastPlayed && (

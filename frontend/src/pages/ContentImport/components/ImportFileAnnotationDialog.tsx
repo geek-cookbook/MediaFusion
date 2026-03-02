@@ -299,7 +299,11 @@ function MetadataSearchPopover({
           Link to metadata...
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0" align="start">
+      <PopoverContent
+        className="w-[calc(100vw-2rem)] sm:w-[300px] p-0 overflow-hidden flex flex-col"
+        align="start"
+        style={{ height: '380px', maxHeight: 'calc(var(--radix-popover-content-available-height) - 10px)' }}
+      >
         {showManualId ? (
           // Manual ID input mode
           <div className="p-2 space-y-2">
@@ -378,7 +382,7 @@ function MetadataSearchPopover({
         ) : (
           // Search mode
           <>
-            <div className="p-2 border-b space-y-1.5">
+            <div className="p-2 border-b space-y-1.5 shrink-0">
               <div className="flex gap-1.5">
                 <Input
                   placeholder="Search metadata..."
@@ -408,7 +412,7 @@ function MetadataSearchPopover({
                 Enter ID manually
               </Button>
             </div>
-            <ScrollArea className="max-h-[250px]">
+            <ScrollArea className="flex-1 min-h-0">
               {isLoading && searchResults.length === 0 && (
                 <div className="flex items-center justify-center py-6">
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -707,7 +711,10 @@ export function ImportFileAnnotationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[900px] h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
+      <DialogContent
+        scrollMode="contained"
+        className="sm:max-w-[900px] max-h-[85vh] min-h-0 flex flex-col p-0 gap-0 overflow-hidden"
+      >
         <DialogHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             {annotationMode === 'episode' ? (

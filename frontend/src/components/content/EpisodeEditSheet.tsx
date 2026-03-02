@@ -181,7 +181,7 @@ export function EpisodeEditSheet({ episode, trigger, onSuccess }: EpisodeEditShe
       </SheetTrigger>
 
       <SheetContent className="w-full sm:max-w-[480px] p-0 flex flex-col">
-        <SheetHeader className="px-6 py-4 border-b">
+        <SheetHeader className="px-6 py-4 border-b shrink-0">
           <SheetTitle className="flex items-center gap-2">
             <Edit className="h-5 w-5 text-primary" />
             Edit Episode
@@ -189,7 +189,7 @@ export function EpisodeEditSheet({ episode, trigger, onSuccess }: EpisodeEditShe
           <SheetDescription>Suggest corrections to this episode's information</SheetDescription>
         </SheetHeader>
 
-        <ScrollArea className="flex-1 px-6">
+        <ScrollArea className="flex-1 min-h-0 px-6">
           <div className="py-6 space-y-6">
             {/* Episode Preview */}
             <div className="p-4 rounded-xl bg-muted/50">
@@ -342,7 +342,7 @@ export function EpisodeEditSheet({ episode, trigger, onSuccess }: EpisodeEditShe
           </div>
         </ScrollArea>
 
-        <SheetFooter className="px-6 py-4 border-t">
+        <SheetFooter className="px-6 py-4 border-t shrink-0">
           <div className="flex items-center justify-between w-full">
             <div className="text-sm text-muted-foreground">
               {modifiedCount > 0 ? (

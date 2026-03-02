@@ -174,7 +174,7 @@ export function RSSFeedSlideOver({ open, onClose, feed, onSuccess }: RSSFeedSlid
     <>
       <Sheet open={open} onOpenChange={onClose}>
         <SheetContent className="w-full sm:max-w-2xl overflow-hidden flex flex-col">
-          <SheetHeader>
+          <SheetHeader className="shrink-0">
             <SheetTitle className="flex items-center gap-2">
               <Settings2 className="h-5 w-5" />
               {isEdit ? 'Edit RSS Feed' : 'Add RSS Feed'}
@@ -182,7 +182,7 @@ export function RSSFeedSlideOver({ open, onClose, feed, onSuccess }: RSSFeedSlid
             <SheetDescription>Configure your RSS feed settings, parsing patterns, and filters.</SheetDescription>
           </SheetHeader>
 
-          <ScrollArea className="flex-1 -mx-6 px-6">
+          <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
             <div className="space-y-4 py-4">
               <Accordion type="multiple" defaultValue={['basic', 'patterns']} className="space-y-2">
                 {/* Basic Info */}
@@ -434,7 +434,7 @@ export function RSSFeedSlideOver({ open, onClose, feed, onSuccess }: RSSFeedSlid
           </ScrollArea>
 
           {/* Footer */}
-          <div className="flex justify-end gap-2 pt-4 border-t">
+          <div className="flex justify-end gap-2 pt-4 border-t shrink-0">
             <Button variant="outline" onClick={onClose}>
               <X className="mr-2 h-4 w-4" />
               Cancel

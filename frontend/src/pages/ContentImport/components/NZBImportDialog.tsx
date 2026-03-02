@@ -228,7 +228,10 @@ export function NZBImportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[900px] h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
+      <DialogContent
+        scrollMode="contained"
+        className="sm:max-w-[900px] max-h-[85vh] min-h-0 flex flex-col p-0 gap-0 overflow-hidden"
+      >
         {/* Header */}
         <DialogHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">

@@ -37,6 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
@@ -431,8 +432,12 @@ export function ContributionsTab({ statusFilter, onStatusFilterChange }: Contrib
       </AlertDialog>
 
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
-        <DialogContent className="sm:max-w-[700px] max-h-[90vh]">
-          <DialogHeader>
+        <DialogContent
+          scrollMode="contained"
+          className="sm:max-w-[700px] max-h-[90vh] flex flex-col overflow-hidden min-h-0"
+          style={{ height: 'min(90dvh, calc(100dvh - 2rem))' }}
+        >
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5 text-primary" />
               Review Content Import
@@ -448,151 +453,157 @@ export function ContributionsTab({ statusFilter, onStatusFilterChange }: Contrib
             </DialogDescription>
           </DialogHeader>
 
-          {selectedContribution && (
-            <div className="space-y-4 py-4">
-              <div className="rounded-lg border border-border/50 bg-muted/20 p-4">
-                <div className="flex items-start gap-4">
-                  <div className="h-28 w-20 shrink-0 overflow-hidden rounded-md border border-border/50 bg-muted">
-                    <ModeratorMediaPoster
-                      mediaType={selectedMediaPreview?.metaType}
-                      mediaId={selectedMediaId}
-                      imdbId={selectedImdbId}
-                      posterUrl={selectedMediaPreview?.posterUrl}
-                      title={selectedMediaPreview?.title}
-                      fallbackIconSizeClassName="h-5 w-5"
-                    />
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Media to Review</p>
-                    <p className="break-words text-base font-semibold">
-                      {selectedMediaPreview?.title || 'Untitled'}
-                      {selectedMediaPreview?.year ? (
-                        <span className="ml-2 text-sm font-normal text-muted-foreground">
-                          ({selectedMediaPreview.year})
-                        </span>
-                      ) : null}
-                    </p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Button asChild variant="outline" size="sm" className="h-7 rounded-lg">
-                        <Link to={selectedMediaOpenLink}>
-                          <Library className="h-3.5 w-3.5 mr-1.5" />
-                          {selectedMediaOpenLabel}
-                        </Link>
-                      </Button>
-                      {selectedMediaPreview?.metaType && (
-                        <Badge variant="outline" className="capitalize">
-                          {selectedMediaPreview.metaType}
-                        </Badge>
-                      )}
-                      {selectedImdbId ? (
-                        <a
-                          href={`https://www.imdb.com/title/${selectedImdbId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs font-mono text-primary hover:underline inline-flex items-center gap-1"
-                        >
-                          {selectedImdbId}
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      ) : selectedMediaPreview?.metaId ? (
-                        <Badge variant="secondary" className="font-mono text-xs">
-                          {selectedMediaPreview.metaId}
-                        </Badge>
-                      ) : null}
+          <ScrollArea className="flex-1 min-h-0 pr-1">
+            {selectedContribution && (
+              <div className="space-y-4 py-4">
+                <div className="rounded-lg border border-border/50 bg-muted/20 p-4">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                    <div className="h-28 w-20 shrink-0 overflow-hidden rounded-md border border-border/50 bg-muted">
+                      <ModeratorMediaPoster
+                        mediaType={selectedMediaPreview?.metaType}
+                        mediaId={selectedMediaId}
+                        imdbId={selectedImdbId}
+                        posterUrl={selectedMediaPreview?.posterUrl}
+                        title={selectedMediaPreview?.title}
+                        fallbackIconSizeClassName="h-5 w-5"
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Media to Review
+                      </p>
+                      <p className="break-words text-base font-semibold">
+                        {selectedMediaPreview?.title || 'Untitled'}
+                        {selectedMediaPreview?.year ? (
+                          <span className="ml-2 text-sm font-normal text-muted-foreground">
+                            ({selectedMediaPreview.year})
+                          </span>
+                        ) : null}
+                      </p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Button asChild variant="outline" size="sm" className="h-7 rounded-lg">
+                          <Link to={selectedMediaOpenLink}>
+                            <Library className="h-3.5 w-3.5 mr-1.5" />
+                            {selectedMediaOpenLabel}
+                          </Link>
+                        </Button>
+                        {selectedMediaPreview?.metaType && (
+                          <Badge variant="outline" className="capitalize">
+                            {selectedMediaPreview.metaType}
+                          </Badge>
+                        )}
+                        {selectedImdbId ? (
+                          <a
+                            href={`https://www.imdb.com/title/${selectedImdbId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-mono text-primary hover:underline inline-flex items-center gap-1"
+                          >
+                            {selectedImdbId}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : selectedMediaPreview?.metaId ? (
+                          <Badge variant="secondary" className="font-mono text-xs">
+                            {selectedMediaPreview.metaId}
+                          </Badge>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="outline" className="capitalize">
-                  {selectedContribution.contribution_type}
-                </Badge>
-                {selectedContribution.target_id && (
-                  <Badge variant="secondary" className="font-mono">
-                    {selectedContribution.target_id}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className="capitalize">
+                    {selectedContribution.contribution_type}
                   </Badge>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <h4 className="font-medium text-sm text-muted-foreground">Contribution Details</h4>
-                <div className="grid grid-cols-2 gap-3">
-                  {formatTorrentData(selectedContributionData ?? {}).map((field, idx) => (
-                    <div
-                      key={idx}
-                      className={`p-3 rounded-lg bg-muted/50 ${field.type === 'text' && String(field.value).length > 30 ? 'col-span-2' : ''}`}
-                    >
-                      <p className="text-xs text-muted-foreground mb-1">{field.label}</p>
-                      {field.type === 'badge' ? (
-                        <Badge variant="outline">{field.value}</Badge>
-                      ) : field.type === 'link' ? (
-                        <a
-                          href={`https://www.imdb.com/title/${field.value}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm font-mono text-primary hover:underline flex items-center gap-1"
-                        >
-                          {field.value}
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
-                      ) : field.type === 'size' ? (
-                        <p className="text-sm font-medium">{formatBytes(field.value)}</p>
-                      ) : (
-                        <p className="text-sm font-medium break-all">{field.value}</p>
-                      )}
-                    </div>
-                  ))}
+                  {selectedContribution.target_id && (
+                    <Badge variant="secondary" className="font-mono">
+                      {selectedContribution.target_id}
+                    </Badge>
+                  )}
                 </div>
-              </div>
 
-              {!!selectedContributionData?.magnet_link && (
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm text-muted-foreground">Magnet Link</h4>
-                  <div className="p-3 rounded-lg bg-muted/50">
-                    <p className="text-xs font-mono break-all line-clamp-3">
-                      {String(selectedContributionData.magnet_link)}
-                    </p>
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm text-muted-foreground">Contribution Details</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {formatTorrentData(selectedContributionData ?? {}).map((field, idx) => (
+                      <div
+                        key={idx}
+                        className={`p-3 rounded-lg bg-muted/50 ${
+                          field.type === 'text' && String(field.value).length > 30 ? 'sm:col-span-2' : ''
+                        }`}
+                      >
+                        <p className="text-xs text-muted-foreground mb-1">{field.label}</p>
+                        {field.type === 'badge' ? (
+                          <Badge variant="outline">{field.value}</Badge>
+                        ) : field.type === 'link' ? (
+                          <a
+                            href={`https://www.imdb.com/title/${field.value}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-mono text-primary hover:underline flex items-center gap-1"
+                          >
+                            {field.value}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : field.type === 'size' ? (
+                          <p className="text-sm font-medium">{formatBytes(field.value)}</p>
+                        ) : (
+                          <p className="text-sm font-medium break-all">{field.value}</p>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
-              )}
 
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span>By: {getContributionUploaderLabel(selectedContribution)}</span>
-                <span>•</span>
-                <span>Submitted: {formatTimeAgo(selectedContribution.created_at)}</span>
-                {selectedReviewerLabel && selectedReviewBadge && (
-                  <>
-                    <span>•</span>
-                    <span className="inline-flex items-center gap-1.5" title={selectedReviewerLabel}>
-                      <Badge variant="outline" className={`h-5 px-1.5 text-[10px] ${selectedReviewBadge.className}`}>
-                        {selectedReviewBadge.label}
-                      </Badge>
-                      <span>Reviewed by: {selectedReviewerLabel}</span>
-                    </span>
-                    {selectedContribution.reviewed_at && (
-                      <>
-                        <span>•</span>
-                        <span>Reviewed: {formatTimeAgo(selectedContribution.reviewed_at)}</span>
-                      </>
-                    )}
-                  </>
+                {!!selectedContributionData?.magnet_link && (
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm text-muted-foreground">Magnet Link</h4>
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-xs font-mono break-all line-clamp-3">
+                        {String(selectedContributionData.magnet_link)}
+                      </p>
+                    </div>
+                  </div>
                 )}
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Review Notes (optional)</label>
-                <Textarea
-                  value={reviewNotes}
-                  onChange={(e) => setReviewNotes(e.target.value)}
-                  placeholder="Add notes about your decision..."
-                  rows={2}
-                />
-              </div>
-            </div>
-          )}
+                <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                  <span>By: {getContributionUploaderLabel(selectedContribution)}</span>
+                  <span>•</span>
+                  <span>Submitted: {formatTimeAgo(selectedContribution.created_at)}</span>
+                  {selectedReviewerLabel && selectedReviewBadge && (
+                    <>
+                      <span>•</span>
+                      <span className="inline-flex items-center gap-1.5" title={selectedReviewerLabel}>
+                        <Badge variant="outline" className={`h-5 px-1.5 text-[10px] ${selectedReviewBadge.className}`}>
+                          {selectedReviewBadge.label}
+                        </Badge>
+                        <span>Reviewed by: {selectedReviewerLabel}</span>
+                      </span>
+                      {selectedContribution.reviewed_at && (
+                        <>
+                          <span>•</span>
+                          <span>Reviewed: {formatTimeAgo(selectedContribution.reviewed_at)}</span>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
 
-          <DialogFooter className="gap-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Review Notes (optional)</label>
+                  <Textarea
+                    value={reviewNotes}
+                    onChange={(e) => setReviewNotes(e.target.value)}
+                    placeholder="Add notes about your decision..."
+                    rows={2}
+                  />
+                </div>
+              </div>
+            )}
+          </ScrollArea>
+
+          <DialogFooter className="gap-2 shrink-0">
             <Button
               variant="outline"
               onClick={() => setReviewDialogOpen(false)}

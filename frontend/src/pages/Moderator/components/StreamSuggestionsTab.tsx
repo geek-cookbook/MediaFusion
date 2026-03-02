@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
@@ -329,8 +330,11 @@ export function StreamSuggestionsTab({ statusFilter, onStatusFilterChange }: Str
       )}
 
       <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
+        <DialogContent
+          scrollMode="contained"
+          className="sm:max-w-[600px] max-h-[90vh] flex flex-col overflow-hidden min-h-0"
+        >
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5 text-primary" />
               Review Stream Suggestion
@@ -338,133 +342,135 @@ export function StreamSuggestionsTab({ statusFilter, onStatusFilterChange }: Str
             <DialogDescription>Review this suggestion and approve or reject it.</DialogDescription>
           </DialogHeader>
 
-          {selectedSuggestion && (
-            <div className="space-y-4 py-4">
-              <div className="flex items-center gap-2 flex-wrap">
-                <Badge variant="outline">{formatStreamSuggestionType(selectedSuggestion.suggestion_type)}</Badge>
-                {selectedSuggestion.field_name && (
-                  <Badge variant="secondary">{formatStreamFieldName(selectedSuggestion.field_name)}</Badge>
-                )}
-                <Badge variant="outline" className="capitalize bg-primary/10 border-primary/30">
-                  {selectedSuggestion.user_contribution_level || 'new'} (
-                  {selectedSuggestion.user_contribution_points ?? 0} pts)
-                </Badge>
-              </div>
+          <ScrollArea className="flex-1 min-h-0 pr-1">
+            {selectedSuggestion && (
+              <div className="space-y-4 py-4">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline">{formatStreamSuggestionType(selectedSuggestion.suggestion_type)}</Badge>
+                  {selectedSuggestion.field_name && (
+                    <Badge variant="secondary">{formatStreamFieldName(selectedSuggestion.field_name)}</Badge>
+                  )}
+                  <Badge variant="outline" className="capitalize bg-primary/10 border-primary/30">
+                    {selectedSuggestion.user_contribution_level || 'new'} (
+                    {selectedSuggestion.user_contribution_points ?? 0} pts)
+                  </Badge>
+                </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Stream</label>
-                <p className="text-sm font-mono bg-muted p-2 rounded-lg break-all">
-                  {selectedSuggestion.stream_name || selectedSuggestion.stream_id}
-                </p>
-              </div>
-
-              {selectedSuggestion.media_id && (
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Media ID</label>
-                  <p className="text-sm font-mono">{selectedSuggestion.media_id}</p>
+                  <label className="text-xs font-medium text-muted-foreground">Stream</label>
+                  <p className="text-sm font-mono bg-muted p-2 rounded-lg break-all">
+                    {selectedSuggestion.stream_name || selectedSuggestion.stream_id}
+                  </p>
                 </div>
-              )}
 
-              {parseEpisodeLinkField(selectedSuggestion.field_name) && (
-                <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Film className="h-4 w-4 text-blue-500" />
-                    <span className="font-medium text-blue-600 dark:text-blue-400">Episode Link Correction</span>
+                {selectedSuggestion.media_id && (
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Media ID</label>
+                    <p className="text-sm font-mono">{selectedSuggestion.media_id}</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">File ID</p>
-                      <p className="font-mono text-sm">
-                        {parseEpisodeLinkField(selectedSuggestion.field_name)?.fileId}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground mb-1">Field</p>
-                      <p className="font-medium text-sm">
-                        {parseEpisodeLinkField(selectedSuggestion.field_name)?.displayField}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-3 rounded-lg bg-red-500/10">
-                      <p className="text-xs text-muted-foreground mb-1">Current Value</p>
-                      <p className="text-lg font-bold text-red-500">
-                        {selectedSuggestion.current_value || '(not set)'}
-                      </p>
-                    </div>
-                    <div className="p-3 rounded-lg bg-emerald-500/10">
-                      <p className="text-xs text-muted-foreground mb-1">New Value</p>
-                      <p className="text-lg font-bold text-emerald-500">
-                        {selectedSuggestion.suggested_value || '(clear)'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+                )}
 
-              {!parseEpisodeLinkField(selectedSuggestion.field_name) &&
-                (selectedSuggestion.current_value || selectedSuggestion.suggested_value) && (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-muted-foreground">Current Value</label>
-                      <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/20">
-                        <p className="text-sm break-words">{selectedSuggestion.current_value || '(empty)'}</p>
+                {parseEpisodeLinkField(selectedSuggestion.field_name) && (
+                  <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Film className="h-4 w-4 text-blue-500" />
+                      <span className="font-medium text-blue-600 dark:text-blue-400">Episode Link Correction</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">File ID</p>
+                        <p className="font-mono text-sm">
+                          {parseEpisodeLinkField(selectedSuggestion.field_name)?.fileId}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">Field</p>
+                        <p className="font-medium text-sm">
+                          {parseEpisodeLinkField(selectedSuggestion.field_name)?.displayField}
+                        </p>
                       </div>
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-muted-foreground">Suggested Value</label>
-                      <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
-                        <p className="text-sm break-words">{selectedSuggestion.suggested_value || '(empty)'}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="p-3 rounded-lg bg-red-500/10">
+                        <p className="text-xs text-muted-foreground mb-1">Current Value</p>
+                        <p className="text-lg font-bold text-red-500">
+                          {selectedSuggestion.current_value || '(not set)'}
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-emerald-500/10">
+                        <p className="text-xs text-muted-foreground mb-1">New Value</p>
+                        <p className="text-lg font-bold text-emerald-500">
+                          {selectedSuggestion.suggested_value || '(clear)'}
+                        </p>
                       </div>
                     </div>
                   </div>
                 )}
 
-              {selectedSuggestion.reason && (
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">User's Reason</label>
-                  <div className="p-3 rounded-lg bg-muted/50">
-                    <p className="text-sm">{selectedSuggestion.reason}</p>
+                {!parseEpisodeLinkField(selectedSuggestion.field_name) &&
+                  (selectedSuggestion.current_value || selectedSuggestion.suggested_value) && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">Current Value</label>
+                        <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/20">
+                          <p className="text-sm break-words">{selectedSuggestion.current_value || '(empty)'}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">Suggested Value</label>
+                        <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+                          <p className="text-sm break-words">{selectedSuggestion.suggested_value || '(empty)'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                {selectedSuggestion.reason && (
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">User's Reason</label>
+                    <div className="p-3 rounded-lg bg-muted/50">
+                      <p className="text-sm">{selectedSuggestion.reason}</p>
+                    </div>
                   </div>
-                </div>
-              )}
-
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                <span>Submitted by: {selectedSuggestion.username || selectedSuggestion.user_id}</span>
-                <span>•</span>
-                <span>{formatTimeAgo(selectedSuggestion.created_at)}</span>
-                {selectedReviewerLabel && selectedReviewBadge && (
-                  <>
-                    <span>•</span>
-                    <span className="inline-flex items-center gap-1.5" title={selectedReviewerLabel}>
-                      <Badge variant="outline" className={`h-5 px-1.5 text-[10px] ${selectedReviewBadge.className}`}>
-                        {selectedReviewBadge.label}
-                      </Badge>
-                      <span>Reviewed by: {selectedReviewerLabel}</span>
-                    </span>
-                    {selectedSuggestion.reviewed_at && (
-                      <>
-                        <span>•</span>
-                        <span>Reviewed: {formatTimeAgo(selectedSuggestion.reviewed_at)}</span>
-                      </>
-                    )}
-                  </>
                 )}
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Review Notes (optional)</label>
-                <Textarea
-                  value={reviewNotes}
-                  onChange={(e) => setReviewNotes(e.target.value)}
-                  placeholder="Add notes about your decision..."
-                  rows={2}
-                />
-              </div>
-            </div>
-          )}
+                <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                  <span>Submitted by: {selectedSuggestion.username || selectedSuggestion.user_id}</span>
+                  <span>•</span>
+                  <span>{formatTimeAgo(selectedSuggestion.created_at)}</span>
+                  {selectedReviewerLabel && selectedReviewBadge && (
+                    <>
+                      <span>•</span>
+                      <span className="inline-flex items-center gap-1.5" title={selectedReviewerLabel}>
+                        <Badge variant="outline" className={`h-5 px-1.5 text-[10px] ${selectedReviewBadge.className}`}>
+                          {selectedReviewBadge.label}
+                        </Badge>
+                        <span>Reviewed by: {selectedReviewerLabel}</span>
+                      </span>
+                      {selectedSuggestion.reviewed_at && (
+                        <>
+                          <span>•</span>
+                          <span>Reviewed: {formatTimeAgo(selectedSuggestion.reviewed_at)}</span>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
 
-          <DialogFooter className="gap-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Review Notes (optional)</label>
+                  <Textarea
+                    value={reviewNotes}
+                    onChange={(e) => setReviewNotes(e.target.value)}
+                    placeholder="Add notes about your decision..."
+                    rows={2}
+                  />
+                </div>
+              </div>
+            )}
+          </ScrollArea>
+
+          <DialogFooter className="gap-2 shrink-0">
             <Button variant="outline" onClick={() => setReviewDialogOpen(false)} disabled={reviewSuggestion.isPending}>
               {selectedSuggestion?.status === 'pending' ? 'Cancel' : 'Close'}
             </Button>

@@ -183,8 +183,12 @@ function MediaSearchPopover({
           Search media...
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[350px] p-0" align="start">
-        <div className="p-2 border-b">
+      <PopoverContent
+        className="w-[calc(100vw-2rem)] sm:w-[350px] p-0 overflow-hidden flex flex-col"
+        align="start"
+        style={{ height: '380px', maxHeight: 'calc(var(--radix-popover-content-available-height) - 10px)' }}
+      >
+        <div className="p-2 border-b shrink-0">
           <div className="flex gap-2">
             <Input
               placeholder="Search movies, series..."
@@ -206,7 +210,7 @@ function MediaSearchPopover({
             />
           </div>
         </div>
-        <ScrollArea className="max-h-[250px]">
+        <ScrollArea className="flex-1 min-h-0">
           {isLoading && results.length === 0 && (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -375,7 +379,10 @@ export function CollectionAnnotationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[800px] h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
+      <DialogContent
+        scrollMode="contained"
+        className="sm:max-w-[800px] max-h-[85vh] min-h-0 flex flex-col p-0 gap-0 overflow-hidden"
+      >
         <DialogHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Layers className="h-5 w-5 text-blue-500" />

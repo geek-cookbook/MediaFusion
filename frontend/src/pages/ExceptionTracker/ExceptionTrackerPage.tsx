@@ -109,8 +109,8 @@ function ExceptionDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent scrollMode="contained" className="max-w-3xl max-h-[85vh] flex flex-col overflow-hidden min-h-0">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Bug className="h-5 w-5 text-destructive" />
             Exception Detail
@@ -127,68 +127,70 @@ function ExceptionDetailDialog({
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : data ? (
-          <div className="flex-1 min-h-0 space-y-4">
-            {/* Meta row */}
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="destructive">{data.type}</Badge>
-              <Badge variant="outline" className="font-mono text-xs">
-                {data.source}
-              </Badge>
-              <Badge variant="muted">
-                <Hash className="h-3 w-3 mr-1" />
-                {data.count}x
-              </Badge>
-            </div>
-
-            {/* Timestamps */}
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Clock className="h-3.5 w-3.5" />
-                <span>First: {formatDate(data.first_seen)}</span>
+          <ScrollArea className="flex-1 min-h-0 pr-1">
+            <div className="space-y-4 py-1">
+              {/* Meta row */}
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="destructive">{data.type}</Badge>
+                <Badge variant="outline" className="font-mono text-xs">
+                  {data.source}
+                </Badge>
+                <Badge variant="muted">
+                  <Hash className="h-3 w-3 mr-1" />
+                  {data.count}x
+                </Badge>
               </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Clock className="h-3.5 w-3.5" />
-                <span>Last: {formatDate(data.last_seen)}</span>
+
+              {/* Timestamps */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>First: {formatDate(data.first_seen)}</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>Last: {formatDate(data.last_seen)}</span>
+                </div>
               </div>
-            </div>
 
-            {/* Message */}
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1">Message</p>
-              <p className="text-sm bg-muted/50 rounded-md p-3 break-all">{data.message}</p>
-            </div>
+              {/* Message */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-1">Message</p>
+                <p className="text-sm bg-muted/50 rounded-md p-3 break-all">{data.message}</p>
+              </div>
 
-            {/* Traceback */}
-            <div className="flex-1 min-h-0">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-xs font-medium text-muted-foreground">Traceback</p>
-                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleCopy}>
-                  {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  {copied ? 'Copied' : 'Copy'}
+              {/* Traceback */}
+              <div className="flex-1 min-h-0">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-medium text-muted-foreground">Traceback</p>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1" onClick={handleCopy}>
+                    {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                    {copied ? 'Copied' : 'Copy'}
+                  </Button>
+                </div>
+                <ScrollArea className="h-[280px] rounded-md border border-border/50 bg-zinc-950">
+                  <pre className="p-3 text-xs text-zinc-300 font-mono whitespace-pre-wrap break-all leading-relaxed">
+                    {data.traceback}
+                  </pre>
+                </ScrollArea>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={onClose}>
+                  Close
+                </Button>
+                <Button variant="destructive" size="sm" onClick={handleClear} disabled={clearMutation.isPending}>
+                  {clearMutation.isPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5 mr-1" />
+                  )}
+                  Clear
                 </Button>
               </div>
-              <ScrollArea className="h-[280px] rounded-md border border-border/50 bg-zinc-950">
-                <pre className="p-3 text-xs text-zinc-300 font-mono whitespace-pre-wrap break-all leading-relaxed">
-                  {data.traceback}
-                </pre>
-              </ScrollArea>
             </div>
-
-            {/* Actions */}
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" size="sm" onClick={onClose}>
-                Close
-              </Button>
-              <Button variant="destructive" size="sm" onClick={handleClear} disabled={clearMutation.isPending}>
-                {clearMutation.isPending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
-                ) : (
-                  <Trash2 className="h-3.5 w-3.5 mr-1" />
-                )}
-                Clear
-              </Button>
-            </div>
-          </div>
+          </ScrollArea>
         ) : (
           <div className="py-8 text-center text-muted-foreground">Exception not found. It may have expired.</div>
         )}

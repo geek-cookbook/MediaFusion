@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/hooks/use-toast'
 import {
@@ -111,8 +112,8 @@ function EndpointDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent scrollMode="contained" className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden min-h-0">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Activity className="h-5 w-5 text-primary" />
             Endpoint Detail
@@ -125,91 +126,93 @@ function EndpointDetailDialog({
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : data ? (
-          <div className="flex-1 min-h-0 space-y-4">
-            {/* Method + Route */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <Badge variant={methodBadgeVariant(data.method)}>{data.method}</Badge>
-              <span className="font-mono text-sm">{data.route}</span>
-            </div>
+          <ScrollArea className="flex-1 min-h-0 pr-1">
+            <div className="space-y-4 py-1">
+              {/* Method + Route */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge variant={methodBadgeVariant(data.method)}>{data.method}</Badge>
+                <span className="font-mono text-sm">{data.route}</span>
+              </div>
 
-            {/* Request count + Unique visitors + Last seen */}
-            <div className="grid grid-cols-3 gap-3 text-sm">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Server className="h-3.5 w-3.5" />
-                <span>{data.total_requests.toLocaleString()} requests</span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Users className="h-3.5 w-3.5" />
-                <span>{(data.unique_visitors ?? 0).toLocaleString()} unique visitors</span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Clock className="h-3.5 w-3.5" />
-                <span>Last: {timeAgo(data.last_seen)}</span>
-              </div>
-            </div>
-
-            {/* Latency Percentiles */}
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-2">Latency Percentiles</p>
-              <div className="grid grid-cols-3 gap-3">
-                <Card>
-                  <CardContent className="p-3 text-center">
-                    <p className="text-xs text-muted-foreground">p50</p>
-                    <p className="text-lg font-semibold">{formatDuration(data.p50)}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-3 text-center">
-                    <p className="text-xs text-muted-foreground">p95</p>
-                    <p className="text-lg font-semibold">{formatDuration(data.p95)}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-3 text-center">
-                    <p className="text-xs text-muted-foreground">p99</p>
-                    <p className="text-lg font-semibold">{formatDuration(data.p99)}</p>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-
-            {/* Timing Stats */}
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-2">Response Times</p>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-muted/50 rounded-md p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Avg</p>
-                  <p className="text-sm font-medium">{formatDuration(data.avg_time)}</p>
+              {/* Request count + Unique visitors + Last seen */}
+              <div className="grid grid-cols-3 gap-3 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Server className="h-3.5 w-3.5" />
+                  <span>{data.total_requests.toLocaleString()} requests</span>
                 </div>
-                <div className="bg-muted/50 rounded-md p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Min</p>
-                  <p className="text-sm font-medium">{formatDuration(data.min_time)}</p>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Users className="h-3.5 w-3.5" />
+                  <span>{(data.unique_visitors ?? 0).toLocaleString()} unique visitors</span>
                 </div>
-                <div className="bg-muted/50 rounded-md p-3 text-center">
-                  <p className="text-xs text-muted-foreground">Max</p>
-                  <p className="text-sm font-medium">{formatDuration(data.max_time)}</p>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>Last: {timeAgo(data.last_seen)}</span>
                 </div>
               </div>
-            </div>
 
-            {/* Status Code Breakdown */}
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-2">Status Code Breakdown</p>
-              <div className="flex flex-wrap gap-2">
-                {data.status_2xx > 0 && <Badge variant="success">2xx: {data.status_2xx.toLocaleString()}</Badge>}
-                {data.status_3xx > 0 && <Badge variant="muted">3xx: {data.status_3xx.toLocaleString()}</Badge>}
-                {data.status_4xx > 0 && <Badge variant="warning">4xx: {data.status_4xx.toLocaleString()}</Badge>}
-                {data.status_5xx > 0 && <Badge variant="destructive">5xx: {data.status_5xx.toLocaleString()}</Badge>}
+              {/* Latency Percentiles */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Latency Percentiles</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <Card>
+                    <CardContent className="p-3 text-center">
+                      <p className="text-xs text-muted-foreground">p50</p>
+                      <p className="text-lg font-semibold">{formatDuration(data.p50)}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-3 text-center">
+                      <p className="text-xs text-muted-foreground">p95</p>
+                      <p className="text-lg font-semibold">{formatDuration(data.p95)}</p>
+                    </CardContent>
+                  </Card>
+                  <Card>
+                    <CardContent className="p-3 text-center">
+                      <p className="text-xs text-muted-foreground">p99</p>
+                      <p className="text-lg font-semibold">{formatDuration(data.p99)}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+
+              {/* Timing Stats */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Response Times</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-muted/50 rounded-md p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Avg</p>
+                    <p className="text-sm font-medium">{formatDuration(data.avg_time)}</p>
+                  </div>
+                  <div className="bg-muted/50 rounded-md p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Min</p>
+                    <p className="text-sm font-medium">{formatDuration(data.min_time)}</p>
+                  </div>
+                  <div className="bg-muted/50 rounded-md p-3 text-center">
+                    <p className="text-xs text-muted-foreground">Max</p>
+                    <p className="text-sm font-medium">{formatDuration(data.max_time)}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Status Code Breakdown */}
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Status Code Breakdown</p>
+                <div className="flex flex-wrap gap-2">
+                  {data.status_2xx > 0 && <Badge variant="success">2xx: {data.status_2xx.toLocaleString()}</Badge>}
+                  {data.status_3xx > 0 && <Badge variant="muted">3xx: {data.status_3xx.toLocaleString()}</Badge>}
+                  {data.status_4xx > 0 && <Badge variant="warning">4xx: {data.status_4xx.toLocaleString()}</Badge>}
+                  {data.status_5xx > 0 && <Badge variant="destructive">5xx: {data.status_5xx.toLocaleString()}</Badge>}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" size="sm" onClick={onClose}>
+                  Close
+                </Button>
               </div>
             </div>
-
-            {/* Actions */}
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" size="sm" onClick={onClose}>
-                Close
-              </Button>
-            </div>
-          </div>
+          </ScrollArea>
         ) : (
           <div className="py-8 text-center text-muted-foreground">
             Endpoint metrics not found. They may have expired.

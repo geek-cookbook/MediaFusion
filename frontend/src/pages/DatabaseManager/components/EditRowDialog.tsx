@@ -339,10 +339,7 @@ function EditRowDialogContent({
   }, [columns])
 
   return (
-    <DialogContent
-      scrollMode="contained"
-      className="max-w-2xl h-[90vh] max-h-[90vh] min-h-0 flex flex-col overflow-hidden"
-    >
+    <DialogContent scrollMode="contained" className="max-w-2xl max-h-[90vh] min-h-0 flex flex-col overflow-hidden">
       <DialogHeader className="shrink-0">
         <DialogTitle className="flex items-center gap-2">
           Edit Row

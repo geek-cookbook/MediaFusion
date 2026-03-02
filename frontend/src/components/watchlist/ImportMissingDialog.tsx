@@ -455,8 +455,8 @@ export function ImportMissingDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent scrollMode="contained" className="max-w-2xl max-h-[85vh] min-h-0 flex flex-col overflow-hidden">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Download className="h-5 w-5" />
             Import Missing Torrents
@@ -467,7 +467,7 @@ export function ImportMissingDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 min-h-0 space-y-4">
+        <div className="flex-1 min-h-0 space-y-4 overflow-y-auto pr-1">
           {loadingMissing ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -583,7 +583,7 @@ export function ImportMissingDialog({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button variant="outline" onClick={handleClose}>
             {importResults ? 'Done' : 'Cancel'}
           </Button>

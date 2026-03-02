@@ -285,92 +285,98 @@ function MetadataSearchPopover({
           Search and link metadata...
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[350px] p-0" align="start">
+      <PopoverContent
+        className="w-[calc(100vw-2rem)] sm:w-[350px] p-0 overflow-hidden flex flex-col"
+        align="start"
+        style={{ height: '380px', maxHeight: 'calc(var(--radix-popover-content-available-height) - 10px)' }}
+      >
         {showManualId ? (
           // Manual ID input mode
-          <div className="p-3 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Enter ID Manually</span>
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Enter ID Manually</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => {
+                    setShowManualId(false)
+                    setPreviewError(null)
+                  }}
+                  disabled={isLoadingPreview}
+                >
+                  Back to Search
+                </Button>
+              </div>
+
+              {/* Provider selector */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">Provider</label>
+                <Select value={manualProvider} onValueChange={(v) => setManualProvider(v as ImportProvider)}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROVIDER_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* ID input */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">External ID</label>
+                <Input
+                  placeholder={currentProviderOption?.placeholder || 'Enter ID'}
+                  value={manualId}
+                  onChange={(e) => {
+                    setManualId(e.target.value)
+                    setPreviewError(null)
+                  }}
+                  className="h-9"
+                  autoFocus
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Example: <code className="bg-muted px-1 rounded">{currentProviderOption?.example}</code>
+                </p>
+              </div>
+
+              {/* Error message */}
+              {previewError && (
+                <div className="flex items-start gap-2 p-2 rounded bg-destructive/10 text-destructive text-xs">
+                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                  <span>{previewError}</span>
+                </div>
+              )}
+
               <Button
-                variant="ghost"
+                className="w-full"
                 size="sm"
-                className="h-7 text-xs"
-                onClick={() => {
-                  setShowManualId(false)
-                  setPreviewError(null)
-                }}
-                disabled={isLoadingPreview}
+                onClick={handleManualIdSubmit}
+                disabled={!manualId.trim() || isLoadingPreview}
               >
-                Back to Search
+                {isLoadingPreview ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Fetching metadata...
+                  </>
+                ) : (
+                  <>
+                    <Link2 className="h-4 w-4 mr-2" />
+                    Fetch & Link
+                  </>
+                )}
               </Button>
             </div>
-
-            {/* Provider selector */}
-            <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">Provider</label>
-              <Select value={manualProvider} onValueChange={(v) => setManualProvider(v as ImportProvider)}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PROVIDER_OPTIONS.map((opt) => (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* ID input */}
-            <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">External ID</label>
-              <Input
-                placeholder={currentProviderOption?.placeholder || 'Enter ID'}
-                value={manualId}
-                onChange={(e) => {
-                  setManualId(e.target.value)
-                  setPreviewError(null)
-                }}
-                className="h-9"
-                autoFocus
-              />
-              <p className="text-[10px] text-muted-foreground">
-                Example: <code className="bg-muted px-1 rounded">{currentProviderOption?.example}</code>
-              </p>
-            </div>
-
-            {/* Error message */}
-            {previewError && (
-              <div className="flex items-start gap-2 p-2 rounded bg-destructive/10 text-destructive text-xs">
-                <AlertCircle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
-                <span>{previewError}</span>
-              </div>
-            )}
-
-            <Button
-              className="w-full"
-              size="sm"
-              onClick={handleManualIdSubmit}
-              disabled={!manualId.trim() || isLoadingPreview}
-            >
-              {isLoadingPreview ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Fetching metadata...
-                </>
-              ) : (
-                <>
-                  <Link2 className="h-4 w-4 mr-2" />
-                  Fetch & Link
-                </>
-              )}
-            </Button>
-          </div>
+          </ScrollArea>
         ) : (
           // Search mode
           <>
-            <div className="p-3 border-b space-y-2">
+            <div className="p-3 border-b space-y-2 shrink-0">
               <div className="flex gap-2">
                 <Input
                   placeholder="Search movies or series..."
@@ -401,7 +407,7 @@ function MetadataSearchPopover({
                 Can't find it? Enter ID manually
               </Button>
             </div>
-            <ScrollArea className="max-h-[300px]">
+            <ScrollArea className="flex-1 min-h-0">
               {isLoading && (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -700,7 +706,7 @@ export function MultiContentWizard({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden">
         {/* Step 1: File Overview */}
         {currentStep === 'files' && (
           <div className="h-full flex flex-col p-4">
@@ -710,7 +716,7 @@ export function MultiContentWizard({
                 {files.length} video file{files.length !== 1 ? 's' : ''} detected in this torrent
               </p>
             </div>
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 min-h-0">
               <div className="space-y-2 pr-4">
                 {files.map((file, index) => (
                   <div key={index} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
@@ -734,7 +740,7 @@ export function MultiContentWizard({
               <h3 className="font-medium">Link Files to Metadata</h3>
               <p className="text-sm text-muted-foreground">Search and link each file to its corresponding {metaType}</p>
             </div>
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 min-h-0">
               <div className="space-y-3 pr-4">
                 {files.map((file, index) => (
                   <FileCard
@@ -760,7 +766,7 @@ export function MultiContentWizard({
               <h3 className="font-medium">Review Import</h3>
               <p className="text-sm text-muted-foreground">Confirm the file-to-metadata mappings before importing</p>
             </div>
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 min-h-0">
               <div className="space-y-3 pr-4">
                 {files
                   .filter((f) => f.meta_id)

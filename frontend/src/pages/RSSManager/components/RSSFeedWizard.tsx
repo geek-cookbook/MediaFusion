@@ -82,8 +82,8 @@ function RegexTestModal({ open, onClose, fieldName, sourceContent, initialPatter
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-        <DialogHeader>
+      <DialogContent scrollMode="contained" className="max-w-2xl max-h-[80vh] min-h-0 overflow-hidden flex flex-col">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <FlaskConical className="h-5 w-5 text-primary" />
             Test Regex - {fieldName}
@@ -91,7 +91,7 @@ function RegexTestModal({ open, onClose, fieldName, sourceContent, initialPatter
           <DialogDescription>Test your regex pattern against the extracted content</DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 min-h-0">
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Source Content</Label>
@@ -148,7 +148,7 @@ function RegexTestModal({ open, onClose, fieldName, sourceContent, initialPatter
           </div>
         </ScrollArea>
 
-        <div className="flex justify-end gap-2 pt-4 border-t">
+        <div className="flex justify-end gap-2 pt-4 border-t shrink-0">
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
@@ -435,9 +435,12 @@ export function RSSFeedWizard({ open, onClose, feed, onSuccess }: RSSFeedWizardP
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="max-w-5xl w-[95vw] h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+        <DialogContent
+          scrollMode="contained"
+          className="max-w-5xl w-[95vw] max-h-[90vh] min-h-0 flex flex-col p-0 gap-0 overflow-hidden"
+        >
           {/* Header */}
-          <DialogHeader className="px-6 py-4 border-b bg-gradient-to-r from-primary/10 to-primary/5">
+          <DialogHeader className="px-6 py-4 border-b bg-gradient-to-r from-primary/10 to-primary/5 shrink-0">
             <DialogTitle className="flex items-center gap-2 text-xl">
               <Sparkles className="h-5 w-5 text-primary" />
               {isEdit ? 'Edit RSS Feed' : 'Add RSS Feed'}
@@ -448,7 +451,7 @@ export function RSSFeedWizard({ open, onClose, feed, onSuccess }: RSSFeedWizardP
           </DialogHeader>
 
           {/* Progress Steps */}
-          <div className="px-6 py-3 border-b bg-muted/30">
+          <div className="px-6 py-3 border-b bg-muted/30 shrink-0">
             <div className="flex items-center justify-between">
               {STEPS.map((step, index) => (
                 <div key={step.id} className="flex items-center">
@@ -998,7 +1001,7 @@ export function RSSFeedWizard({ open, onClose, feed, onSuccess }: RSSFeedWizardP
           </ScrollArea>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-6 py-4 border-t bg-muted/30">
+          <div className="flex items-center justify-between px-6 py-4 border-t bg-muted/30 shrink-0">
             <Button variant="outline" onClick={currentStepIndex === 0 ? onClose : prevStep}>
               <ArrowLeft className="mr-2 h-4 w-4" />
               {currentStepIndex === 0 ? 'Cancel' : 'Back'}

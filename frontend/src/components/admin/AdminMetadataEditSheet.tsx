@@ -256,7 +256,7 @@ export function AdminMetadataEditSheet({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-[600px] p-0 flex flex-col">
-        <SheetHeader className="px-6 py-4 border-b bg-gradient-to-r from-primary/5 to-primary/5">
+        <SheetHeader className="px-6 py-4 border-b bg-gradient-to-r from-primary/5 to-primary/5 shrink-0">
           <SheetTitle className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-gradient-to-br from-primary to-primary/80">
               <Edit className="h-4 w-4 text-white" />
@@ -273,7 +273,7 @@ export function AdminMetadataEditSheet({
         </SheetHeader>
 
         <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
-          <ScrollArea className="flex-1 px-6">
+          <ScrollArea className="flex-1 min-h-0 px-6">
             {isLoading ? (
               <div className="py-6 space-y-6">
                 {[...Array(6)].map((_, i) => (
@@ -697,7 +697,7 @@ export function AdminMetadataEditSheet({
             )}
           </ScrollArea>
 
-          <SheetFooter className="px-6 py-4 border-t bg-gradient-to-r from-primary/5 to-primary/5">
+          <SheetFooter className="px-6 py-4 border-t bg-gradient-to-r from-primary/5 to-primary/5 shrink-0">
             <div className="flex items-center justify-between w-full">
               <div className="text-sm text-muted-foreground">
                 {isDirty ? (

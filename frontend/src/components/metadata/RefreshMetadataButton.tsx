@@ -443,8 +443,11 @@ export function RefreshMetadataButton({
 
         {/* Link External ID Dialog */}
         <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
-          <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col">
-            <DialogHeader>
+          <DialogContent
+            scrollMode="contained"
+            className="sm:max-w-[700px] max-h-[90vh] flex flex-col overflow-hidden min-h-0"
+          >
+            <DialogHeader className="shrink-0">
               <DialogTitle className="flex items-center gap-2">
                 <ArrowRightLeft className="h-5 w-5 text-emerald-500" />
                 Link External Provider
@@ -454,7 +457,7 @@ export function RefreshMetadataButton({
               </DialogDescription>
             </DialogHeader>
 
-            <ScrollArea className="max-h-[60vh] pr-1">
+            <ScrollArea className="flex-1 min-h-0 pr-1">
               <div className="space-y-4 py-4">
                 {/* Current IDs */}
                 <div className="p-3 rounded-xl bg-muted/50">
@@ -805,7 +808,7 @@ export function RefreshMetadataButton({
               </div>
             </ScrollArea>
 
-            <DialogFooter className="flex-col sm:flex-row gap-2">
+            <DialogFooter className="flex-col sm:flex-row gap-2 shrink-0">
               <Button variant="outline" onClick={() => setLinkDialogOpen(false)} className="rounded-xl">
                 Cancel
               </Button>

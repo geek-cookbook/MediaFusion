@@ -770,7 +770,7 @@ export function TableBrowserTab({ initialTable }: TableBrowserTabProps) {
   // Render table items - memoized to prevent unnecessary re-renders
   const renderTableItems = useCallback(
     (onSelect?: () => void) => (
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 min-h-0">
         <div className="space-y-1 p-2">
           {tablesLoading
             ? [...Array(10)].map((_, i) => <Skeleton key={i} className="h-14 rounded-lg" />)
@@ -1228,7 +1228,7 @@ export function TableBrowserTab({ initialTable }: TableBrowserTabProps) {
               <Card className="flex-1 min-w-0 bg-card/50 border-border/50 flex flex-col overflow-hidden">
                 <CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
                   {/* Table container with both-axis scroll */}
-                  <ScrollArea className="flex-1 relative">
+                  <ScrollArea className="flex-1 min-h-0 relative">
                     <table className="w-full text-xs md:text-sm border-collapse min-w-max">
                       <thead className="sticky top-0 z-20 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
                         <tr className="border-b border-border/50">

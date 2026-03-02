@@ -418,7 +418,7 @@ export function MetadataEditSheet({ mediaId, catalogType = 'movie', trigger, onS
       </SheetTrigger>
 
       <SheetContent className="w-full sm:max-w-[540px] p-0 flex flex-col">
-        <SheetHeader className="px-6 py-4 border-b">
+        <SheetHeader className="px-6 py-4 border-b shrink-0">
           <SheetTitle className="flex items-center gap-2">
             <Edit className="h-5 w-5 text-primary" />
             Edit Metadata
@@ -426,7 +426,7 @@ export function MetadataEditSheet({ mediaId, catalogType = 'movie', trigger, onS
           <SheetDescription>Suggest corrections to this content's information</SheetDescription>
         </SheetHeader>
 
-        <ScrollArea className="flex-1 px-6">
+        <ScrollArea className="flex-1 min-h-0 px-6">
           {isLoading ? (
             <div className="py-6 space-y-6">
               {[...Array(5)].map((_, i) => (
@@ -858,7 +858,7 @@ export function MetadataEditSheet({ mediaId, catalogType = 'movie', trigger, onS
           )}
         </ScrollArea>
 
-        <SheetFooter className="px-6 py-4 border-t">
+        <SheetFooter className="px-6 py-4 border-t shrink-0">
           <div className="flex items-center justify-between w-full">
             <div className="text-sm text-muted-foreground">
               {modifiedCount > 0 ? (

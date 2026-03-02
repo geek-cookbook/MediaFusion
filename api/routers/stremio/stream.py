@@ -10,11 +10,9 @@ from fastapi import (
     Request,
     Response,
 )
-from sqlmodel.ext.asyncio.session import AsyncSession
 
 from db import crud, schemas
 from db.config import settings
-from db.database import get_read_session
 from utils import const, wrappers
 from utils.network import (
     get_request_namespace,
@@ -62,7 +60,6 @@ async def get_streams(
     episode: int = None,
     user_data: schemas.UserData = Depends(get_user_data),
     background_tasks: BackgroundTasks = BackgroundTasks(),
-    session: AsyncSession = Depends(get_read_session),
 ):
     """Get streams for a specific video."""
     if "p2p" in settings.disabled_providers and not user_data.has_any_provider():
@@ -89,7 +86,6 @@ async def get_streams(
                 raise HTTPException(status_code=404, detail="Meta ID not found.")
         else:
             fetched_streams = await crud.get_movie_streams(
-                session,
                 video_id,
                 user_data,
                 secret_str,
@@ -100,7 +96,6 @@ async def get_streams(
             fetched_streams.extend(user_feeds)
     elif catalog_type == "series":
         fetched_streams = await crud.get_series_streams(
-            session,
             video_id,
             season,
             episode,
@@ -116,8 +111,6 @@ async def get_streams(
         response.headers.update(const.NO_CACHE_HEADERS)
     else:
         response.headers.update(const.NO_CACHE_HEADERS)
-        fetched_streams = await crud.get_tv_streams_formatted(
-            session, video_id, get_request_namespace(request), user_data
-        )
+        fetched_streams = await crud.get_tv_streams_formatted(video_id, get_request_namespace(request), user_data)
 
     return {"streams": fetched_streams}

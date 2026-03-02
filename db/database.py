@@ -35,6 +35,28 @@ def _get_running_loop_id() -> int | None:
         return None
 
 
+def _derive_pool_sizes() -> tuple[int, int]:
+    """Derive per-process pool sizes from DB_MAX_CONNECTIONS.
+
+    DB_MAX_CONNECTIONS is treated as the total connection budget for one app
+    instance (all workers + engines combined). We divide that budget by the
+    configured Gunicorn worker count and active engine count (primary + read
+    replica when configured), then split each engine budget into:
+    - pool_size: 75% steady-state connections
+    - max_overflow: 25% burst capacity
+    """
+    total_budget = max(1, settings.db_max_connections)
+    worker_count = max(1, settings.gunicorn_workers)
+    engine_count = 2 if settings.postgres_read_uri else 1
+
+    per_worker_budget = max(1, total_budget // worker_count)
+    per_engine_budget = max(1, per_worker_budget // engine_count)
+
+    pool_size = max(1, (per_engine_budget * 3) // 4)
+    max_overflow = max(0, per_engine_budget - pool_size)
+    return pool_size, max_overflow
+
+
 def _install_asyncpg_guards(engine: AsyncEngine) -> None:
     """Register pool/engine events to harden asyncpg connections.
 
@@ -74,11 +96,12 @@ def _install_asyncpg_guards(engine: AsyncEngine) -> None:
 
 
 def _create_primary_engine() -> AsyncEngine:
+    pool_size, max_overflow = _derive_pool_sizes()
     engine = create_async_engine(
         settings.postgres_uri,
         echo=False,
-        pool_size=20,
-        max_overflow=30,
+        pool_size=pool_size,
+        max_overflow=max_overflow,
         pool_pre_ping=True,
         pool_recycle=300,
         pool_timeout=30,
@@ -89,11 +112,12 @@ def _create_primary_engine() -> AsyncEngine:
 
 def _create_read_engine() -> AsyncEngine:
     if settings.postgres_read_uri:
+        pool_size, max_overflow = _derive_pool_sizes()
         engine = create_async_engine(
             settings.postgres_read_uri,
             echo=False,
-            pool_size=30,
-            max_overflow=40,
+            pool_size=pool_size,
+            max_overflow=max_overflow,
             pool_pre_ping=True,
             pool_recycle=300,
             pool_timeout=30,

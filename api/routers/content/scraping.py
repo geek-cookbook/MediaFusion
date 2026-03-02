@@ -18,7 +18,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from api.routers.user.auth import require_auth
 from db import crud
-from db.database import get_async_session
+from db.database import get_async_session, get_async_session_context, get_read_session_context
 from db.enums import UserRole
 from db.models import Media, MediaExternalID, User, UserProfile
 from db.redis_database import REDIS_ASYNC_CLIENT
@@ -686,7 +686,6 @@ async def trigger_scrape(
     media_id: int,
     request: ScrapeRequest,
     user: User = Depends(require_auth),
-    session: AsyncSession = Depends(get_async_session),
 ):
     """
     Trigger scraping for a media item.
@@ -713,56 +712,74 @@ async def trigger_scrape(
                 detail="Season and episode are required for series scraping.",
             )
 
-    # Get the media record with external IDs and aka_titles
-    query = (
-        select(Media)
-        .where(Media.id == media_id)
-        .options(
-            selectinload(Media.external_ids),
-            selectinload(Media.aka_titles),
+    media_title: str | None = None
+    media_original_title: str | None = None
+    media_year: int | None = None
+    media_release_date = None
+    external_ids_obj: ExternalIDs | None = None
+    aka_titles_list: list[str] = []
+
+    # Read all DB data in a short-lived session before long scraper I/O.
+    async with get_read_session_context() as read_session:
+        query = (
+            select(Media)
+            .where(Media.id == media_id)
+            .options(
+                selectinload(Media.external_ids),
+                selectinload(Media.aka_titles),
+            )
         )
-    )
-    result = await session.exec(query)
-    media = result.first()
-    if not media:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Media with ID {media_id} not found.",
+        result = await read_session.exec(query)
+        media = result.first()
+        if not media:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Media with ID {media_id} not found.",
+            )
+
+        media_title = media.title
+        media_original_title = media.original_title
+        media_year = media.year
+        media_release_date = media.release_date
+        aka_titles_list = [aka.title for aka in media.aka_titles] if media.aka_titles else []
+
+        # Build external_ids dict
+        external_ids: dict[str, str] = {}
+        for ext_id in media.external_ids:
+            external_ids[ext_id.provider] = ext_id.external_id
+
+        if not external_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No external IDs found for this media. Link an external ID first.",
+            )
+
+        # Get canonical external ID for cache key - prefer IMDb
+        meta_id = None
+        if external_ids.get("imdb"):
+            meta_id = external_ids["imdb"]
+        elif external_ids.get("tmdb"):
+            meta_id = f"tmdb:{external_ids['tmdb']}"
+        elif external_ids.get("tvdb"):
+            meta_id = f"tvdb:{external_ids['tvdb']}"
+        else:
+            meta_id = f"mf:{media_id}"
+
+        # Build ExternalIDs object from eagerly loaded external IDs
+        external_ids_obj = ExternalIDs.from_db(media.external_ids) if media.external_ids else None
+
+        # Get user's profile for debrid service and indexer config
+        user_data, has_debrid, streaming_provider = await get_user_data_from_profile(read_session, user)
+        streaming_provider = streaming_provider or set()
+
+        # Get user's indexer config from profile
+        indexer_config = None
+        profile_result = await read_session.exec(
+            select(UserProfile).where(UserProfile.user_id == user.id, UserProfile.is_default == True)
         )
-
-    # Build external_ids dict
-    external_ids: dict[str, str] = {}
-    for ext_id in media.external_ids:
-        external_ids[ext_id.provider] = ext_id.external_id
-
-    if not external_ids:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No external IDs found for this media. Link an external ID first.",
-        )
-
-    # Get canonical external ID for cache key - prefer IMDb
-    meta_id = None
-    if external_ids.get("imdb"):
-        meta_id = external_ids["imdb"]
-    elif external_ids.get("tmdb"):
-        meta_id = f"tmdb:{external_ids['tmdb']}"
-    elif external_ids.get("tvdb"):
-        meta_id = f"tvdb:{external_ids['tvdb']}"
-    else:
-        meta_id = f"mf:{media_id}"
-
-    # Get user's profile for debrid service and indexer config
-    user_data, has_debrid, streaming_provider = await get_user_data_from_profile(session, user)
-
-    # Get user's indexer config from profile
-    indexer_config = None
-    profile_result = await session.exec(
-        select(UserProfile).where(UserProfile.user_id == user.id, UserProfile.is_default == True)
-    )
-    default_profile = profile_result.first()
-    if default_profile and default_profile.config:
-        indexer_config = default_profile.config.get("ic")
+        default_profile = profile_result.first()
+        if default_profile and default_profile.config:
+            indexer_config = default_profile.config.get("ic")
 
     # Determine which scrapers to use based on request and user config
     requested_scrapers = request.scrapers
@@ -831,21 +848,15 @@ async def trigger_scrape(
             indexer_config=indexer_config,
         )
 
-    # Extract aka_titles safely (already eagerly loaded)
-    aka_titles_list = [aka.title for aka in media.aka_titles] if media.aka_titles else []
-
-    # Build ExternalIDs object from the eagerly loaded external_ids
-    external_ids_obj = ExternalIDs.from_db(media.external_ids) if media.external_ids else None
-
     # Build metadata for scrapers
     metadata = MetadataData(
         id=media.id,
         external_id=meta_id,
         type=request.media_type,
-        title=media.title,
-        original_title=media.original_title,
-        year=media.year,
-        release_date=media.release_date,
+        title=media_title,
+        original_title=media_original_title,
+        year=media_year,
+        release_date=media_release_date,
         aka_titles=aka_titles_list,
         external_ids=external_ids_obj,
     )
@@ -902,41 +913,41 @@ async def trigger_scrape(
 
     streams_count = len(torrent_streams) + len(usenet_streams)
 
-    # Store scraped torrent streams in database
-    if torrent_streams:
-        try:
-            stored_count = await crud.store_new_torrent_streams(
-                session,
-                [s.model_dump(by_alias=True) for s in torrent_streams],
-            )
-            logger.info(f"Stored {stored_count} new torrent streams for media_id={media_id}")
-        except Exception as e:
-            logger.exception(f"Error storing torrent streams for media {media_id}: {e}")
-            # Don't fail the request, just log the error
-
-    # Store scraped Usenet streams in database
-    if usenet_streams:
-        try:
-            stored_count = await crud.store_new_usenet_streams(
-                session,
-                [s.model_dump(by_alias=True) for s in usenet_streams],
-            )
-            logger.info(f"Stored {stored_count} new Usenet streams for media_id={media_id}")
-        except Exception as e:
-            logger.exception(f"Error storing Usenet streams for media {media_id}: {e}")
-            # Don't fail the request, just log the error
-
-    # Update last_scraped_at
     scraped_at = datetime.now(pytz.UTC)
-    await session.exec(
-        sa_update(Media)
-        .where(Media.id == media_id)
-        .values(
-            last_scraped_at=scraped_at,
-            last_scraped_by_user_id=user.id,
+    async with get_async_session_context() as write_session:
+        # Store scraped torrent streams in database
+        if torrent_streams:
+            try:
+                stored_count = await crud.store_new_torrent_streams(
+                    write_session,
+                    [s.model_dump(by_alias=True) for s in torrent_streams],
+                )
+                logger.info(f"Stored {stored_count} new torrent streams for media_id={media_id}")
+            except Exception as e:
+                logger.exception(f"Error storing torrent streams for media {media_id}: {e}")
+                # Don't fail the request, just log the error
+
+        # Store scraped Usenet streams in database
+        if usenet_streams:
+            try:
+                stored_count = await crud.store_new_usenet_streams(
+                    write_session,
+                    [s.model_dump(by_alias=True) for s in usenet_streams],
+                )
+                logger.info(f"Stored {stored_count} new Usenet streams for media_id={media_id}")
+            except Exception as e:
+                logger.exception(f"Error storing Usenet streams for media {media_id}: {e}")
+                # Don't fail the request, just log the error
+
+        await write_session.exec(
+            sa_update(Media)
+            .where(Media.id == media_id)
+            .values(
+                last_scraped_at=scraped_at,
+                last_scraped_by_user_id=user.id,
+            )
         )
-    )
-    await session.commit()
+        await write_session.commit()
 
     logger.info(
         f"User {user.id} triggered scrape for media_id={media_id}, "
@@ -947,7 +958,7 @@ async def trigger_scrape(
         status="success",
         message=f"Scraping completed. Found {streams_count} streams.",
         media_id=media_id,
-        title=media.title,
+        title=media_title,
         streams_found=streams_count,
         scraped_at=scraped_at,
         scrapers_used=scrapers_available,

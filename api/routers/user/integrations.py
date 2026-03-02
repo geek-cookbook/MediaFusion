@@ -26,7 +26,7 @@ from api.services.sync import (
     get_simkl_auth_url,
     get_trakt_auth_url,
 )
-from db.database import get_async_session, get_read_session
+from db.database import get_async_session, get_async_session_context, get_read_session, get_read_session_context
 from db.enums import IntegrationType, SyncDirection
 from db.models import ProfileIntegration, User, UserProfile
 from db.schemas.config import SimklConfig, TraktConfig
@@ -253,10 +253,10 @@ async def connect_trakt(
     data: TraktConnectRequest,
     profile_id: int = Query(..., description="Profile ID"),
     user: User = Depends(require_auth),
-    session: AsyncSession = Depends(get_async_session),
 ):
     """Connect Trakt account using authorization code."""
-    await get_profile_for_user(session, user, profile_id)
+    async with get_read_session_context() as read_session:
+        await get_profile_for_user(read_session, user, profile_id)
 
     # Exchange code for token
     config = await exchange_trakt_code(data.code, data.client_id, data.client_secret)
@@ -266,9 +266,6 @@ async def connect_trakt(
             detail="Failed to connect Trakt. Invalid or expired code.",
         )
 
-    # Check if integration already exists
-    existing = await get_integration(session, profile_id, IntegrationType.TRAKT)
-
     # Prepare credentials
     credentials = {
         "access_token": config.access_token,
@@ -278,26 +275,30 @@ async def connect_trakt(
         "client_secret": config.client_secret,
     }
 
-    if existing:
-        # Update existing
-        existing.encrypted_credentials = encrypt_credentials(credentials)
-        existing.is_enabled = True
-        existing.settings = {"min_watch_percent": config.min_watch_percent}
-        session.add(existing)
-    else:
-        # Create new
-        integration = ProfileIntegration(
-            profile_id=profile_id,
-            platform=IntegrationType.TRAKT,
-            encrypted_credentials=encrypt_credentials(credentials),
-            is_enabled=True,
-            sync_direction="two_way",
-            scrobble_enabled=True,
-            settings={"min_watch_percent": 80},
-        )
-        session.add(integration)
+    async with get_async_session_context() as write_session:
+        # Check if integration already exists
+        existing = await get_integration(write_session, profile_id, IntegrationType.TRAKT)
 
-    await session.commit()
+        if existing:
+            # Update existing
+            existing.encrypted_credentials = encrypt_credentials(credentials)
+            existing.is_enabled = True
+            existing.settings = {"min_watch_percent": config.min_watch_percent}
+            write_session.add(existing)
+        else:
+            # Create new
+            integration = ProfileIntegration(
+                profile_id=profile_id,
+                platform=IntegrationType.TRAKT,
+                encrypted_credentials=encrypt_credentials(credentials),
+                is_enabled=True,
+                sync_direction="two_way",
+                scrobble_enabled=True,
+                settings={"min_watch_percent": 80},
+            )
+            write_session.add(integration)
+
+        await write_session.commit()
 
     return {"message": "Trakt connected successfully", "platform": "trakt"}
 
@@ -307,10 +308,10 @@ async def connect_simkl(
     data: SimklConnectRequest,
     profile_id: int = Query(..., description="Profile ID"),
     user: User = Depends(require_auth),
-    session: AsyncSession = Depends(get_async_session),
 ):
     """Connect Simkl account using authorization code."""
-    await get_profile_for_user(session, user, profile_id)
+    async with get_read_session_context() as read_session:
+        await get_profile_for_user(read_session, user, profile_id)
 
     # Exchange code for token
     config = await exchange_simkl_code(data.code, data.client_id, data.client_secret)
@@ -319,9 +320,6 @@ async def connect_simkl(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Failed to connect Simkl. Invalid or expired code.",
         )
-
-    # Check if integration already exists
-    existing = await get_integration(session, profile_id, IntegrationType.SIMKL)
 
     # Prepare credentials
     credentials = {
@@ -332,25 +330,29 @@ async def connect_simkl(
         "client_secret": config.client_secret,
     }
 
-    if existing:
-        # Update existing
-        existing.encrypted_credentials = encrypt_credentials(credentials)
-        existing.is_enabled = True
-        session.add(existing)
-    else:
-        # Create new
-        integration = ProfileIntegration(
-            profile_id=profile_id,
-            platform=IntegrationType.SIMKL,
-            encrypted_credentials=encrypt_credentials(credentials),
-            is_enabled=True,
-            sync_direction="two_way",
-            scrobble_enabled=False,  # Simkl doesn't support real-time scrobbling
-            settings={},
-        )
-        session.add(integration)
+    async with get_async_session_context() as write_session:
+        # Check if integration already exists
+        existing = await get_integration(write_session, profile_id, IntegrationType.SIMKL)
 
-    await session.commit()
+        if existing:
+            # Update existing
+            existing.encrypted_credentials = encrypt_credentials(credentials)
+            existing.is_enabled = True
+            write_session.add(existing)
+        else:
+            # Create new
+            integration = ProfileIntegration(
+                profile_id=profile_id,
+                platform=IntegrationType.SIMKL,
+                encrypted_credentials=encrypt_credentials(credentials),
+                is_enabled=True,
+                sync_direction="two_way",
+                scrobble_enabled=False,  # Simkl doesn't support real-time scrobbling
+                settings={},
+            )
+            write_session.add(integration)
+
+        await write_session.commit()
 
     return {"message": "Simkl connected successfully", "platform": "simkl"}
 

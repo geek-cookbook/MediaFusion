@@ -2,11 +2,10 @@
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Request, Response
 from pydantic import ValidationError
-from sqlmodel.ext.asyncio.session import AsyncSession
 
 from db import crud, public_schemas
 from db.config import settings
-from db.database import get_read_session
+from db.database import get_read_session_context
 from db.enums import MediaType
 from db.redis_database import REDIS_ASYNC_CLIENT
 from db.schemas import UserData
@@ -146,7 +145,6 @@ async def get_catalog(
     skip: int = 0,
     genre: str = None,
     user_data: UserData = Depends(get_user_data),
-    session: AsyncSession = Depends(get_read_session),
     background_tasks: BackgroundTasks = BackgroundTasks(),
 ) -> public_schemas.Metas:
     """
@@ -226,16 +224,17 @@ async def get_catalog(
                 None,
             )
             if list_config:
-                meta_list = await crud.get_mdblist_meta_list(
-                    session=session,
-                    user_data=user_data,
-                    background_tasks=background_tasks,
-                    list_config=list_config,
-                    catalog_type=catalog_type.value,
-                    genre=genre,
-                    skip=skip,
-                    limit=50,
-                )
+                async with get_read_session_context() as session:
+                    meta_list = await crud.get_mdblist_meta_list(
+                        session=session,
+                        user_data=user_data,
+                        background_tasks=background_tasks,
+                        list_config=list_config,
+                        catalog_type=catalog_type.value,
+                        genre=genre,
+                        skip=skip,
+                        limit=50,
+                    )
                 metas = public_schemas.Metas(metas=meta_list)
                 # Cache result if applicable
                 if cache_key:
@@ -249,19 +248,20 @@ async def get_catalog(
         return public_schemas.Metas(metas=[])
 
     # Get metadata list with sorting preferences
-    metas = await crud.get_catalog_meta_list(
-        session=session,
-        catalog_type=catalog_type,
-        catalog_id=catalog_id,
-        user_data=user_data,
-        skip=skip,
-        genre=genre,
-        namespace=namespace,
-        is_watchlist_catalog=is_watchlist_catalog,
-        info_hashes=info_hashes,
-        sort=sort,
-        sort_dir=sort_dir,
-    )
+    async with get_read_session_context() as session:
+        metas = await crud.get_catalog_meta_list(
+            session=session,
+            catalog_type=catalog_type,
+            catalog_id=catalog_id,
+            user_data=user_data,
+            skip=skip,
+            genre=genre,
+            namespace=namespace,
+            is_watchlist_catalog=is_watchlist_catalog,
+            info_hashes=info_hashes,
+            sort=sort,
+            sort_dir=sort_dir,
+        )
 
     # Handle watchlist special case: add "Delete All" option for providers that support it
     if (

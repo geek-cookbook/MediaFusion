@@ -20,7 +20,7 @@ from api.routers.content.torrent_import import fetch_and_create_media_from_exter
 from db.crud.media import get_media_by_external_id
 from db.crud.reference import get_or_create_language
 from db.crud.streams import create_http_stream, get_http_stream_by_url_for_media
-from db.database import get_async_session
+from db.database import get_async_session_context
 from db.enums import ContributionStatus, MediaType, UserRole
 from db.models import Contribution, Media, Stream, User
 from db.models.streams import (
@@ -400,7 +400,6 @@ async def import_http_stream(
     is_anonymous: bool | None = Form(None),  # None means use user's preference
     anonymous_display_name: str | None = Form(None),
     user: User = Depends(require_auth),
-    session: AsyncSession = Depends(get_async_session),
 ):
     """
     Import an HTTP URL as a stream.
@@ -485,44 +484,45 @@ async def import_http_stream(
         initial_status = ContributionStatus.APPROVED if should_auto_approve else ContributionStatus.PENDING
         contribution_data["is_public"] = should_auto_approve
 
-        contribution = Contribution(
-            user_id=None if resolved_is_anonymous else user.id,
-            contribution_type="http",
-            target_id=meta_id,
-            data=contribution_data,
-            status=initial_status,
-            reviewed_by="auto" if should_auto_approve else None,
-            reviewed_at=datetime.now(pytz.UTC) if should_auto_approve else None,
-            review_notes=(
-                "Auto-approved: Privileged reviewer"
-                if is_privileged_reviewer
-                else ("Auto-approved: Active user HTTP import" if should_auto_approve else None)
-            ),
-        )
-
-        session.add(contribution)
-        await session.flush()
-        if should_auto_approve:
-            await award_import_approval_points(
-                session,
-                contribution.user_id,
-                contribution.contribution_type,
-                logger,
-            )
-
         import_result = None
-        try:
-            import_result = await process_http_import(session, contribution_data, user)
-        except Exception as e:
-            logger.error(f"Failed to process HTTP import: {e}")
-            contribution.review_notes = (
-                f"Auto-approved but import failed: {str(e)}"
-                if should_auto_approve
-                else f"Pending private stream creation failed: {str(e)}"
+        async with get_async_session_context() as session:
+            contribution = Contribution(
+                user_id=None if resolved_is_anonymous else user.id,
+                contribution_type="http",
+                target_id=meta_id,
+                data=contribution_data,
+                status=initial_status,
+                reviewed_by="auto" if should_auto_approve else None,
+                reviewed_at=datetime.now(pytz.UTC) if should_auto_approve else None,
+                review_notes=(
+                    "Auto-approved: Privileged reviewer"
+                    if is_privileged_reviewer
+                    else ("Auto-approved: Active user HTTP import" if should_auto_approve else None)
+                ),
             )
 
-        await session.commit()
-        await session.refresh(contribution)
+            session.add(contribution)
+            await session.flush()
+            if should_auto_approve:
+                await award_import_approval_points(
+                    session,
+                    contribution.user_id,
+                    contribution.contribution_type,
+                    logger,
+                )
+
+            try:
+                import_result = await process_http_import(session, contribution_data, user)
+            except Exception as e:
+                logger.error(f"Failed to process HTTP import: {e}")
+                contribution.review_notes = (
+                    f"Auto-approved but import failed: {str(e)}"
+                    if should_auto_approve
+                    else f"Pending private stream creation failed: {str(e)}"
+                )
+
+            await session.commit()
+            await session.refresh(contribution)
         await _notify_pending_contribution(
             contribution,
             user,

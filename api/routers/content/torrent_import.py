@@ -26,7 +26,7 @@ from db.crud.media import (
 )
 from db.crud.reference import get_or_create_language
 from db.crud.scraper_helpers import get_or_create_metadata
-from db.database import get_async_session
+from db.database import get_async_session_context
 from db.enums import ContributionStatus, MediaType, TorrentType, UserRole
 from db.models import Contribution, Media, Stream, StreamFile, StreamMediaLink, User
 from db.models.streams import (
@@ -671,7 +671,6 @@ async def import_magnet(
     is_anonymous: bool | None = Form(None),  # None means use user's preference
     anonymous_display_name: str | None = Form(None),
     user: User = Depends(require_auth),
-    session: AsyncSession = Depends(get_async_session),
 ):
     """
     Import a magnet link.
@@ -704,27 +703,30 @@ async def import_magnet(
 
     # Check if torrent already exists
     if not force_import:
-        existing = await session.exec(select(TorrentStream).where(TorrentStream.info_hash == info_hash))
-        existing_torrent = existing.first()
-        if existing_torrent:
-            attachment_details = {"count": 0, "items": []}
-            try:
-                attachment_details = await _get_stream_media_attachment_details(session, existing_torrent.stream_id)
-            except Exception as error:
-                logger.warning("Failed to resolve duplicate torrent attachment details for %s: %s", info_hash, error)
+        async with get_async_session_context() as session:
+            existing = await session.exec(select(TorrentStream).where(TorrentStream.info_hash == info_hash))
+            existing_torrent = existing.first()
+            if existing_torrent:
+                attachment_details = {"count": 0, "items": []}
+                try:
+                    attachment_details = await _get_stream_media_attachment_details(session, existing_torrent.stream_id)
+                except Exception as error:
+                    logger.warning(
+                        "Failed to resolve duplicate torrent attachment details for %s: %s", info_hash, error
+                    )
 
-            return ImportResponse(
-                status="warning",
-                message=_build_existing_torrent_warning_message(info_hash, attachment_details),
-                details={
-                    "reason": "already_exists",
-                    "action": "skipped",
-                    "info_hash": info_hash,
-                    "existing_stream_id": existing_torrent.stream_id,
-                    "attached_media_count": attachment_details.get("count", 0),
-                    "attached_media": attachment_details.get("items", []),
-                },
-            )
+                return ImportResponse(
+                    status="warning",
+                    message=_build_existing_torrent_warning_message(info_hash, attachment_details),
+                    details={
+                        "reason": "already_exists",
+                        "action": "skipped",
+                        "info_hash": info_hash,
+                        "existing_stream_id": existing_torrent.stream_id,
+                        "attached_media_count": attachment_details.get("count", 0),
+                        "attached_media": attachment_details.get("items", []),
+                    },
+                )
 
     try:
         # Fetch basic metadata from P2P
@@ -778,44 +780,45 @@ async def import_magnet(
         initial_status = ContributionStatus.APPROVED if should_auto_approve else ContributionStatus.PENDING
         contribution_data["is_public"] = should_auto_approve
 
-        contribution = Contribution(
-            user_id=None if resolved_is_anonymous else user.id,
-            contribution_type="torrent",
-            target_id=meta_id,
-            data=contribution_data,
-            status=initial_status,
-            reviewed_by="auto" if should_auto_approve else None,
-            reviewed_at=datetime.now(pytz.UTC) if should_auto_approve else None,
-            review_notes=(
-                "Auto-approved: Privileged reviewer"
-                if is_privileged_reviewer
-                else ("Auto-approved: Active user content import" if should_auto_approve else None)
-            ),
-        )
-
-        session.add(contribution)
-        await session.flush()
-        if should_auto_approve:
-            await award_import_approval_points(
-                session,
-                contribution.user_id,
-                contribution.contribution_type,
-                logger,
-            )
-
         import_result = None
-        try:
-            import_result = await process_torrent_import(session, contribution_data, user)
-        except Exception as e:
-            logger.error(f"Failed to process torrent import: {e}")
-            contribution.review_notes = (
-                f"Auto-approved but import failed: {str(e)}"
-                if should_auto_approve
-                else f"Pending private stream creation failed: {str(e)}"
+        async with get_async_session_context() as session:
+            contribution = Contribution(
+                user_id=None if resolved_is_anonymous else user.id,
+                contribution_type="torrent",
+                target_id=meta_id,
+                data=contribution_data,
+                status=initial_status,
+                reviewed_by="auto" if should_auto_approve else None,
+                reviewed_at=datetime.now(pytz.UTC) if should_auto_approve else None,
+                review_notes=(
+                    "Auto-approved: Privileged reviewer"
+                    if is_privileged_reviewer
+                    else ("Auto-approved: Active user content import" if should_auto_approve else None)
+                ),
             )
 
-        await session.commit()
-        await session.refresh(contribution)
+            session.add(contribution)
+            await session.flush()
+            if should_auto_approve:
+                await award_import_approval_points(
+                    session,
+                    contribution.user_id,
+                    contribution.contribution_type,
+                    logger,
+                )
+
+            try:
+                import_result = await process_torrent_import(session, contribution_data, user)
+            except Exception as e:
+                logger.error(f"Failed to process torrent import: {e}")
+                contribution.review_notes = (
+                    f"Auto-approved but import failed: {str(e)}"
+                    if should_auto_approve
+                    else f"Pending private stream creation failed: {str(e)}"
+                )
+
+            await session.commit()
+            await session.refresh(contribution)
         await _notify_pending_contribution(
             contribution,
             user,
@@ -886,7 +889,6 @@ async def import_torrent_file(
     is_anonymous: bool | None = Form(None),  # None means use user's preference
     anonymous_display_name: str | None = Form(None),
     user: User = Depends(require_auth),
-    session: AsyncSession = Depends(get_async_session),
 ):
     """
     Import a torrent file.
@@ -928,29 +930,32 @@ async def import_torrent_file(
 
         # Check if torrent already exists
         if not force_import:
-            existing = await session.exec(select(TorrentStream).where(TorrentStream.info_hash == info_hash))
-            existing_torrent = existing.first()
-            if existing_torrent:
-                attachment_details = {"count": 0, "items": []}
-                try:
-                    attachment_details = await _get_stream_media_attachment_details(session, existing_torrent.stream_id)
-                except Exception as error:
-                    logger.warning(
-                        "Failed to resolve duplicate torrent attachment details for %s: %s", info_hash, error
-                    )
+            async with get_async_session_context() as session:
+                existing = await session.exec(select(TorrentStream).where(TorrentStream.info_hash == info_hash))
+                existing_torrent = existing.first()
+                if existing_torrent:
+                    attachment_details = {"count": 0, "items": []}
+                    try:
+                        attachment_details = await _get_stream_media_attachment_details(
+                            session, existing_torrent.stream_id
+                        )
+                    except Exception as error:
+                        logger.warning(
+                            "Failed to resolve duplicate torrent attachment details for %s: %s", info_hash, error
+                        )
 
-                return ImportResponse(
-                    status="warning",
-                    message=_build_existing_torrent_warning_message(info_hash, attachment_details),
-                    details={
-                        "reason": "already_exists",
-                        "action": "skipped",
-                        "info_hash": info_hash,
-                        "existing_stream_id": existing_torrent.stream_id,
-                        "attached_media_count": attachment_details.get("count", 0),
-                        "attached_media": attachment_details.get("items", []),
-                    },
-                )
+                    return ImportResponse(
+                        status="warning",
+                        message=_build_existing_torrent_warning_message(info_hash, attachment_details),
+                        details={
+                            "reason": "already_exists",
+                            "action": "skipped",
+                            "info_hash": info_hash,
+                            "existing_stream_id": existing_torrent.stream_id,
+                            "attached_media_count": attachment_details.get("count", 0),
+                            "attached_media": attachment_details.get("items", []),
+                        },
+                    )
 
         # Parse file_data if provided, otherwise use from torrent
         parsed_file_data = []
@@ -991,44 +996,45 @@ async def import_torrent_file(
         initial_status = ContributionStatus.APPROVED if should_auto_approve else ContributionStatus.PENDING
         contribution_data["is_public"] = should_auto_approve
 
-        contribution = Contribution(
-            user_id=None if resolved_is_anonymous else user.id,
-            contribution_type="torrent",
-            target_id=meta_id,
-            data=contribution_data,
-            status=initial_status,
-            reviewed_by="auto" if should_auto_approve else None,
-            reviewed_at=datetime.now(pytz.UTC) if should_auto_approve else None,
-            review_notes=(
-                "Auto-approved: Privileged reviewer"
-                if is_privileged_reviewer
-                else ("Auto-approved: Active user content import" if should_auto_approve else None)
-            ),
-        )
-
-        session.add(contribution)
-        await session.flush()
-        if should_auto_approve:
-            await award_import_approval_points(
-                session,
-                contribution.user_id,
-                contribution.contribution_type,
-                logger,
-            )
-
         import_result = None
-        try:
-            import_result = await process_torrent_import(session, contribution_data, user)
-        except Exception as e:
-            logger.error(f"Failed to process torrent import: {e}")
-            contribution.review_notes = (
-                f"Auto-approved but import failed: {str(e)}"
-                if should_auto_approve
-                else f"Pending private stream creation failed: {str(e)}"
+        async with get_async_session_context() as session:
+            contribution = Contribution(
+                user_id=None if resolved_is_anonymous else user.id,
+                contribution_type="torrent",
+                target_id=meta_id,
+                data=contribution_data,
+                status=initial_status,
+                reviewed_by="auto" if should_auto_approve else None,
+                reviewed_at=datetime.now(pytz.UTC) if should_auto_approve else None,
+                review_notes=(
+                    "Auto-approved: Privileged reviewer"
+                    if is_privileged_reviewer
+                    else ("Auto-approved: Active user content import" if should_auto_approve else None)
+                ),
             )
 
-        await session.commit()
-        await session.refresh(contribution)
+            session.add(contribution)
+            await session.flush()
+            if should_auto_approve:
+                await award_import_approval_points(
+                    session,
+                    contribution.user_id,
+                    contribution.contribution_type,
+                    logger,
+                )
+
+            try:
+                import_result = await process_torrent_import(session, contribution_data, user)
+            except Exception as e:
+                logger.error(f"Failed to process torrent import: {e}")
+                contribution.review_notes = (
+                    f"Auto-approved but import failed: {str(e)}"
+                    if should_auto_approve
+                    else f"Pending private stream creation failed: {str(e)}"
+                )
+
+            await session.commit()
+            await session.refresh(contribution)
         await _notify_pending_contribution(
             contribution,
             user,

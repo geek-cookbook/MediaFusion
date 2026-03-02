@@ -6,13 +6,13 @@ import random
 from io import BytesIO
 from urllib.parse import unquote
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from db import crud, schemas
-from db.database import get_read_session
+from db.database import get_read_session_context
 from db.models.links import MediaGenreLink
 from db.models.reference import Genre
 from db.redis_database import REDIS_ASYNC_CLIENT
@@ -78,7 +78,6 @@ async def _get_sports_poster_url(session: AsyncSession, media_id: int) -> str | 
 async def get_poster(
     catalog_type: str,
     mediafusion_id: str,
-    session: AsyncSession = Depends(get_read_session),
 ):
     """Get poster image for a media item."""
     # Ensure the mediafusion_id is URL-decoded (e.g. mf%3A955480 -> mf:955480)
@@ -110,22 +109,23 @@ async def get_poster(
         imdb_rating = None
         is_add_title_to_poster = mediafusion_data.is_add_title_to_poster
     else:
-        # Get from database - returns Media model directly (new schema)
-        media = await crud.get_metadata_by_id(session, mediafusion_id)
-        if not media:
-            return raise_poster_error("MediaFusion ID not found.")
+        async with get_read_session_context() as session:
+            # Get from database - returns Media model directly (new schema)
+            media = await crud.get_metadata_by_id(session, mediafusion_id)
+            if not media:
+                return raise_poster_error("MediaFusion ID not found.")
 
-        # Get poster from MediaImage table (v5 schema)
-        poster_image = await crud.get_primary_image(session, media.id, "poster")
-        poster_url = poster_image.url if poster_image else None
-        meta_id = await crud.get_canonical_external_id(session, media.id)
-        title = media.title
-        imdb_rating = None  # Now in MediaRating table
-        is_add_title_to_poster = media.is_add_title_to_poster
+            # Get poster from MediaImage table (v5 schema)
+            poster_image = await crud.get_primary_image(session, media.id, "poster")
+            poster_url = poster_image.url if poster_image else None
+            meta_id = await crud.get_canonical_external_id(session, media.id)
+            title = media.title
+            imdb_rating = None  # Now in MediaRating table
+            is_add_title_to_poster = media.is_add_title_to_poster
 
-        # For sports content with no stored poster, pick a random one from sports artifacts
-        if not poster_url and is_add_title_to_poster:
-            poster_url = await _get_sports_poster_url(session, media.id)
+            # For sports content with no stored poster, pick a random one from sports artifacts
+            if not poster_url and is_add_title_to_poster:
+                poster_url = await _get_sports_poster_url(session, media.id)
 
     if not poster_url:
         return raise_poster_error("Poster not found.")

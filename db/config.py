@@ -103,6 +103,10 @@ class Settings(BaseSettings):
     min_scraping_video_size: int = 26214400  # 25 MB in bytes
     metadata_primary_source: Literal["imdb", "tmdb"] = "imdb"
     startup_migrate_only: bool = False  # Skip startup DB bootstrap checks; run Alembic + Gunicorn only
+    gunicorn_workers: int = Field(default=3, ge=1)  # Gunicorn worker process count
+    gunicorn_timeout: int = Field(default=120, ge=1)  # Gunicorn worker timeout in seconds
+    gunicorn_max_requests: int = Field(default=5000, ge=1)  # Max requests before Gunicorn worker restart
+    gunicorn_max_requests_jitter: int = Field(default=2000, ge=0)  # Randomized restart spread for workers
 
     # Streaming Provider Toggles
     disabled_providers: list[
@@ -135,7 +139,7 @@ class Settings(BaseSettings):
     # Database and Cache Settings
     postgres_uri: str  # Primary read-write PostgreSQL URI
     postgres_read_uri: str | None = None  # Optional read replica URI (if None, uses primary)
-    db_max_connections: int = 50
+    db_max_connections: int = Field(default=50, ge=1)  # Total SQLAlchemy connection budget per app instance
     redis_url: str = "redis://redis-service:6379"
     redis_max_connections: int = 100
     redis_retry_attempts: int = 3

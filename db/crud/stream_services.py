@@ -18,7 +18,6 @@ from fastapi import BackgroundTasks
 from sqlalchemy import or_
 from sqlalchemy.orm import joinedload, selectinload
 from sqlmodel import select
-from sqlmodel.ext.asyncio.session import AsyncSession
 
 from db.config import settings
 from db.crud.scraper_helpers import (
@@ -82,13 +81,20 @@ def _log_db_retry_attempt(operation_name: str):
     return _handler
 
 
-def _session_rollback_on_retry(
-    session: AsyncSession,
-):
-    async def _handler(_attempt: int, _max_attempts: int, _exc: Exception):
-        await session.rollback()
+async def _get_media_by_external_id_with_retry(
+    video_id: str,
+    media_type: MediaType,
+    operation_name: str,
+) -> Media | None:
+    async def _lookup_media() -> Media | None:
+        async with get_read_session_context() as read_session:
+            return await get_media_by_external_id(read_session, video_id, media_type)
 
-    return _handler
+    return await run_db_operation_with_retry(
+        operation=_lookup_media,
+        operation_name=operation_name,
+        on_retry=_log_db_retry_attempt(operation_name),
+    )
 
 
 def _get_scraper_tasks_module():
@@ -875,7 +881,6 @@ def _deserialize_acestream_streams(
 
 
 async def get_movie_streams(
-    session: AsyncSession,
     video_id: str,
     user_data: UserData,
     secret_str: str,
@@ -897,12 +902,7 @@ async def get_movie_streams(
 
     # Resolve video_id to media
     media_lookup_name = f"movie media lookup video_id={video_id}"
-    media = await run_db_operation_with_retry(
-        lambda: get_media_by_external_id(session, video_id, MediaType.MOVIE),
-        operation_name=media_lookup_name,
-        before_retry=_session_rollback_on_retry(session),
-        on_retry=_log_db_retry_attempt(media_lookup_name),
-    )
+    media = await _get_media_by_external_id_with_retry(video_id, MediaType.MOVIE, media_lookup_name)
     scraper_metadata = _build_scraper_metadata(media, video_id, MediaType.MOVIE)
 
     if not media and live_search_enabled:
@@ -1090,7 +1090,6 @@ async def get_movie_streams(
 
 
 async def get_series_streams(
-    session: AsyncSession,
     video_id: str,
     season: int,
     episode: int,
@@ -1114,12 +1113,7 @@ async def get_series_streams(
 
     # Resolve video_id to media
     media_lookup_name = f"series media lookup video_id={video_id}"
-    media = await run_db_operation_with_retry(
-        lambda: get_media_by_external_id(session, video_id, MediaType.SERIES),
-        operation_name=media_lookup_name,
-        before_retry=_session_rollback_on_retry(session),
-        on_retry=_log_db_retry_attempt(media_lookup_name),
-    )
+    media = await _get_media_by_external_id_with_retry(video_id, MediaType.SERIES, media_lookup_name)
     scraper_metadata = _build_scraper_metadata(media, video_id, MediaType.SERIES)
 
     if not media and live_search_enabled:
@@ -1313,7 +1307,6 @@ async def get_series_streams(
 
 
 async def get_tv_streams_formatted(
-    session: AsyncSession,
     video_id: str,
     namespace: str | None,
     user_data: UserData,
@@ -1325,12 +1318,7 @@ async def get_tv_streams_formatted(
     """
     # Get media by external_id
     media_lookup_name = f"tv media lookup video_id={video_id}"
-    media = await run_db_operation_with_retry(
-        lambda: get_media_by_external_id(session, video_id, MediaType.TV),
-        operation_name=media_lookup_name,
-        before_retry=_session_rollback_on_retry(session),
-        on_retry=_log_db_retry_attempt(media_lookup_name),
-    )
+    media = await _get_media_by_external_id_with_retry(video_id, MediaType.TV, media_lookup_name)
     if not media:
         logger.warning(f"TV channel not found for video_id: {video_id}")
         return []
@@ -1339,96 +1327,97 @@ async def get_tv_streams_formatted(
     disabled = set(settings.disabled_content_types)
     formatted_streams = []
 
-    # Query HTTP streams (skip if iptv/http disabled)
-    if "iptv" not in disabled and "http" not in disabled:
-        http_query = (
-            select(HTTPStream)
-            .join(Stream, Stream.id == HTTPStream.stream_id)
-            .join(StreamMediaLink, StreamMediaLink.stream_id == Stream.id)
-            .where(StreamMediaLink.media_id == media.id)
-            .where(Stream.is_active.is_(True))
-            .where(Stream.is_blocked.is_(False))
-            .where(visibility_filter)
-            .options(joinedload(HTTPStream.stream))
-            .limit(100)
-        )
+    async with get_read_session_context() as session:
+        # Query HTTP streams (skip if iptv/http disabled)
+        if "iptv" not in disabled and "http" not in disabled:
+            http_query = (
+                select(HTTPStream)
+                .join(Stream, Stream.id == HTTPStream.stream_id)
+                .join(StreamMediaLink, StreamMediaLink.stream_id == Stream.id)
+                .where(StreamMediaLink.media_id == media.id)
+                .where(Stream.is_active.is_(True))
+                .where(Stream.is_blocked.is_(False))
+                .where(visibility_filter)
+                .options(joinedload(HTTPStream.stream))
+                .limit(100)
+            )
 
-        result = await session.exec(http_query)
-        http_streams = result.unique().all()
+            result = await session.exec(http_query)
+            http_streams = result.unique().all()
 
-        for http_stream in http_streams:
-            stream = http_stream.stream
-            formatted_streams.append(
-                StremioStream(
-                    name=f"{settings.addon_name}\n{stream.name}",
-                    description=f"📺 {stream.source}" if stream.source else "📺 Live",
-                    url=http_stream.url,
+            for http_stream in http_streams:
+                stream = http_stream.stream
+                formatted_streams.append(
+                    StremioStream(
+                        name=f"{settings.addon_name}\n{stream.name}",
+                        description=f"📺 {stream.source}" if stream.source else "📺 Live",
+                        url=http_stream.url,
+                    )
                 )
-            )
 
-    # Query YouTube streams (skip if youtube disabled)
-    if "youtube" not in disabled:
-        yt_query = (
-            select(YouTubeStream)
-            .join(Stream, Stream.id == YouTubeStream.stream_id)
-            .join(StreamMediaLink, StreamMediaLink.stream_id == Stream.id)
-            .where(StreamMediaLink.media_id == media.id)
-            .where(Stream.is_active.is_(True))
-            .where(Stream.is_blocked.is_(False))
-            .where(visibility_filter)
-            .options(
-                joinedload(YouTubeStream.stream).options(
-                    selectinload(Stream.languages),
+        # Query YouTube streams (skip if youtube disabled)
+        if "youtube" not in disabled:
+            yt_query = (
+                select(YouTubeStream)
+                .join(Stream, Stream.id == YouTubeStream.stream_id)
+                .join(StreamMediaLink, StreamMediaLink.stream_id == Stream.id)
+                .where(StreamMediaLink.media_id == media.id)
+                .where(Stream.is_active.is_(True))
+                .where(Stream.is_blocked.is_(False))
+                .where(visibility_filter)
+                .options(
+                    joinedload(YouTubeStream.stream).options(
+                        selectinload(Stream.languages),
+                    )
                 )
+                .limit(100)
             )
-            .limit(100)
-        )
 
-        yt_result = await session.exec(yt_query)
-        yt_streams = yt_result.unique().all()
+            yt_result = await session.exec(yt_query)
+            yt_streams = yt_result.unique().all()
 
-        for yt_stream in yt_streams:
-            stream = yt_stream.stream
-            geo_label = format_geo_restriction_label(
-                yt_stream.geo_restriction_type,
-                yt_stream.geo_restriction_countries,
-            )
-            display_name = stream.name
-            if geo_label:
-                display_name = f"{display_name} [{geo_label}]"
-            description = f"▶️ {stream.source}" if stream.source else "▶️ YouTube"
-            if geo_label:
-                description = f"{geo_label}\n{description}"
-            formatted_streams.append(
-                StremioStream(
-                    name=f"{settings.addon_name}\n{display_name}",
-                    description=description,
-                    ytId=yt_stream.video_id,
+            for yt_stream in yt_streams:
+                stream = yt_stream.stream
+                geo_label = format_geo_restriction_label(
+                    yt_stream.geo_restriction_type,
+                    yt_stream.geo_restriction_countries,
                 )
+                display_name = stream.name
+                if geo_label:
+                    display_name = f"{display_name} [{geo_label}]"
+                description = f"▶️ {stream.source}" if stream.source else "▶️ YouTube"
+                if geo_label:
+                    description = f"{geo_label}\n{description}"
+                formatted_streams.append(
+                    StremioStream(
+                        name=f"{settings.addon_name}\n{display_name}",
+                        description=description,
+                        ytId=yt_stream.video_id,
+                    )
+                )
+
+        # Query AceStream streams (skip if acestream disabled; requires enable_acestream_streams AND MediaFlow config)
+        if "acestream" not in disabled and user_data.enable_acestream_streams and _has_mediaflow_config(user_data):
+            acestream_query = (
+                select(AceStreamStream)
+                .join(Stream, Stream.id == AceStreamStream.stream_id)
+                .join(StreamMediaLink, StreamMediaLink.stream_id == Stream.id)
+                .where(StreamMediaLink.media_id == media.id)
+                .where(Stream.is_active.is_(True))
+                .where(Stream.is_blocked.is_(False))
+                .where(visibility_filter)
+                .options(
+                    joinedload(AceStreamStream.stream).options(
+                        selectinload(Stream.languages),
+                    ),
+                )
+                .limit(100)
             )
 
-    # Query AceStream streams (skip if acestream disabled; requires enable_acestream_streams AND MediaFlow config)
-    if "acestream" not in disabled and user_data.enable_acestream_streams and _has_mediaflow_config(user_data):
-        acestream_query = (
-            select(AceStreamStream)
-            .join(Stream, Stream.id == AceStreamStream.stream_id)
-            .join(StreamMediaLink, StreamMediaLink.stream_id == Stream.id)
-            .where(StreamMediaLink.media_id == media.id)
-            .where(Stream.is_active.is_(True))
-            .where(Stream.is_blocked.is_(False))
-            .where(visibility_filter)
-            .options(
-                joinedload(AceStreamStream.stream).options(
-                    selectinload(Stream.languages),
-                ),
-            )
-            .limit(100)
-        )
+            acestream_result = await session.exec(acestream_query)
+            acestream_streams = acestream_result.unique().all()
 
-        acestream_result = await session.exec(acestream_query)
-        acestream_streams = acestream_result.unique().all()
-
-        formatted_streams.extend(_format_acestream_streams(acestream_streams, user_data))
+            formatted_streams.extend(_format_acestream_streams(acestream_streams, user_data))
 
     return formatted_streams
 

@@ -2,10 +2,9 @@
 
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import ValidationError
-from sqlmodel.ext.asyncio.session import AsyncSession
 
 from db import crud, public_schemas
-from db.database import get_read_session
+from db.database import get_read_session_context
 from db.enums import MediaType
 from db.redis_database import REDIS_ASYNC_CLIENT
 from db.schemas import UserData
@@ -16,7 +15,7 @@ from utils.network import get_request_namespace, get_user_data
 router = APIRouter()
 
 
-async def get_search_cache_key(
+def get_search_cache_key(
     catalog_type: MediaType,
     catalog_id: str,
     search_query: str,
@@ -54,7 +53,6 @@ async def search_meta(
     catalog_id: str,
     search_query: str,
     user_data: UserData = Depends(get_user_data),
-    session: AsyncSession = Depends(get_read_session),
 ) -> public_schemas.Metas:
     """
     Enhanced search endpoint with caching and efficient text search.
@@ -66,7 +64,7 @@ async def search_meta(
 
     namespace = get_request_namespace(request)
     # Generate cache key
-    cache_key = await get_search_cache_key(catalog_type, catalog_id, search_query, user_data, namespace)
+    cache_key = get_search_cache_key(catalog_type, catalog_id, search_query, user_data, namespace)
 
     # Try to get from cache
     cached_data = await REDIS_ASYNC_CLIENT.get(cache_key)
@@ -78,13 +76,14 @@ async def search_meta(
             pass
 
     # Perform search
-    metas = await crud.search_metadata(
-        session=session,
-        catalog_type=catalog_type,
-        search_query=search_query,
-        user_data=user_data,
-        namespace=namespace,
-    )
+    async with get_read_session_context() as session:
+        metas = await crud.search_metadata(
+            session=session,
+            catalog_type=catalog_type,
+            search_query=search_query,
+            user_data=user_data,
+            namespace=namespace,
+        )
 
     # Cache the results (5 minutes for search results)
     await REDIS_ASYNC_CLIENT.set(

@@ -9,13 +9,13 @@
         <meta name="author" content="Mohamed Zumair">
       
       
-        <link rel="canonical" href="https://mhdzumair.github.io/MediaFusion/docs/deployment/docker-compose/">
+        <link rel="canonical" href="https://mhdzumair.github.io/MediaFusion/docs/deployment/worker-cli/">
       
       
-        <link rel="prev" href="../elfhosted/">
+        <link rel="prev" href="../migrations/">
       
       
-        <link rel="next" href="../binary/">
+        <link rel="next" href="../../configuration/">
       
       
         
@@ -26,7 +26,7 @@
     
     
       
-        <title>Docker Compose - MediaFusion</title>
+        <title>Worker CLI - MediaFusion</title>
       
     
     
@@ -89,7 +89,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#docker-compose-deployment" class="md-skip">
+        <a href="#worker-cli-reference" class="md-skip">
           Skip to content
         </a>
       
@@ -124,7 +124,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Docker Compose
+              Worker CLI
             
           </span>
         </div>
@@ -755,37 +755,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Docker Compose
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../docker-compose/" class="md-nav__link">
         
   
   
@@ -801,175 +774,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
-      
-        <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Prerequisites
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-1-clone-the-repository" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 1: Clone the repository
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-2-configure-environment-variables" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 2: Configure environment variables
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-3-generate-a-local-ssl-certificate" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 3: Generate a local SSL certificate
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-4-configure-prowlarr-optional-but-recommended" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 4: Configure Prowlarr (optional but recommended)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-5-start-the-stack" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 5: Start the stack
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Step 5: Start the stack">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#standard-deployment-recommended-for-most-users" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Standard deployment (recommended for most users)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#high-availability-deployment" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        High-availability deployment
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-6-add-to-your-hosts-file" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 6: Add to your hosts file
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#compose-file-reference" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Compose file reference
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#updating-mediafusion" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Updating MediaFusion
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#stopping-and-resetting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Stopping and resetting
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#troubleshooting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Troubleshooting
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1091,10 +895,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../worker-cli/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Worker CLI
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1110,6 +941,231 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#flags" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Flags
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Flags">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#-list-jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        --list-jobs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#-run-job-queue" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        --run-job &lt;queue&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#-args-json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        --args &lt;json&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#all-registered-jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        All registered jobs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="All registered jobs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#background-scrapers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background scrapers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#feed-scrapers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Feed scrapers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#imports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Imports
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#search-maintenance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Search &amp; maintenance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jobs-that-accept-arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Jobs that accept arguments
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Jobs that accept arguments">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dmm_hashlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dmm_hashlist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m3u_import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        m3u_import
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#xtream_import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        xtream_import
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#imdb_dataset_import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        imdb_dataset_import
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exit-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exit codes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1863,10 +1919,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
       
         <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
+  <a href="#usage" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Prerequisites
+        Usage
       
     </span>
   </a>
@@ -1874,66 +1930,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-1-clone-the-repository" class="md-nav__link">
+  <a href="#flags" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 1: Clone the repository
+        Flags
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-2-configure-environment-variables" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 2: Configure environment variables
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-3-generate-a-local-ssl-certificate" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 3: Generate a local SSL certificate
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-4-configure-prowlarr-optional-but-recommended" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 4: Configure Prowlarr (optional but recommended)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-5-start-the-stack" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 5: Start the stack
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Step 5: Start the stack">
+    <nav class="md-nav" aria-label="Flags">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#standard-deployment-recommended-for-most-users" class="md-nav__link">
+  <a href="#-list-jobs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Standard deployment (recommended for most users)
+        --list-jobs
       
     </span>
   </a>
@@ -1941,10 +1953,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#high-availability-deployment" class="md-nav__link">
+  <a href="#-run-job-queue" class="md-nav__link">
     <span class="md-ellipsis">
       
-        High-availability deployment
+        --run-job &lt;queue&gt;
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#-args-json" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        --args &lt;json&gt;
       
     </span>
   </a>
@@ -1957,10 +1980,132 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-6-add-to-your-hosts-file" class="md-nav__link">
+  <a href="#all-registered-jobs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 6: Add to your hosts file
+        All registered jobs
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="All registered jobs">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#background-scrapers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Background scrapers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#feed-scrapers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Feed scrapers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#imports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Imports
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#search-maintenance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Search &amp; maintenance
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#jobs-that-accept-arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Jobs that accept arguments
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Jobs that accept arguments">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#dmm_hashlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dmm_hashlist
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#m3u_import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        m3u_import
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#xtream_import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        xtream_import
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#imdb_dataset_import" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        imdb_dataset_import
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exit-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exit codes
       
     </span>
   </a>
@@ -1968,43 +2113,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#compose-file-reference" class="md-nav__link">
+  <a href="#examples" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Compose file reference
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#updating-mediafusion" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Updating MediaFusion
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#stopping-and-resetting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Stopping and resetting
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#troubleshooting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Troubleshooting
+        Examples
       
     </span>
   </a>
@@ -2079,205 +2191,371 @@
   
 
 
-<h1 id="docker-compose-deployment">Docker Compose Deployment<a class="headerlink" href="#docker-compose-deployment" title="Permanent link">¶</a></h1>
-<p>The recommended way to self-host MediaFusion. Docker Compose manages all services — MediaFusion, PostgreSQL, Redis, and Prowlarr — in a single stack.</p>
-<div class="admonition tip">
-<p class="admonition-title">Video tutorial</p>
-<p>A video walkthrough is available at <a href="https://video.elfhosted.com/w/rgRFCmdgWW2HDES4QSD6Kb">video.elfhosted.com/w/rgRFCmdgWW2HDES4QSD6Kb</a>.</p>
-</div>
-<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">¶</a></h2>
-<p>Install these tools before starting:</p>
-<ul>
-<li><a href="https://docs.docker.com/get-docker/">Docker</a> (includes Docker Compose on modern installs)</li>
-<li><a href="https://github.com/FiloSottile/mkcert#installation">mkcert</a> — for self-signed HTTPS certificates</li>
-</ul>
-<p>Verify your Docker installation:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>docker<span class="w"> </span>--version
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>version
+<h1 id="worker-cli-reference">Worker CLI Reference<a class="headerlink" href="#worker-cli-reference" title="Permanent link">¶</a></h1>
+<p>The <code>mediafusion-worker</code> binary supports a one-shot CLI mode that lets you trigger any registered job directly from the command line without starting the full scheduler. This is useful for manual scraping runs, debugging, and CI pipelines.</p>
+<h2 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">¶</a></h2>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>mediafusion-worker [--list-jobs] [--run-job &lt;queue&gt;] [--args &lt;json&gt;]
 </span></code></pre></div>
-<h2 id="step-1-clone-the-repository">Step 1: Clone the repository<a class="headerlink" href="#step-1-clone-the-repository" title="Permanent link">¶</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/mhdzumair/MediaFusion
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">cd</span><span class="w"> </span>MediaFusion/deployment/docker-compose
-</span></code></pre></div>
-<h2 id="step-2-configure-environment-variables">Step 2: Configure environment variables<a class="headerlink" href="#step-2-configure-environment-variables" title="Permanent link">¶</a></h2>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio"><input id="__tabbed_1_2" name="__tabbed_1" type="radio"><div class="tabbed-labels"><label for="__tabbed_1_1">Linux / macOS</label><label for="__tabbed_1_2">Windows (PowerShell)</label></div>
+<p>With no arguments the worker starts normally and runs the full scheduler.</p>
+<hr>
+<h2 id="flags">Flags<a class="headerlink" href="#flags" title="Permanent link">¶</a></h2>
+<h3 id="-list-jobs"><code>--list-jobs</code><a class="headerlink" href="#-list-jobs" title="Permanent link">¶</a></h3>
+<p>Prints every registered queue name and exits immediately. Use this to discover available job names.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:4"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio"><input id="__tabbed_1_2" name="__tabbed_1" type="radio"><input id="__tabbed_1_3" name="__tabbed_1" type="radio"><input id="__tabbed_1_4" name="__tabbed_1" type="radio"><div class="tabbed-labels"><label for="__tabbed_1_1">Binary</label><label for="__tabbed_1_2">Docker</label><label for="__tabbed_1_3">Docker Compose</label><label for="__tabbed_1_4">Makefile (dev)</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>cp<span class="w"> </span>.env-sample<span class="w"> </span>.env
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># Generate a secure secret key</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">"SECRET_KEY=</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">16</span><span class="k">)</span><span class="s2">"</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>.env
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># Set the API password (protects admin endpoints)</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">"API_PASSWORD=your_strong_password"</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>.env
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1"># Set your contact email</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">"CONTACT_EMAIL=you@example.com"</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>.env
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="c1"># Set the public URL of your instance</span>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="c1"># Use https://mediafusion.local for local-only, or your real domain</span>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">'HOST_URL=https://mediafusion.local'</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>.env
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>./mediafusion-worker<span class="w"> </span>--list-jobs
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">Copy-Item</span> <span class="p">.</span><span class="n">env-sample</span> <span class="p">.</span><span class="n">env</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nv">$secret</span> <span class="p">=</span> <span class="no">[System.Guid]</span><span class="p">::</span><span class="n">NewGuid</span><span class="p">().</span><span class="n">ToString</span><span class="p">(</span><span class="s2">"N"</span><span class="p">).</span><span class="n">Substring</span><span class="p">(</span><span class="n">0</span><span class="p">,</span> <span class="n">32</span><span class="p">)</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nb">Add-Content</span> <span class="n">-Path</span> <span class="p">.</span><span class="n">env</span> <span class="n">-Value</span> <span class="s2">"SECRET_KEY=$secret"</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nb">Add-Content</span> <span class="n">-Path</span> <span class="p">.</span><span class="n">env</span> <span class="n">-Value</span> <span class="s2">"API_PASSWORD=your_strong_password"</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="nb">Add-Content</span> <span class="n">-Path</span> <span class="p">.</span><span class="n">env</span> <span class="n">-Value</span> <span class="s2">"CONTACT_EMAIL=you@example.com"</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="nb">Add-Content</span> <span class="n">-Path</span> <span class="p">.</span><span class="n">env</span> <span class="n">-Value</span> <span class="s1">'HOST_URL=https://mediafusion.local'</span>
-</span></code></pre></div>
-</div>
-</div>
-</div>
-<div class="admonition tip">
-<p class="admonition-title">Using a real domain?</p>
-<p>Set <code>HOST_URL</code> to your actual domain (e.g. <code>https://mediafusion.yourdomain.com</code>) and configure a reverse proxy (nginx, Caddy, Traefik) in front of the stack. Skip the <code>mkcert</code> step below.</p>
-</div>
-<p>Review the full <code>.env</code> file and adjust anything else before proceeding. See <a href="../../configuration/">Configuration Overview</a> for all options.</p>
-<h2 id="step-3-generate-a-local-ssl-certificate">Step 3: Generate a local SSL certificate<a class="headerlink" href="#step-3-generate-a-local-ssl-certificate" title="Permanent link">¶</a></h2>
-<p>This is required for Stremio to accept connections from your local instance.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio"><input id="__tabbed_2_2" name="__tabbed_2" type="radio"><div class="tabbed-labels"><label for="__tabbed_2_1">Linux / macOS</label><label for="__tabbed_2_2">Windows (PowerShell)</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>mkcert<span class="w"> </span>-install
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>mkcert<span class="w"> </span><span class="s2">"mediafusion.local"</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>mhdzumair/mediafusion:6.0.0<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>mediafusion-worker<span class="w"> </span>--list-jobs
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">mkcert</span> <span class="n">-install</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">mkcert</span> <span class="s2">"mediafusion.local"</span>
-</span></code></pre></div>
-<div class="admonition tip">
-<p class="admonition-title">WSL users</p>
-<p>Also run <code>mkcert -install</code> in a regular Windows PowerShell (not WSL) to install the root certificate system-wide.</p>
-</div>
-</div>
-</div>
-</div>
-<h2 id="step-4-configure-prowlarr-optional-but-recommended">Step 4: Configure Prowlarr (optional but recommended)<a class="headerlink" href="#step-4-configure-prowlarr-optional-but-recommended" title="Permanent link">¶</a></h2>
-<p>Prowlarr aggregates torrent indexers and feeds results to MediaFusion. The setup script configures it automatically:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio"><input id="__tabbed_3_2" name="__tabbed_3" type="radio"><div class="tabbed-labels"><label for="__tabbed_3_1">Linux / macOS</label><label for="__tabbed_3_2">Windows (PowerShell)</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>./setup-prowlarr.sh
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>docker<span class="w"> </span>compose<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>mediafusion-worker<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>/mediafusion-worker<span class="w"> </span>--list-jobs
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">.\</span><span class="n">setup-prowlarr</span><span class="p">.</span><span class="n">ps1</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>make<span class="w"> </span>worker-list-jobs
 </span></code></pre></div>
 </div>
 </div>
-</div>
-<p>The script writes a <code>PROWLARR_API_KEY</code> to your <code>.env</code> and adds a set of working public trackers.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>You can add more indexers at <code>http://localhost:9696</code> after the stack starts.</p>
-</div>
-<h2 id="step-5-start-the-stack">Step 5: Start the stack<a class="headerlink" href="#step-5-start-the-stack" title="Permanent link">¶</a></h2>
-<h3 id="standard-deployment-recommended-for-most-users">Standard deployment (recommended for most users)<a class="headerlink" href="#standard-deployment-recommended-for-most-users" title="Permanent link">¶</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>up<span class="w"> </span>-d
-</span></code></pre></div>
-<p>This starts a single PostgreSQL instance with one background worker. Suitable for personal or small shared use.</p>
-<h3 id="high-availability-deployment">High-availability deployment<a class="headerlink" href="#high-availability-deployment" title="Permanent link">¶</a></h3>
-<p>For high read workloads (e.g. shared instance):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>-f<span class="w"> </span>docker-compose-postgres-ha.yml<span class="w"> </span>up<span class="w"> </span>-d
-</span></code></pre></div>
-<p>This adds a PostgreSQL read replica, PgBouncer connection pooling, and dedicated workers per queue.</p>
-<h2 id="step-6-add-to-your-hosts-file">Step 6: Add to your hosts file<a class="headerlink" href="#step-6-add-to-your-hosts-file" title="Permanent link">¶</a></h2>
-<p>Map <code>mediafusion.local</code> to <code>127.0.0.1</code> so your browser resolves the local domain:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio"><input id="__tabbed_4_2" name="__tabbed_4" type="radio"><div class="tabbed-labels"><label for="__tabbed_4_1">Linux / macOS</label><label for="__tabbed_4_2">Windows (PowerShell — run as Administrator)</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">"127.0.0.1 mediafusion.local"</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>tee<span class="w"> </span>-a<span class="w"> </span>/etc/hosts
-</span></code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nb">Add-Content</span> <span class="n">-Path</span> <span class="n">C</span><span class="p">:\</span><span class="n">Windows</span><span class="p">\</span><span class="n">System32</span><span class="p">\</span><span class="n">drivers</span><span class="p">\</span><span class="n">etc</span><span class="p">\</span><span class="n">hosts</span> <span class="n">-Value</span> <span class="s2">"127.0.0.1 mediafusion.local"</span>
-</span></code></pre></div>
-</div>
-</div>
-</div>
-<p>Now open <a href="https://mediafusion.local">https://mediafusion.local</a> in your browser.</p>
-<div class="admonition tip">
-<p class="admonition-title">First-time scraping delay</p>
-<p>Results may be sparse for the first hour while background scrapers populate the database. Visit <code>https://mediafusion.local/scraper</code> to trigger scrapers manually.</p>
 </div>
 <hr>
-<h2 id="compose-file-reference">Compose file reference<a class="headerlink" href="#compose-file-reference" title="Permanent link">¶</a></h2>
+<h3 id="-run-job-queue"><code>--run-job &lt;queue&gt;</code><a class="headerlink" href="#-run-job-queue" title="Permanent link">¶</a></h3>
+<p>Runs a single job inline and exits. The worker connects to the database and Redis, runs the job to completion, then exits with code <code>0</code> on success or <code>1</code> on failure.</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:4"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio"><input id="__tabbed_2_2" name="__tabbed_2" type="radio"><input id="__tabbed_2_3" name="__tabbed_2" type="radio"><input id="__tabbed_2_4" name="__tabbed_2" type="radio"><div class="tabbed-labels"><label for="__tabbed_2_1">Binary</label><label for="__tabbed_2_2">Docker</label><label for="__tabbed_2_3">Docker Compose</label><label for="__tabbed_2_4">Makefile (dev)</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>./mediafusion-worker<span class="w"> </span>--run-job<span class="w"> </span>spider_sport_video
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>docker<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>--env-file<span class="w"> </span>.env<span class="w"> </span>mhdzumair/mediafusion:6.0.0<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span>mediafusion-worker<span class="w"> </span>--run-job<span class="w"> </span>spider_sport_video
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>run<span class="w"> </span>--rm<span class="w"> </span>mediafusion-worker<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span>/mediafusion-worker<span class="w"> </span>--run-job<span class="w"> </span>spider_sport_video
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>make<span class="w"> </span>worker-run-job<span class="w"> </span><span class="nv">JOB</span><span class="o">=</span>spider_sport_video
+</span></code></pre></div>
+</div>
+</div>
+</div>
+<hr>
+<h3 id="-args-json"><code>--args &lt;json&gt;</code><a class="headerlink" href="#-args-json" title="Permanent link">¶</a></h3>
+<p>Passes a JSON payload to the job. Required for jobs that take parameters (see <a href="#jobs-that-accept-arguments">Jobs that accept arguments</a> below). Ignored by jobs that don't use it.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>./mediafusion-worker<span class="w"> </span>--run-job<span class="w"> </span>dmm_hashlist<span class="w"> </span>--args<span class="w"> </span><span class="s1">'{"full": true}'</span>
+</span></code></pre></div>
+<p>With the Makefile:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>make<span class="w"> </span>worker-run-job<span class="w"> </span><span class="nv">JOB</span><span class="o">=</span>dmm_hashlist<span class="w"> </span><span class="nv">JOB_ARGS</span><span class="o">=</span><span class="s1">'{"full": true}'</span>
+</span></code></pre></div>
+<hr>
+<h2 id="all-registered-jobs">All registered jobs<a class="headerlink" href="#all-registered-jobs" title="Permanent link">¶</a></h2>
+<p>Run <code>--list-jobs</code> to get the live list. The table below describes each queue.</p>
+<h3 id="background-scrapers">Background scrapers<a class="headerlink" href="#background-scrapers" title="Permanent link">¶</a></h3>
 <table>
 <thead>
 <tr>
-<th>File</th>
-<th>Use case</th>
+<th>Queue</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>docker-compose.yml</code></td>
-<td>Standard single-PostgreSQL deployment</td>
+<td><code>spider_tamilmv</code></td>
+<td>Scrape TamilMV for Tamil content</td>
 </tr>
 <tr>
-<td><code>docker-compose-postgres-ha.yml</code></td>
-<td>Add-on: PostgreSQL HA with read replica + PgBouncer</td>
+<td><code>spider_tamil_blasters</code></td>
+<td>Scrape Tamil Blasters</td>
 </tr>
 <tr>
-<td><code>docker-compose-minimal.yml</code></td>
-<td>Databases only — for local development</td>
+<td><code>spider_formula_ext</code></td>
+<td>Scrape Formula Racing (ext source)</td>
+</tr>
+<tr>
+<td><code>spider_motogp_ext</code></td>
+<td>Scrape MotoGP (ext source)</td>
+</tr>
+<tr>
+<td><code>spider_wwe_ext</code></td>
+<td>Scrape WWE (ext source)</td>
+</tr>
+<tr>
+<td><code>spider_ufc_ext</code></td>
+<td>Scrape UFC (ext source)</td>
+</tr>
+<tr>
+<td><code>spider_movies_tv_ext</code></td>
+<td>Scrape Movies/TV (ext source)</td>
+</tr>
+<tr>
+<td><code>spider_sport_video</code></td>
+<td>Scrape sport-video.org.ua</td>
+</tr>
+<tr>
+<td><code>spider_registry_crawl</code></td>
+<td>Run all public indexer spiders (1337x, TPB, YTS, Nyaa, AnimeTosho, SubsPlease, AnimePahe, BT4G, EZTV, Rutor, LimeTorrents, BT52, UIndex)</td>
+</tr>
+<tr>
+<td><code>spider_eztv_rss</code></td>
+<td>Scrape EZTV RSS feed</td>
+</tr>
+<tr>
+<td><code>acestream_bg</code></td>
+<td>Scrape AceStream channels</td>
+</tr>
+<tr>
+<td><code>youtube_bg</code></td>
+<td>Scrape YouTube channels</td>
+</tr>
+<tr>
+<td><code>telegram_bg</code></td>
+<td>Scrape configured Telegram channels</td>
 </tr>
 </tbody>
 </table>
-<hr>
-<h2 id="updating-mediafusion">Updating MediaFusion<a class="headerlink" href="#updating-mediafusion" title="Permanent link">¶</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>git<span class="w"> </span>pull
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>down
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>pull
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>up<span class="w"> </span>-d
-</span></code></pre></div>
-<div class="admonition warning">
-<p class="admonition-title">Before updating to a new major version</p>
-<p>Check the <a href="https://github.com/mhdzumair/MediaFusion/releases">release notes</a> for any migration steps. Major schema changes require the old version to be stopped cleanly before updating.</p>
-</div>
-<h2 id="stopping-and-resetting">Stopping and resetting<a class="headerlink" href="#stopping-and-resetting" title="Permanent link">¶</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Stop without removing data</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>down
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># Stop and wipe all data (destructive!)</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>down<span class="w"> </span>-v
-</span></code></pre></div>
-<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">¶</a></h2>
-<p><strong>Check logs for a specific service:</strong>
-</p><div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span>mediafusion
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span>postgres
-</span></code></pre></div><p></p>
-<p><strong>Common issues:</strong></p>
+<h3 id="feed-scrapers">Feed scrapers<a class="headerlink" href="#feed-scrapers" title="Permanent link">¶</a></h3>
 <table>
 <thead>
 <tr>
-<th>Symptom</th>
-<th>Likely cause</th>
+<th>Queue</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>SSL certificate errors in browser</td>
-<td><code>mkcert -install</code> not run, or not run in Windows PowerShell for WSL</td>
+<td><code>prowlarr_feed</code></td>
+<td>Fetch new releases from Prowlarr indexers</td>
 </tr>
 <tr>
-<td>"Connection refused"</td>
-<td>Stack not started, or <code>HOST_URL</code> mismatch</td>
+<td><code>jackett_feed</code></td>
+<td>Fetch new releases from Jackett indexers</td>
 </tr>
 <tr>
-<td>Empty catalogs</td>
-<td>Scrapers haven't run yet — trigger manually at <code>/scraper</code></td>
+<td><code>rss_feed</code></td>
+<td>Process all configured RSS feeds</td>
 </tr>
 <tr>
-<td>Database connection errors</td>
-<td><code>POSTGRES_URI</code> not set correctly in <code>.env</code></td>
+<td><code>dmm_hashlist</code></td>
+<td>Sync DebridMediaManager hashlist from GitHub</td>
 </tr>
 </tbody>
 </table>
+<h3 id="imports">Imports<a class="headerlink" href="#imports" title="Permanent link">¶</a></h3>
+<table>
+<thead>
+<tr>
+<th>Queue</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>m3u_import</code></td>
+<td>Import/sync a single M3U IPTV source</td>
+</tr>
+<tr>
+<td><code>xtream_import</code></td>
+<td>Import/sync a single Xtream Codes source</td>
+</tr>
+<tr>
+<td><code>imdb_dataset_import</code></td>
+<td>Import IMDb non-commercial datasets into the DB</td>
+</tr>
+</tbody>
+</table>
+<h3 id="search-maintenance">Search &amp; maintenance<a class="headerlink" href="#search-maintenance" title="Permanent link">¶</a></h3>
+<table>
+<thead>
+<tr>
+<th>Queue</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>background_search</code></td>
+<td>Process the background re-scrape queue</td>
+</tr>
+<tr>
+<td><code>discover_prewarm</code></td>
+<td>Pre-warm Discover catalog caches</td>
+</tr>
+<tr>
+<td><code>integration_syncs</code></td>
+<td>Sync Trakt / Simkl watchlists</td>
+</tr>
+<tr>
+<td><code>update_seeders</code></td>
+<td>Update seeder counts for tracked torrents</td>
+</tr>
+<tr>
+<td><code>update_tv_posters</code></td>
+<td>Refresh TV show poster images</td>
+</tr>
+<tr>
+<td><code>validate_tv</code></td>
+<td>Validate and deactivate dead TV stream URLs</td>
+</tr>
+<tr>
+<td><code>cleanup</code></td>
+<td>Remove expired scraper task records and cache entries</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="jobs-that-accept-arguments">Jobs that accept arguments<a class="headerlink" href="#jobs-that-accept-arguments" title="Permanent link">¶</a></h2>
+<p>Most jobs ignore <code>--args</code>. The following jobs use it:</p>
+<h3 id="dmm_hashlist"><code>dmm_hashlist</code><a class="headerlink" href="#dmm_hashlist" title="Permanent link">¶</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>full</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Walk the full commit history instead of only new commits</td>
+</tr>
+<tr>
+<td><code>reset_checkpoints</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Clear saved Redis checkpoints before running</td>
+</tr>
+</tbody>
+</table>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Incremental sync (normal)</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>./mediafusion-worker<span class="w"> </span>--run-job<span class="w"> </span>dmm_hashlist
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># Full re-sync from the beginning</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>./mediafusion-worker<span class="w"> </span>--run-job<span class="w"> </span>dmm_hashlist<span class="w"> </span>--args<span class="w"> </span><span class="s1">'{"full": true}'</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="c1"># Reset checkpoints then sync</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>./mediafusion-worker<span class="w"> </span>--run-job<span class="w"> </span>dmm_hashlist<span class="w"> </span>--args<span class="w"> </span><span class="s1">'{"full": true, "reset_checkpoints": true}'</span>
+</span></code></pre></div>
+<h3 id="m3u_import"><code>m3u_import</code><a class="headerlink" href="#m3u_import" title="Permanent link">¶</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>iptv_source_id</code></td>
+<td><code>int</code></td>
+<td>yes</td>
+<td>Database ID of the <code>iptv_source</code> row to import</td>
+</tr>
+</tbody>
+</table>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>./mediafusion-worker<span class="w"> </span>--run-job<span class="w"> </span>m3u_import<span class="w"> </span>--args<span class="w"> </span><span class="s1">'{"iptv_source_id": 42}'</span>
+</span></code></pre></div>
+<h3 id="xtream_import"><code>xtream_import</code><a class="headerlink" href="#xtream_import" title="Permanent link">¶</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>iptv_source_id</code></td>
+<td><code>int</code></td>
+<td>yes</td>
+<td>Database ID of the <code>iptv_source</code> row to import</td>
+</tr>
+</tbody>
+</table>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>./mediafusion-worker<span class="w"> </span>--run-job<span class="w"> </span>xtream_import<span class="w"> </span>--args<span class="w"> </span><span class="s1">'{"iptv_source_id": 7}'</span>
+</span></code></pre></div>
+<h3 id="imdb_dataset_import"><code>imdb_dataset_import</code><a class="headerlink" href="#imdb_dataset_import" title="Permanent link">¶</a></h3>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>datasets</code></td>
+<td><code>string[]</code></td>
+<td>all datasets</td>
+<td>Subset of dataset keys to process</td>
+</tr>
+</tbody>
+</table>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="c1"># Import all datasets</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>./mediafusion-worker<span class="w"> </span>--run-job<span class="w"> </span>imdb_dataset_import
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1"># Import only specific datasets</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>./mediafusion-worker<span class="w"> </span>--run-job<span class="w"> </span>imdb_dataset_import<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">  </span>--args<span class="w"> </span><span class="s1">'{"datasets": ["title.basics", "title.akas"]}'</span>
+</span></code></pre></div>
+<hr>
+<h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">¶</a></h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>Job completed successfully</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>Job failed or unknown <code>--run-job</code> queue name</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">¶</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="c1"># Manually trigger the sport video scraper</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>./mediafusion-worker<span class="w"> </span>--run-job<span class="w"> </span>spider_sport_video
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="c1"># Run all public indexer spiders</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>./mediafusion-worker<span class="w"> </span>--run-job<span class="w"> </span>spider_registry_crawl
+</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>
+</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="c1"># Force a full DMM hashlist re-sync</span>
+</span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>./mediafusion-worker<span class="w"> </span>--run-job<span class="w"> </span>dmm_hashlist<span class="w"> </span>--args<span class="w"> </span><span class="s1">'{"full": true, "reset_checkpoints": true}'</span>
+</span><span id="__span-15-9"><a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>
+</span><span id="__span-15-10"><a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a><span class="c1"># Process the background re-scrape queue once</span>
+</span><span id="__span-15-11"><a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>./mediafusion-worker<span class="w"> </span>--run-job<span class="w"> </span>background_search
+</span><span id="__span-15-12"><a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>
+</span><span id="__span-15-13"><a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a><span class="c1"># Sync Trakt/Simkl integrations</span>
+</span><span id="__span-15-14"><a id="__codelineno-15-14" name="__codelineno-15-14" href="#__codelineno-15-14"></a>./mediafusion-worker<span class="w"> </span>--run-job<span class="w"> </span>integration_syncs
+</span><span id="__span-15-15"><a id="__codelineno-15-15" name="__codelineno-15-15" href="#__codelineno-15-15"></a>
+</span><span id="__span-15-16"><a id="__codelineno-15-16" name="__codelineno-15-16" href="#__codelineno-15-16"></a><span class="c1"># List all available jobs</span>
+</span><span id="__span-15-17"><a id="__codelineno-15-17" name="__codelineno-15-17" href="#__codelineno-15-17"></a>./mediafusion-worker<span class="w"> </span>--list-jobs
+</span></code></pre></div>
 
 
 
@@ -2315,7 +2593,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer">
         
           
-          <a href="../elfhosted/" class="md-footer__link md-footer__link--prev" aria-label="Previous: ElfHosted (Managed)">
+          <a href="../migrations/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Database Migrations">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"></path></svg>
@@ -2325,20 +2603,20 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                ElfHosted (Managed)
+                Database Migrations
               </div>
             </div>
           </a>
         
         
           
-          <a href="../binary/" class="md-footer__link md-footer__link--next" aria-label="Next: Direct Binary">
+          <a href="../../configuration/" class="md-footer__link md-footer__link--next" aria-label="Next: Overview">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Direct Binary
+                Overview
               </div>
             </div>
             <div class="md-footer__button md-icon">

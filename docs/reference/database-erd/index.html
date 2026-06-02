@@ -888,6 +888,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deployment/worker-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Worker CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1305,6 +1333,34 @@
     
   
     AceStream
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../integrations/telegram/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Telegram
   
 
     
@@ -1957,15 +2013,48 @@
 <hr>
 <h2 id="media-associations">Media Associations<a class="headerlink" href="#media-associations" title="Permanent link">¶</a></h2>
 <pre class="mermaid"><code>erDiagram
-    media { int id PK; varchar title }
-    genre { int id PK; varchar name }
-    keyword { int id PK; varchar name }
-    person { int id PK; varchar name }
-    production_company { int id PK; varchar name }
-    media_external_id { int id PK; int media_id FK; varchar provider; varchar external_id }
-    media_rating { int id PK; int media_id FK; int rating_provider_id FK; float value }
-    rating_provider { int id PK; varchar name }
-    aka_title { int id PK; int media_id FK; varchar title; varchar region }
+    media {
+        int id PK
+        varchar title
+    }
+    genre {
+        int id PK
+        varchar name
+    }
+    keyword {
+        int id PK
+        varchar name
+    }
+    person {
+        int id PK
+        varchar name
+    }
+    production_company {
+        int id PK
+        varchar name
+    }
+    media_external_id {
+        int id PK
+        int media_id FK
+        varchar provider
+        varchar external_id
+    }
+    media_rating {
+        int id PK
+        int media_id FK
+        int rating_provider_id FK
+        float value
+    }
+    rating_provider {
+        int id PK
+        varchar name
+    }
+    aka_title {
+        int id PK
+        int media_id FK
+        varchar title
+        varchar region
+    }
 
     media ||--o{ media_genre_link : ""
     genre ||--o{ media_genre_link : ""
@@ -2064,9 +2153,18 @@
     stream ||--o| external_link_stream : "external link"</code></pre>
 <h3 id="stream-media-links">Stream ↔ Media links<a class="headerlink" href="#stream-media-links" title="Permanent link">¶</a></h3>
 <pre class="mermaid"><code>erDiagram
-    stream { int id PK; varchar name }
-    media { int id PK; varchar title }
-    episode { int id PK; int episode_number }
+    stream {
+        int id PK
+        varchar name
+    }
+    media {
+        int id PK
+        varchar title
+    }
+    episode {
+        int id PK
+        int episode_number
+    }
     stream_media_link {
         int stream_id FK
         int media_id FK
@@ -2081,7 +2179,10 @@
         bigint size
         filetype file_type
     }
-    tracker { int id PK; varchar url }
+    tracker {
+        int id PK
+        varchar url
+    }
 
     stream ||--o{ stream_media_link : ""
     media ||--o{ stream_media_link : ""

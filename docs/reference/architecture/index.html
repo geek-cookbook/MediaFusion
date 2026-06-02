@@ -888,6 +888,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deployment/worker-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Worker CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1325,6 +1353,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../integrations/telegram/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Telegram
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../integrations/qbittorrent/" class="md-nav__link">
         
   
@@ -1544,6 +1600,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#component-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Component overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#route-performance-characteristics" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1555,10 +1622,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#background-worker-queues" class="md-nav__link">
+  <a href="#background-worker-jobs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Background worker queues
+        Background worker jobs
       
     </span>
   </a>
@@ -1735,6 +1802,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#component-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Component overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#route-performance-characteristics" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1746,10 +1824,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#background-worker-queues" class="md-nav__link">
+  <a href="#background-worker-jobs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Background worker queues
+        Background worker jobs
       
     </span>
   </a>
@@ -1860,52 +1938,78 @@
 <h1 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">¶</a></h1>
 <p>An overview of how MediaFusion is structured internally.</p>
 <h2 id="system-diagram">System diagram<a class="headerlink" href="#system-diagram" title="Permanent link">¶</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Stremio / Kodi clients
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Stremio / Kodi / Browser
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>        │
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>        │  HTTPS  (Stremio addon protocol)
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>        │  HTTPS  (Stremio addon protocol / web)
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        ▼
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>┌─────────────────────────────────────┐
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│         MediaFusion API server      │
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│   (Rust / Axum + Gunicorn wrapper)  │
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│                                     │
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│  Middleware stack:                  │
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│  ├─ RequestId                       │
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│  ├─ TransientDatabaseRetry          │
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│  ├─ SecureLogging                   │
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│  ├─ Timing / Metrics                │
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│  ├─ UserData (decrypt manifest)     │
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│  ├─ APIKey validation               │
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│  └─ RateLimit (token bucket)        │
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│                                     │
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│  Route handlers:                    │
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│  ├─ /stream/...   ← most expensive  │
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>│  ├─ /playback/... ← debrid calls    │
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>│  ├─ /meta/...                       │
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>│  ├─ /catalog/...                    │
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>│  ├─ /manifest.json                  │
-</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>│  └─ /poster/...   ← Pillow/CPU      │
-</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>└────────────┬────────────────────────┘
-</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>             │
-</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>     ┌───────┴────────┐
-</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>     │                │
-</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>┌────▼────┐    ┌──────▼─────┐
-</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>│PostgreSQL│    │   Redis    │
-</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>│(primary +│    │(stream cache│
-</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>│ replica) │    │ task queue │
-</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>│+ PgBouncer│   │ rate limits)│
-</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>└──────────┘    └────────────┘
-</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>                      │
-</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>              ┌───────▼───────┐
-</span><span id="__span-0-37"><a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>              │Taskiq workers │
-</span><span id="__span-0-38"><a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>              │(background)   │
-</span><span id="__span-0-39"><a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>              │               │
-</span><span id="__span-0-40"><a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>              │ queues:       │
-</span><span id="__span-0-41"><a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>              │ • default     │
-</span><span id="__span-0-42"><a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>              │ • scrapy      │
-</span><span id="__span-0-43"><a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>              │ • import      │
-</span><span id="__span-0-44"><a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>              │ • priority    │
-</span><span id="__span-0-45"><a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>              └───────────────┘
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>┌──────────────────────────────────────┐
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│        MediaFusion API server        │
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│         (Rust / Axum binary)         │
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│                                      │
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│  Middleware stack:                   │
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│  ├─ RequestId                        │
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│  ├─ TransientDatabaseRetry           │
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│  ├─ SecureLogging                    │
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│  ├─ Timing / Metrics                 │
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│  ├─ UserData (decrypt manifest)      │
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│  ├─ APIKey validation                │
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│  └─ RateLimit (token bucket)         │
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│                                      │
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│  Route handlers:                     │
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>│  ├─ /stream/...   ← most expensive   │
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>│  ├─ /playback/... ← debrid calls     │
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>│  ├─ /meta/...                        │
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>│  ├─ /catalog/...                     │
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>│  ├─ /manifest.json                   │
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>│  ├─ /poster/...   ← image/imageproc  │
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>│  └─ /app          ← React SPA        │
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>└─────────────┬────────────────────────┘
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>              │
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>      ┌───────┴────────┐
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>      │                │
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>┌─────▼────┐    ┌──────▼──────┐
+</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>│PostgreSQL │    │    Redis    │
+</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>│(primary + │    │(stream cache│
+</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>│ replica)  │    │ task queue  │
+</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>│+ PgBouncer│    │ rate limits)│
+</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>└───────────┘    └──────┬──────┘
+</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>                        │
+</span><span id="__span-0-37"><a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>               ┌────────▼────────┐
+</span><span id="__span-0-38"><a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>               │  Background     │
+</span><span id="__span-0-39"><a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>               │  worker binary  │
+</span><span id="__span-0-40"><a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>               │  (Rust / Axum)  │
+</span><span id="__span-0-41"><a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>               │                 │
+</span><span id="__span-0-42"><a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>               │  Job handlers:  │
+</span><span id="__span-0-43"><a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>               │  • spiders      │
+</span><span id="__span-0-44"><a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>               │  • feed scrapers│
+</span><span id="__span-0-45"><a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>               │  • bg search    │
+</span><span id="__span-0-46"><a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>               │  • imports      │
+</span><span id="__span-0-47"><a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>               │  • maintenance  │
+</span><span id="__span-0-48"><a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>               └─────────────────┘
 </span></code></pre></div>
+<h2 id="component-overview">Component overview<a class="headerlink" href="#component-overview" title="Permanent link">¶</a></h2>
+<table>
+<thead>
+<tr>
+<th>Binary</th>
+<th>Role</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mediafusion-api</code></td>
+<td>Main HTTP server — Stremio/Kodi requests, web UI</td>
+<td><code>backend/src/bin/</code></td>
+</tr>
+<tr>
+<td><code>mediafusion-worker</code></td>
+<td>Background jobs — scrapers, feeds, imports, maintenance</td>
+<td><code>backend/src/bin/worker.rs</code></td>
+</tr>
+</tbody>
+</table>
+<p>Both binaries share the same codebase (<code>backend/</code>), compiled as two separate static musl binaries.</p>
 <h2 id="route-performance-characteristics">Route performance characteristics<a class="headerlink" href="#route-performance-characteristics" title="Permanent link">¶</a></h2>
 <table>
 <thead>
@@ -1929,12 +2033,12 @@
 <tr>
 <td><code>/meta/...</code></td>
 <td>Medium</td>
-<td>Redis cache, occasional DB selectinload</td>
+<td>Redis cache, occasional DB query</td>
 </tr>
 <tr>
 <td><code>/catalog/...</code></td>
 <td>Medium</td>
-<td>Redis cache, occasional DB</td>
+<td>Redis cache, occasional DB query</td>
 </tr>
 <tr>
 <td><code>/manifest.json</code></td>
@@ -1944,53 +2048,129 @@
 <tr>
 <td><code>/poster/...</code></td>
 <td>CPU</td>
-<td>Pillow image processing in thread pool</td>
+<td>Image compositing via <code>image</code> + <code>imageproc</code> crates</td>
 </tr>
 </tbody>
 </table>
-<h2 id="background-worker-queues">Background worker queues<a class="headerlink" href="#background-worker-queues" title="Permanent link">¶</a></h2>
+<h2 id="background-worker-jobs">Background worker jobs<a class="headerlink" href="#background-worker-jobs" title="Permanent link">¶</a></h2>
+<p>The worker binary runs a <code>JobRegistry</code> — a scheduler that fires registered job handlers on configured crontabs.</p>
 <table>
 <thead>
 <tr>
-<th>Queue</th>
-<th>Purpose</th>
+<th>Job</th>
+<th>Handler</th>
+<th>Trigger</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>default</code></td>
-<td>General background tasks</td>
+<td>Public indexer spiders</td>
+<td><code>RegistryCrawl</code></td>
+<td>Per-scraper crontab</td>
 </tr>
 <tr>
-<td><code>scrapy</code></td>
-<td>Scrapy-based web scraping</td>
+<td>External scraper spiders</td>
+<td><code>FormulaExtCrawl</code>, <code>UfcExtCrawl</code>, <code>SportVideoCrawl</code>, etc.</td>
+<td>Per-scraper crontab</td>
 </tr>
 <tr>
-<td><code>import</code></td>
-<td>Torrent/magnet imports</td>
+<td>Tamil forum scrapers</td>
+<td><code>TamilMvCrawl</code>, <code>TamilBlastersCrawl</code></td>
+<td>Crontab</td>
 </tr>
 <tr>
-<td><code>priority</code></td>
-<td>High-priority tasks (e.g. live events)</td>
+<td>Prowlarr feed</td>
+<td><code>ProwlarrFeedScraper</code></td>
+<td><code>PROWLARR_FEED_SCRAPER_CRONTAB</code></td>
+</tr>
+<tr>
+<td>Jackett feed</td>
+<td><code>JackettFeedScraper</code></td>
+<td><code>JACKETT_FEED_SCRAPER_CRONTAB</code></td>
+</tr>
+<tr>
+<td>RSS feeds</td>
+<td><code>RssFeedScraper</code></td>
+<td><code>RSS_FEED_SCRAPER_CRONTAB</code></td>
+</tr>
+<tr>
+<td>DMM hashlist sync</td>
+<td><code>DmmHashlistScraper</code></td>
+<td><code>DMM_HASHLIST_SCRAPER_CRONTAB</code></td>
+</tr>
+<tr>
+<td>Background search</td>
+<td><code>BackgroundSearch</code></td>
+<td><code>BACKGROUND_SEARCH_CRONTAB</code></td>
+</tr>
+<tr>
+<td>YouTube scraper</td>
+<td><code>YoutubeBgScraper</code></td>
+<td><code>YOUTUBE_BACKGROUND_SCRAPER_CRONTAB</code></td>
+</tr>
+<tr>
+<td>AceStream scraper</td>
+<td><code>AcestreamBgScraper</code></td>
+<td><code>ACESTREAM_BACKGROUND_SCRAPER_CRONTAB</code></td>
+</tr>
+<tr>
+<td>Telegram scraper</td>
+<td><code>TelegramBgScraper</code></td>
+<td><code>TELEGRAM_BACKGROUND_SCRAPER_CRONTAB</code></td>
+</tr>
+<tr>
+<td>M3U import</td>
+<td><code>M3uImport</code></td>
+<td>On demand</td>
+</tr>
+<tr>
+<td>Xtream import</td>
+<td><code>XtreamImport</code></td>
+<td>On demand</td>
+</tr>
+<tr>
+<td>IMDB dataset import</td>
+<td><code>ImdbDatasetImport</code></td>
+<td>On demand</td>
+</tr>
+<tr>
+<td>Integration sync</td>
+<td><code>IntegrationSyncs</code></td>
+<td><code>INTEGRATION_SYNC_CRONTAB</code></td>
+</tr>
+<tr>
+<td>Update seeders</td>
+<td><code>UpdateSeeders</code></td>
+<td><code>UPDATE_SEEDERS_CRONTAB</code></td>
+</tr>
+<tr>
+<td>Validate TV streams</td>
+<td><code>ValidateTvStreams</code></td>
+<td><code>VALIDATE_TV_STREAMS_IN_DB_CRONTAB</code></td>
+</tr>
+<tr>
+<td>Cleanup</td>
+<td><code>Cleanup</code></td>
+<td><code>CLEANUP_EXPIRED_SCRAPER_TASK_CRONTAB</code></td>
 </tr>
 </tbody>
 </table>
-<p>In <code>TASKIQ_SINGLE_WORKER_MODE=true</code> (the default), all queues route to one worker process. Set to <code>false</code> in HA deployments to run dedicated processes per queue.</p>
 <h2 id="data-flow-stream-request">Data flow: stream request<a class="headerlink" href="#data-flow-stream-request" title="Permanent link">¶</a></h2>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>1. Stremio sends GET /stream/movie/tt1234567.json
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>2. API server decrypts user config from URL (SECRET_KEY)
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>2. API server decrypts user config from URL (AES-256, SECRET_KEY)
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>3. Check Redis stream cache
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>   ├── Cache hit → return cached streams
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>   ├── Cache hit → return cached streams immediately
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>   └── Cache miss →
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>       ├── Query PostgreSQL for indexed streams
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>       ├── If LIVE_SEARCH_STREAMS=true:
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>       │     Fan out to Prowlarr / Zilean / Torrentio / etc. in parallel
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>       │     Merge new results into DB
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>       └── Apply user filters (resolution, size, provider)
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>4. For each debrid provider:
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>   ├── Check debrid API for cached status
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>   └── Return cached stream URL or skip
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>5. Return stream list to Stremio
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>       ├── If live search enabled:
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>       │     Acquire Redis SETNX lock (prevents thundering herd)
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>       │     Fan out to Prowlarr / Zilean / Torrentio / public indexers in parallel
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>       │     Merge new results into DB + cache
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>       └── Apply user filters (resolution, size, provider)
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>4. For each debrid provider in user profile:
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>   ├── Check debrid API for cached torrent status
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>   └── Return HTTP stream URL or skip
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>5. Return ranked stream list to Stremio
 </span></code></pre></div>
 <h2 id="technology-stack">Technology stack<a class="headerlink" href="#technology-stack" title="Permanent link">¶</a></h2>
 <table>
@@ -2003,40 +2183,48 @@
 <tbody>
 <tr>
 <td>API server</td>
-<td>Rust (Axum), compiled to musl binary</td>
+<td>Rust (Axum), static musl binary</td>
 </tr>
 <tr>
 <td>Background worker</td>
-<td>Rust (Taskiq)</td>
+<td>Rust (custom <code>JobRegistry</code> scheduler)</td>
 </tr>
 <tr>
-<td>Database ORM</td>
-<td>SQLAlchemy async (Python), sqlx (Rust)</td>
+<td>Database</td>
+<td>PostgreSQL + sqlx (async, compile-time checked queries)</td>
 </tr>
 <tr>
 <td>Migrations</td>
-<td>sqlx</td>
+<td>sqlx (<code>backend/migrations/</code>)</td>
 </tr>
 <tr>
-<td>Cache / queue</td>
+<td>Cache / task queue</td>
 <td>Redis</td>
 </tr>
 <tr>
-<td>Metadata scraping</td>
-<td>Scrapy, Scrapling (Playwright)</td>
-</tr>
-<tr>
 <td>Image generation</td>
-<td>Pillow</td>
+<td>Rust (<code>image</code> + <code>imageproc</code> crates)</td>
 </tr>
 <tr>
-<td>Configuration</td>
-<td>Pydantic Settings</td>
+<td>Frontend</td>
+<td>React (TypeScript), served at <code>/app</code></td>
+</tr>
+<tr>
+<td>Kodi addon</td>
+<td>Python (<code>clients/kodi/</code>)</td>
+</tr>
+<tr>
+<td>Browser extension</td>
+<td>JavaScript (<code>clients/browser-extension/</code>)</td>
+</tr>
+<tr>
+<td>Memory allocator</td>
+<td>jemalloc (via <code>tikv-jemallocator</code>)</td>
 </tr>
 </tbody>
 </table>
 <h2 id="database-schema">Database schema<a class="headerlink" href="#database-schema" title="Permanent link">¶</a></h2>
-<p>See the <a href="https://github.com/mhdzumair/MediaFusion/blob/main/docs/database-erd.md">database ERD</a> for the full schema diagram.</p>
+<p>See the <a href="../database-erd/">Database Schema</a> page for the full ERD diagrams.</p>
 
 
 

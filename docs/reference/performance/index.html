@@ -89,7 +89,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#mediafusion-performance-guide" class="md-skip">
+        <a href="#performance-tuning" class="md-skip">
           Skip to content
         </a>
       
@@ -888,6 +888,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../deployment/worker-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Worker CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1325,6 +1353,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../integrations/telegram/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Telegram
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../integrations/qbittorrent/" class="md-nav__link">
         
   
@@ -1589,10 +1645,21 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
       
         <li class="md-nav__item">
-  <a href="#architecture-overview-for-capacity-planning" class="md-nav__link">
+  <a href="#architecture-summary" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Architecture overview (for capacity planning)
+        Architecture summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rust-vs-python-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rust vs Python performance
       
     </span>
   </a>
@@ -1611,33 +1678,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#db-pool-sizing-math" class="md-nav__link">
+  <a href="#observability" class="md-nav__link">
     <span class="md-ellipsis">
       
-        DB pool sizing math
+        Observability
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#observability-stack" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Observability stack
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Observability stack">
+    <nav class="md-nav" aria-label="Observability">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-prometheus-metrics-at-metrics" class="md-nav__link">
+  <a href="#prometheus-metrics" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Prometheus metrics at /metrics
+        Prometheus metrics
       
     </span>
   </a>
@@ -1645,10 +1701,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-per-route-redis-metrics-admin-dashboard" class="md-nav__link">
+  <a href="#per-route-redis-metrics" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Per-route Redis metrics (admin dashboard)
+        Per-route Redis metrics
       
     </span>
   </a>
@@ -1656,10 +1712,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#3-slow-queries-via-pg_stat_statements" class="md-nav__link">
+  <a href="#slow-query-diagnostics" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Slow queries via pg_stat_statements
+        Slow query diagnostics
       
     </span>
   </a>
@@ -1667,21 +1723,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#4-request-correlation" class="md-nav__link">
+  <a href="#request-tracing" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Request correlation
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#5-per-request-flamegraph-staging-only" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Per-request flamegraph (staging only)
+        Request tracing
       
     </span>
   </a>
@@ -1694,32 +1739,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#load-testing" class="md-nav__link">
+  <a href="#database-connection-sizing" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Load testing
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#known-bottlenecks-and-their-status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Known bottlenecks and their status
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#diagnosing-a-db-pool-exhaustion-event-503-surge" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Diagnosing a DB pool exhaustion event (503 surge)
+        Database connection sizing
       
     </span>
   </a>
@@ -1738,10 +1761,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#language-migration-decision-point-post-optimizations" class="md-nav__link">
+  <a href="#load-testing" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Language migration decision point (post-optimizations)
+        Load testing
       
     </span>
   </a>
@@ -1818,10 +1841,21 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
       
         <li class="md-nav__item">
-  <a href="#architecture-overview-for-capacity-planning" class="md-nav__link">
+  <a href="#architecture-summary" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Architecture overview (for capacity planning)
+        Architecture summary
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rust-vs-python-performance" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rust vs Python performance
       
     </span>
   </a>
@@ -1840,33 +1874,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#db-pool-sizing-math" class="md-nav__link">
+  <a href="#observability" class="md-nav__link">
     <span class="md-ellipsis">
       
-        DB pool sizing math
+        Observability
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#observability-stack" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Observability stack
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Observability stack">
+    <nav class="md-nav" aria-label="Observability">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#1-prometheus-metrics-at-metrics" class="md-nav__link">
+  <a href="#prometheus-metrics" class="md-nav__link">
     <span class="md-ellipsis">
       
-        1. Prometheus metrics at /metrics
+        Prometheus metrics
       
     </span>
   </a>
@@ -1874,10 +1897,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#2-per-route-redis-metrics-admin-dashboard" class="md-nav__link">
+  <a href="#per-route-redis-metrics" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2. Per-route Redis metrics (admin dashboard)
+        Per-route Redis metrics
       
     </span>
   </a>
@@ -1885,10 +1908,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#3-slow-queries-via-pg_stat_statements" class="md-nav__link">
+  <a href="#slow-query-diagnostics" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Slow queries via pg_stat_statements
+        Slow query diagnostics
       
     </span>
   </a>
@@ -1896,21 +1919,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#4-request-correlation" class="md-nav__link">
+  <a href="#request-tracing" class="md-nav__link">
     <span class="md-ellipsis">
       
-        4. Request correlation
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#5-per-request-flamegraph-staging-only" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        5. Per-request flamegraph (staging only)
+        Request tracing
       
     </span>
   </a>
@@ -1923,32 +1935,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#load-testing" class="md-nav__link">
+  <a href="#database-connection-sizing" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Load testing
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#known-bottlenecks-and-their-status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Known bottlenecks and their status
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#diagnosing-a-db-pool-exhaustion-event-503-surge" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Diagnosing a DB pool exhaustion event (503 surge)
+        Database connection sizing
       
     </span>
   </a>
@@ -1967,10 +1957,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#language-migration-decision-point-post-optimizations" class="md-nav__link">
+  <a href="#load-testing" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Language migration decision point (post-optimizations)
+        Load testing
       
     </span>
   </a>
@@ -2045,43 +2035,88 @@
   
 
 
-<h1 id="mediafusion-performance-guide">MediaFusion Performance Guide<a class="headerlink" href="#mediafusion-performance-guide" title="Permanent link">¶</a></h1>
-<p>This document is the living runbook for diagnosing and tuning MediaFusion's backend performance.</p>
+<h1 id="performance-tuning">Performance Tuning<a class="headerlink" href="#performance-tuning" title="Permanent link">¶</a></h1>
+<p>Reference guide for diagnosing and tuning MediaFusion's Rust backend.</p>
 <hr>
-<h2 id="architecture-overview-for-capacity-planning">Architecture overview (for capacity planning)<a class="headerlink" href="#architecture-overview-for-capacity-planning" title="Permanent link">¶</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Stremio clients
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>      │
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a> (HTTPS/HTTP)
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>      │
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a> gunicorn (UvicornWorker)   ← GUNICORN_WORKERS processes, each with 1 asyncio loop
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>      │
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a> FastAPI middleware stack
-</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>  ├─ RequestIdMiddleware      → assigns X-Request-Id, injects into log records
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>  ├─ TransientDatabaseRetry   → retries idempotent requests on transient DB errors
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>  ├─ SecureLoggingMiddleware  → masks secret_str in access logs
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>  ├─ TimingMiddleware         → sets X-Process-Time, records to Redis + Prometheus
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>  ├─ UserDataMiddleware       → decrypts secret_str (LRU-cached) → request.scope["user"]
-</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>  ├─ APIKeyMiddleware         → validates X-API-Key on private instances
-</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>  └─ RateLimitMiddleware      → per-IP Redis token bucket
-</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>      │
-</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a> Route handlers
-</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>  ├─ /stream/...              ← MOST EXPENSIVE: DB + Redis MGET + optional live-scraper fanout
-</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>  ├─ /playback/...            ← HEAVY: debrid API calls, Redis lock, fire-and-forget tracking
-</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>  ├─ /meta/...                ← MEDIUM: Redis cache, occasional DB selectinload
-</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>  ├─ /catalog/...             ← MEDIUM: Redis cache, occasional DB
-</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>  ├─ /manifest.json           ← CHEAP: HMAC + Redis GET
-</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>  └─ /poster/...              ← CPU: Pillow in run_in_executor
-</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>      │
-</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a> ┌──────────────────┐  ┌──────────────────┐
-</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a> │  PostgreSQL       │  │  Redis            │
-</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a> │  (+ PgBouncer)    │  │  (stream cache,   │
-</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a> │  primary+replica  │  │   rate limits,    │
-</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a> └──────────────────┘  │   task queue)     │
-</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>                        └──────────────────┘
-</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>      │
-</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a> Taskiq workers (separate processes)
-</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>  ← bulk scraping, feed processing, background imports
+<h2 id="architecture-summary">Architecture summary<a class="headerlink" href="#architecture-summary" title="Permanent link">¶</a></h2>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Stremio / Kodi clients
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>        │
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>   (HTTPS/HTTP)
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>        │
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>  mediafusion-api        ← single Rust binary, Axum + Tokio async runtime
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>  (jemalloc allocator)
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>        │
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>  Middleware stack
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>   ├─ RequestId           → X-Request-Id header + log injection
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>   ├─ TransientRetry      → retries idempotent requests on transient DB errors
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>   ├─ SecureLogging       → masks secret_str in access logs
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>   ├─ Timing              → X-Process-Time + Prometheus histogram
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>   ├─ UserData            → AES-256 manifest decryption (cached in Redis)
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>   ├─ APIKey              → validates X-API-Key on private instances
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>   └─ RateLimit           → per-IP Redis token bucket
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>        │
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>  Route handlers
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>   ├─ /stream/...         ← MOST EXPENSIVE: DB + Redis MGET + live-scraper fanout
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>   ├─ /playback/...       ← HEAVY: debrid API calls, Redis lock
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>   ├─ /meta/...           ← MEDIUM: Redis cache, DB query
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>   ├─ /catalog/...        ← MEDIUM: Redis cache, DB query
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>   ├─ /manifest.json      ← CHEAP: HMAC + Redis GET
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>   └─ /poster/...         ← CPU: image compositing (image + imageproc crates)
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>        │
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>  ┌─────────────┐   ┌────────────────┐
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>  │ PostgreSQL  │   │     Redis      │
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>  │ (+ PgBouncer│   │ (stream cache, │
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>  │  replicas)  │   │  rate limits,  │
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>  └─────────────┘   │  task queue)   │
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>                    └────────────────┘
+</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>                           │
+</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>                  mediafusion-worker   ← background job binary
+</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>                  (scrapers, imports, maintenance)
 </span></code></pre></div>
+<hr>
+<h2 id="rust-vs-python-performance">Rust vs Python performance<a class="headerlink" href="#rust-vs-python-performance" title="Permanent link">¶</a></h2>
+<p>MediaFusion 6.0 replaced the Python/FastAPI/Gunicorn stack with a native Rust binary. Key differences that affect capacity planning:</p>
+<table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th>Python (5.x)</th>
+<th>Rust (6.x)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Concurrency model</td>
+<td>Multiple Gunicorn worker processes (1 event loop each)</td>
+<td>Single binary, Tokio async runtime (work-stealing thread pool)</td>
+</tr>
+<tr>
+<td>Memory per instance</td>
+<td>~200–400 MB per worker process</td>
+<td>~50–100 MB total</td>
+</tr>
+<tr>
+<td>Connection pool</td>
+<td>SQLAlchemy pool per Gunicorn worker</td>
+<td>sqlx pool shared across async tasks</td>
+</tr>
+<tr>
+<td>Request latency (cache hit)</td>
+<td>~300–500 ms</td>
+<td>~5–50 ms</td>
+</tr>
+<tr>
+<td>Image generation</td>
+<td>Python Pillow in thread pool</td>
+<td>Rust <code>image</code> + <code>imageproc</code>, inline</td>
+</tr>
+<tr>
+<td>Cold-start time</td>
+<td>3–10 s (Python import)</td>
+<td>&lt; 1 s</td>
+</tr>
+</tbody>
+</table>
 <hr>
 <h2 id="key-environment-variables">Key environment variables<a class="headerlink" href="#key-environment-variables" title="Permanent link">¶</a></h2>
 <table>
@@ -2094,307 +2129,155 @@
 </thead>
 <tbody>
 <tr>
-<td><code>GUNICORN_WORKERS</code></td>
-<td>3</td>
-<td>Uvicorn worker processes. Each holds its own DB pool.</td>
-</tr>
-<tr>
-<td><code>DB_MAX_CONNECTIONS</code></td>
-<td>50</td>
-<td>Total PG connection budget per app instance. Divided by workers and engines.</td>
+<td><code>POSTGRES_URI</code></td>
+<td>required</td>
+<td>Primary PostgreSQL connection string</td>
 </tr>
 <tr>
 <td><code>POSTGRES_READ_URI</code></td>
-<td>unset</td>
-<td>If set, read queries go to a replica; write queries stay on primary.</td>
+<td>—</td>
+<td>If set, read queries route to replica</td>
 </tr>
 <tr>
-<td><code>POSTGRES_USE_PGBOUNCER</code></td>
-<td>false</td>
-<td>Set <code>true</code> when <code>POSTGRES_URI</code> points at PgBouncer in transaction mode — disables asyncpg prepared-statement cache.</td>
+<td><code>REDIS_URL</code></td>
+<td><code>redis://...</code></td>
+<td>Redis connection URL</td>
 </tr>
 <tr>
-<td><code>REDIS_MAX_CONNECTIONS</code></td>
-<td>100</td>
-<td>Per-process Redis pool size.</td>
+<td><code>META_CACHE_TTL_SECONDS</code></td>
+<td><code>1800</code></td>
+<td>Redis TTL for meta/catalog responses</td>
 </tr>
 <tr>
-<td><code>ENABLE_REQUEST_METRICS</code></td>
-<td>true</td>
-<td>Enables per-route p50/p95/p99 tracked in Redis.</td>
+<td><code>CATALOG_CACHE_TTL_SECONDS</code></td>
+<td><code>1800</code></td>
+<td>Redis TTL for catalog listings</td>
 </tr>
 <tr>
-<td><code>ENABLE_METRICS_ENDPOINT</code></td>
-<td>true</td>
-<td>Exposes Prometheus <code>/metrics</code> endpoint.</td>
+<td><code>STREAM_RAW_REDIS_CACHE_TTL_SECONDS</code></td>
+<td><code>900</code></td>
+<td>Redis TTL for stream blobs</td>
 </tr>
 <tr>
-<td><code>METRICS_BEARER_TOKEN</code></td>
-<td>unset</td>
-<td>If set, <code>/metrics</code> requires <code>Authorization: Bearer &lt;token&gt;</code>.</td>
+<td><code>REQUEST_TIMEOUT</code></td>
+<td><code>120</code></td>
+<td>Timeout in seconds for <code>/stream/</code> routes</td>
 </tr>
 <tr>
-<td><code>ENABLE_PROFILER</code></td>
-<td>false</td>
-<td>Enables <code>?_profile=1</code> pyinstrument flamegraph (requires X-API-Key). Never enable in production.</td>
+<td><code>ENABLE_PROMETHEUS_METRICS</code></td>
+<td><code>false</code></td>
+<td>Expose <code>/api/v1/metrics</code></td>
 </tr>
 <tr>
-<td><code>LOGGING_LEVEL</code></td>
-<td>INFO</td>
-<td>Root log level. Set <code>DEBUG</code> only locally.</td>
+<td><code>PROMETHEUS_METRICS_TOKEN</code></td>
+<td>—</td>
+<td>Bearer token to protect the metrics endpoint</td>
 </tr>
 <tr>
-<td><code>LIVE_SEARCH_STREAMS</code></td>
-<td>true</td>
-<td>When true, <code>/stream/...</code> fans out to N scrapers in parallel (adds 1–5s latency).</td>
+<td><code>BACKGROUND_SEARCH_ENABLED</code></td>
+<td><code>true</code></td>
+<td>Enable background re-scraping queue</td>
 </tr>
 </tbody>
 </table>
 <hr>
-<h2 id="db-pool-sizing-math">DB pool sizing math<a class="headerlink" href="#db-pool-sizing-math" title="Permanent link">¶</a></h2>
-<p>With default settings and <strong>no read replica</strong>:
-</p><div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pool_size = floor((DB_MAX_CONNECTIONS / GUNICORN_WORKERS) * 0.75)
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>max_overflow = floor((DB_MAX_CONNECTIONS / GUNICORN_WORKERS) * 0.25)
-</span></code></pre></div><p></p>
-<p>With <strong>read replica</strong>:
-</p><div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>budget = DB_MAX_CONNECTIONS / GUNICORN_WORKERS / 2   # split between primary and replica
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>pool_size = floor(budget * 0.75)
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>max_overflow = floor(budget * 0.25)
-</span></code></pre></div><p></p>
-<p><strong>Critical ceiling</strong>: PostgreSQL <code>max_connections</code> limits total connections across all pods + workers + pgbouncer. At HPA max (5 pods × 3 workers × 2 engines × (pool_size + max_overflow)) you will exceed <code>max_connections=200</code>. Use PgBouncer in transaction mode to multiplex — see <code>deployment/docker-compose/docker-compose-postgres-ha.yml</code>.</p>
-<hr>
-<h2 id="observability-stack">Observability stack<a class="headerlink" href="#observability-stack" title="Permanent link">¶</a></h2>
-<h3 id="1-prometheus-metrics-at-metrics">1. Prometheus metrics at <code>/metrics</code><a class="headerlink" href="#1-prometheus-metrics-at-metrics" title="Permanent link">¶</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>curl<span class="w"> </span>http://localhost:8000/metrics
+<h2 id="observability">Observability<a class="headerlink" href="#observability" title="Permanent link">¶</a></h2>
+<h3 id="prometheus-metrics">Prometheus metrics<a class="headerlink" href="#prometheus-metrics" title="Permanent link">¶</a></h3>
+<p>Enable with <code>ENABLE_PROMETHEUS_METRICS=true</code>. Scrape at <code>/api/v1/metrics</code>:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>curl<span class="w"> </span>http://localhost:8000/api/v1/metrics
 </span></code></pre></div>
-<p>Key metrics to watch:</p>
+<p>Key metrics:</p>
 <table>
 <thead>
 <tr>
 <th>Metric</th>
-<th>What it means</th>
+<th>What it signals</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>http_request_duration_seconds{route="/stream/..."}</code></td>
-<td>Stream resolution latency — the main user-visible signal</td>
+<td>Stream resolution latency — primary user-visible signal</td>
 </tr>
 <tr>
 <td><code>http_requests_in_flight</code></td>
-<td>Concurrent requests; spikes indicate burst load</td>
+<td>Concurrent requests; spikes = burst load</td>
 </tr>
 <tr>
-<td><code>http_requests_total{status_code="503"}</code></td>
-<td>DB pool exhaustion — means pool is too small</td>
-</tr>
-<tr>
-<td><code>db_pool_checked_out{engine="primary"}</code></td>
-<td>Live primary connections; near <code>pool_size</code> = pressure</td>
-</tr>
-<tr>
-<td><code>db_pool_overflow{engine="primary"}</code></td>
-<td>Overflow in use — nearing exhaustion</td>
-</tr>
-<tr>
-<td><code>db_pool_checkouts_total</code></td>
-<td>Checkout rate — proxy for query throughput</td>
+<td><code>http_requests_total{status_code="5xx"}</code></td>
+<td>Server errors — check DB connectivity and pool exhaustion</td>
 </tr>
 </tbody>
 </table>
-<h3 id="2-per-route-redis-metrics-admin-dashboard">2. Per-route Redis metrics (admin dashboard)<a class="headerlink" href="#2-per-route-redis-metrics-admin-dashboard" title="Permanent link">¶</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">"X-API-Key: </span><span class="nv">$API_PASSWORD</span><span class="s2">"</span><span class="w"> </span>http://localhost:8000/api/v1/admin/metrics/request-metrics/endpoint-stats
+<p>Secure the endpoint on public instances with <code>PROMETHEUS_METRICS_TOKEN</code>.</p>
+<h3 id="per-route-redis-metrics">Per-route Redis metrics<a class="headerlink" href="#per-route-redis-metrics" title="Permanent link">¶</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">"X-API-Key: </span><span class="nv">$API_PASSWORD</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span>http://localhost:8000/api/v1/admin/metrics/request-metrics/endpoint-stats
 </span></code></pre></div>
-<p>Returns p50/p95/p99 per route template, computed from a rolling 1000-sample window. Also available in the React admin UI at <code>/app</code> → Admin → Metrics.</p>
-<h3 id="3-slow-queries-via-pg_stat_statements">3. Slow queries via pg_stat_statements<a class="headerlink" href="#3-slow-queries-via-pg_stat_statements" title="Permanent link">¶</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">"X-API-Key: </span><span class="nv">$API_PASSWORD</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">     </span><span class="s2">"http://localhost:8000/api/v1/admin/db/slow-queries?limit=20&amp;order_by=total_exec_time"</span>
+<p>Returns p50/p95/p99 per route from a rolling 1000-sample window. Also visible in the React admin UI at <code>/app</code> → Admin → Metrics.</p>
+<h3 id="slow-query-diagnostics">Slow query diagnostics<a class="headerlink" href="#slow-query-diagnostics" title="Permanent link">¶</a></h3>
+<p>Requires <code>pg_stat_statements</code> (migration <code>0014</code>, enabled in Docker/K8s compose). On a <strong>new</strong> dev Postgres after updating <code>docker-compose-minimal.yml</code>, recreate the container so preload takes effect:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">cd</span><span class="w"> </span>deployment/docker-compose
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose-minimal.yml<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span>--force-recreate<span class="w"> </span>postgres
 </span></code></pre></div>
-<p>Returns the top-N slowest query fingerprints from <code>pg_stat_statements</code>. Reset with:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"X-API-Key: </span><span class="nv">$API_PASSWORD</span><span class="s2">"</span><span class="w"> </span>http://localhost:8000/api/v1/admin/db/slow-queries/reset
+<p>Migrations run on API startup; or manually: <code>CREATE EXTENSION IF NOT EXISTS pg_stat_statements;</code></p>
+<p><strong>Performance impact:</strong> Typically <strong>~1–3% CPU</strong> overhead with <code>pg_stat_statements.track=all</code> on a busy OLTP workload. Shared memory is bounded by <code>pg_stat_statements.max</code> (10 000 in our compose; on the order of a few MB). No measurable impact on query plans; safe for production when you want observability. Use <code>track=top</code> instead of <code>all</code> to reduce overhead further if needed.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Top 20 slowest query fingerprints (requires pg_stat_statements extension)</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">"X-API-Key: </span><span class="nv">$API_PASSWORD</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="s2">"http://localhost:8000/api/v1/admin/db/slow-queries?limit=20&amp;order_by=mean_exec_time&amp;min_mean_time_ms=100"</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1"># Reset counters</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>-H<span class="w"> </span><span class="s2">"X-API-Key: </span><span class="nv">$API_PASSWORD</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span>http://localhost:8000/api/v1/admin/db/slow-queries/reset
 </span></code></pre></div>
-<h3 id="4-request-correlation">4. Request correlation<a class="headerlink" href="#4-request-correlation" title="Permanent link">¶</a></h3>
-<p>Every request gets an <code>X-Request-Id</code> header in the response and in every log line emitted during that request (<code>[&lt;id&gt;]</code> in the log format). To trace a specific slow request:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># From access log:</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>grep<span class="w"> </span><span class="s2">"a1b2c3d4..."</span><span class="w"> </span>/var/log/mediafusion.log
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># From Redis recent-requests:</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">"X-API-Key: </span><span class="nv">$API_PASSWORD</span><span class="s2">"</span><span class="w"> </span>http://localhost:8000/api/v1/admin/metrics/request-metrics/recent
-</span></code></pre></div>
-<h3 id="5-per-request-flamegraph-staging-only">5. Per-request flamegraph (staging only)<a class="headerlink" href="#5-per-request-flamegraph-staging-only" title="Permanent link">¶</a></h3>
-<p>Enable <code>ENABLE_PROFILER=true</code> in staging. Then hit any endpoint with <code>?_profile=1</code> and <code>X-API-Key: &lt;password&gt;</code> to get a pyinstrument HTML flamegraph:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>curl<span class="w"> </span>-H<span class="w"> </span><span class="s2">"X-API-Key: </span><span class="nv">$API_PASSWORD</span><span class="s2">"</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">     </span><span class="s2">"http://localhost:8000/stream/movie/tt0111161.json?_profile=1"</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">     </span>-o<span class="w"> </span>flame.html<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>open<span class="w"> </span>flame.html
+<h3 id="request-tracing">Request tracing<a class="headerlink" href="#request-tracing" title="Permanent link">¶</a></h3>
+<p>Every request gets an <code>X-Request-Id</code> header injected into all log lines for that request. Trace a specific request:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>grep<span class="w"> </span><span class="s2">"a1b2c3d4"</span><span class="w"> </span>/var/log/mediafusion.log
 </span></code></pre></div>
 <hr>
-<h2 id="load-testing">Load testing<a class="headerlink" href="#load-testing" title="Permanent link">¶</a></h2>
-<p>See <code>perf/README.md</code> for full instructions. Quick start:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>pip<span class="w"> </span>install<span class="w"> </span>locust
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>locust<span class="w"> </span>-f<span class="w"> </span>perf/locustfile.py<span class="w"> </span>--headless<span class="w"> </span>-u<span class="w"> </span><span class="m">30</span><span class="w"> </span>-r<span class="w"> </span><span class="m">5</span><span class="w"> </span>-t<span class="w"> </span>15m<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">       </span>--host<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">       </span>--html<span class="w"> </span>perf/results/soak-<span class="k">$(</span>date<span class="w"> </span>+%Y%m%d<span class="k">)</span>.html
-</span></code></pre></div>
-<p>The CI workflow (<code>.github/workflows/perf.yml</code>) runs a 60s smoke test on every PR that touches API/DB code.</p>
-<hr>
-<h2 id="known-bottlenecks-and-their-status">Known bottlenecks and their status<a class="headerlink" href="#known-bottlenecks-and-their-status" title="Permanent link">¶</a></h2>
+<h2 id="database-connection-sizing">Database connection sizing<a class="headerlink" href="#database-connection-sizing" title="Permanent link">¶</a></h2>
+<p>sqlx manages a single async connection pool (unlike Python's per-process pool). The pool is sized by <code>DB_MAX_CONNECTIONS</code> divided across primary and optional read replica:</p>
 <table>
 <thead>
 <tr>
-<th>Bottleneck</th>
-<th>Status</th>
-<th>Notes</th>
+<th>Setup</th>
+<th>Pool per engine</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Anonymous playback ORM read-modify-write</td>
-<td><strong>Fixed</strong></td>
-<td>Replaced with atomic <code>UPDATE ... SET playback_count = playback_count + 1</code> — no SELECT needed</td>
+<td>Primary only</td>
+<td><code>DB_MAX_CONNECTIONS</code> connections to primary</td>
 </tr>
 <tr>
-<td>stdlib <code>json</code> in stream cache layer</td>
-<td><strong>Fixed</strong></td>
-<td>Replaced with <code>orjson</code> in <code>db/crud/stream_services.py</code> and <code>manifest.py</code></td>
-</tr>
-<tr>
-<td><code>Stream.name</code> missing trigram index (Torznab seq scan)</td>
-<td><strong>Fixed</strong></td>
-<td>Migration <code>a1b2c3d4e5f6</code> adds <code>idx_stream_name_trgm</code> GIN</td>
-</tr>
-<tr>
-<td>PgBouncer primary prepared-statement protocol error</td>
-<td><strong>Fixed</strong></td>
-<td><code>POSTGRES_USE_PGBOUNCER=true</code> disables asyncpg PS cache on primary engine</td>
-</tr>
-<tr>
-<td>No request correlation IDs</td>
-<td><strong>Fixed</strong></td>
-<td><code>RequestIdMiddleware</code> adds <code>X-Request-Id</code> and injects into logs</td>
-</tr>
-<tr>
-<td>No HTTP latency histograms</td>
-<td><strong>Fixed</strong></td>
-<td><code>utils/prometheus_metrics.py</code> + TimingMiddleware records to <code>/metrics</code></td>
-</tr>
-<tr>
-<td>No DB pool gauges</td>
-<td><strong>Fixed</strong></td>
-<td>SQLAlchemy PoolEvents publish to Prometheus</td>
-</tr>
-<tr>
-<td>No <code>/ready</code> endpoint</td>
-<td><strong>Fixed</strong></td>
-<td><code>/ready</code> checks DB + Redis, k8s readinessProbe updated</td>
-</tr>
-<tr>
-<td>No profiler</td>
-<td><strong>Fixed</strong></td>
-<td><code>?_profile=1</code> + pyinstrument behind <code>ENABLE_PROFILER=true</code> + admin key</td>
-</tr>
-<tr>
-<td>No pg_stat_statements</td>
-<td><strong>Fixed</strong></td>
-<td>Enabled in deployment manifests + <code>/api/v1/admin/db/slow-queries</code> endpoint</td>
-</tr>
-<tr>
-<td>Sequential Redis GET per cache key on stream bulk lookup</td>
-<td><strong>Fixed</strong></td>
-<td>Replaced N×<code>GET</code> loop with single <code>MGET</code> call in <code>_get_cached_movie/series_streams_bulk</code></td>
-</tr>
-<tr>
-<td>Sequential cache SET per DB miss</td>
-<td><strong>Fixed</strong></td>
-<td>Replaced N serial <code>SET</code> calls with a single pipelined <code>SET</code> batch via <code>_store_stream_cache_bulk</code></td>
-</tr>
-<tr>
-<td>Per-media_id session loop run sequentially</td>
-<td><strong>Fixed</strong></td>
-<td><code>_fetch_movie/series_raw_streams_batch</code> now uses <code>asyncio.gather</code> — all media_ids fetched in parallel</td>
-</tr>
-<tr>
-<td>Shared stream data cached per-user (cold cache for every user)</td>
-<td><strong>Fixed</strong></td>
-<td>Cache key uses <code>public</code> scope for non-user-specific data — all users share one cache entry per content</td>
-</tr>
-<tr>
-<td>zlib compression level 6 on cache encode (CPU-heavy)</td>
-<td><strong>Fixed</strong></td>
-<td>Reduced to level 1 — same decompressibility, ~3× faster to encode</td>
-</tr>
-<tr>
-<td>Live-search thundering herd (N users → N scraper fanouts)</td>
-<td><strong>Fixed</strong></td>
-<td>Redis <code>SETNX</code> lock (<code>live_search_lock:{id}</code>) ensures only one request scrapes per content item at a time</td>
-</tr>
-<tr>
-<td>Live-search runs on every warm request (2s overhead per request)</td>
-<td><strong>Fixed</strong></td>
-<td><code>SETNX</code> key now acts as a 5-min cooldown — first request in 5 min runs scrapers, all subsequent ones skip. Measured: warm stream latency 2000ms → 75ms</td>
-</tr>
-<tr>
-<td>Torrent + usenet scrapers run sequentially in live search</td>
-<td><strong>Fixed</strong></td>
-<td><code>_do_run_live_search_scrapers</code> runs both with <code>asyncio.gather</code></td>
-</tr>
-<tr>
-<td>Rate-limit pipeline uses <code>MULTI/EXEC</code> transaction</td>
-<td><strong>Fixed</strong></td>
-<td>Dropped <code>transaction=True</code> from INCR+EXPIRE pipeline — saves one round-trip per request</td>
-</tr>
-<tr>
-<td><code>/ready</code> endpoint postgres check fails (false 503)</td>
-<td><strong>Fixed</strong></td>
-<td>Changed from <code>get_read_session()</code> (async generator) to <code>get_read_session_context()</code> (async context manager)</td>
-</tr>
-<tr>
-<td>Six separate queries per series stream-type</td>
-<td><strong>Deferred</strong></td>
-<td>Measure first with pg_stat_statements. Fix if confirmed as top-N slow query.</td>
-</tr>
-<tr>
-<td>HPA ceiling vs. PG max_connections</td>
-<td><strong>Mitigated</strong></td>
-<td>PgBouncer multiplexing in <code>docker-compose-postgres-ha.yml</code>. K8s still needs tuning per scale target.</td>
+<td>Primary + replica</td>
+<td><code>DB_MAX_CONNECTIONS / 2</code> connections to each</td>
 </tr>
 </tbody>
 </table>
-<hr>
-<h2 id="diagnosing-a-db-pool-exhaustion-event-503-surge">Diagnosing a DB pool exhaustion event (503 surge)<a class="headerlink" href="#diagnosing-a-db-pool-exhaustion-event-503-surge" title="Permanent link">¶</a></h2>
-<ol>
-<li>Check <code>http_requests_total{status_code="503"}</code> rising in Prometheus.</li>
-<li>Check <code>db_pool_checked_out{engine="primary"}</code> — if it equals <code>pool_size + max_overflow</code>, pool is saturated.</li>
-<li>Check <code>GET /api/v1/admin/db/slow-queries</code> — are there long-running queries holding connections?</li>
-<li>Check <code>pg_stat_activity</code> directly:
-   <div class="language-sql highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">SELECT</span><span class="w"> </span><span class="k">state</span><span class="p">,</span><span class="w"> </span><span class="n">wait_event_type</span><span class="p">,</span><span class="w"> </span><span class="n">wait_event</span><span class="p">,</span><span class="w"> </span><span class="n">query</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="k">FROM</span><span class="w"> </span><span class="n">pg_stat_activity</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="k">WHERE</span><span class="w"> </span><span class="n">datname</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">current_database</span><span class="p">()</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">query_start</span><span class="p">;</span>
-</span></code></pre></div></li>
-<li>If connections are idle in transaction, look for long-held transactions across external HTTP calls.</li>
-<li>Immediate relief: scale <code>GUNICORN_WORKERS</code> down (reduces connection demand) or scale <code>DB_MAX_CONNECTIONS</code> up (if PG can accept more).</li>
-<li>Long-term: ensure PgBouncer is in front of primary and <code>POSTGRES_USE_PGBOUNCER=true</code> is set.</li>
-</ol>
+<p>If you see connection timeout errors, either increase <code>DB_MAX_CONNECTIONS</code> (only if PostgreSQL's <code>max_connections</code> allows headroom) or put PgBouncer in front and set <code>POSTGRES_USE_PGBOUNCER=true</code>.</p>
+<p><strong>Check <code>pg_stat_activity</code> directly:</strong></p>
+<div class="language-sql highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">SELECT</span><span class="w"> </span><span class="k">state</span><span class="p">,</span><span class="w"> </span><span class="n">wait_event_type</span><span class="p">,</span><span class="w"> </span><span class="n">wait_event</span><span class="p">,</span><span class="w"> </span><span class="k">left</span><span class="p">(</span><span class="n">query</span><span class="p">,</span><span class="w"> </span><span class="mi">80</span><span class="p">)</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">query</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">FROM</span><span class="w"> </span><span class="n">pg_stat_activity</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">WHERE</span><span class="w"> </span><span class="n">datname</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">current_database</span><span class="p">()</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="k">ORDER</span><span class="w"> </span><span class="k">BY</span><span class="w"> </span><span class="n">query_start</span><span class="p">;</span>
+</span></code></pre></div>
 <hr>
 <h2 id="diagnosing-high-p95-on-stream">Diagnosing high p95 on <code>/stream/...</code><a class="headerlink" href="#diagnosing-high-p95-on-stream" title="Permanent link">¶</a></h2>
 <ol>
-<li>Enable <code>?_profile=1</code> on staging and hit the slow endpoint.</li>
-<li>In the flamegraph, look for time spent in:</li>
-<li><code>_run_live_search_scrapers</code> → scraper fanout; consider disabling live search for the test or reducing scraper list</li>
-<li><code>_fetch_movie_raw_streams_batch</code> / <code>_fetch_series_raw_streams_batch</code> → DB batch fetches; measure with pg_stat_statements</li>
-<li><code>parse_stream_data</code> → debrid cache checks; these are external HTTP calls, measure per-provider</li>
-<li>Check scraper health at <code>/api/v1/admin/metrics</code> → Scrapers.</li>
-<li>Check Redis hit rates at <code>/api/v1/admin/metrics/redis</code>.</li>
+<li>Check Prometheus: is <code>http_request_duration_seconds{route="/stream/..."}</code> p95 high only on cache misses or also on hits?</li>
+<li><strong>Cache miss path</strong>: live scrapers are running — check scraper health at <code>/app</code> → Admin → Scrapers.</li>
+<li><strong>Cache hit path</strong>: DB query or Redis latency — check <code>GET /api/v1/admin/db/slow-queries</code>.</li>
+<li>Check Redis hit rate at <code>/app</code> → Admin → Metrics → Redis.</li>
+<li>Check if the live-search lock (<code>live_search_lock:{id}</code>) is contended — multiple users hitting the same uncached title simultaneously.</li>
 </ol>
 <hr>
-<h2 id="language-migration-decision-point-post-optimizations">Language migration decision point (post-optimizations)<a class="headerlink" href="#language-migration-decision-point-post-optimizations" title="Permanent link">¶</a></h2>
-<p>After Phase E load tests, compare:</p>
-<ul>
-<li><strong>Baseline</strong> (pre-optimizations): recorded in <code>perf/results/baseline-YYYY-MM-DD.md</code></li>
-<li><strong>Post-optimizations</strong>: record in <code>perf/results/post-opt-YYYY-MM-DD.md</code></li>
-</ul>
-<p>If p95 of <code>/stream/...</code> (cache hit, no live search) is &lt; 500ms and DB pool exhaustion 503s are gone, the Python backend is sufficiently performant for current load.</p>
-<p>If p95 is still &gt; 1s on cache hits, identify the specific hot path from the flamegraph and consider a <strong>strangler-fig</strong> approach: rewrite only that path (e.g. stream resolution loop or a specific scraper) as a Go/Rust sidecar service, keeping everything else in Python.</p>
+<h2 id="load-testing">Load testing<a class="headerlink" href="#load-testing" title="Permanent link">¶</a></h2>
+<p>See <code>perf/README.md</code> for full instructions. Quick start:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>uv<span class="w"> </span>run<span class="w"> </span>locust<span class="w"> </span>-f<span class="w"> </span>perf/locustfile.py<span class="w"> </span>--headless<span class="w"> </span>-u<span class="w"> </span><span class="m">30</span><span class="w"> </span>-r<span class="w"> </span><span class="m">5</span><span class="w"> </span>-t<span class="w"> </span>15m<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span>--host<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span>--html<span class="w"> </span>perf/results/soak-<span class="k">$(</span>date<span class="w"> </span>+%Y%m%d<span class="k">)</span>.html
+</span></code></pre></div>
 
 
 

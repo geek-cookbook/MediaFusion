@@ -886,6 +886,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deployment/worker-cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Worker CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -1323,6 +1351,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../integrations/telegram/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Telegram
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../integrations/qbittorrent/" class="md-nav__link">
         
   
@@ -1619,10 +1675,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
       
         <li class="md-nav__item">
-  <a href="#architecture-quick-reference" class="md-nav__link">
+  <a href="#codebase-overview" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Architecture quick-reference
+        Codebase overview
       
     </span>
   </a>
@@ -1664,10 +1720,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#python" class="md-nav__link">
+  <a href="#typescript-frontend" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Python
+        TypeScript (frontend)
       
     </span>
   </a>
@@ -1675,10 +1731,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#typescript-frontend" class="md-nav__link">
+  <a href="#python-kodi-addon-only" class="md-nav__link">
     <span class="md-ellipsis">
       
-        TypeScript (frontend)
+        Python (Kodi addon only)
       
     </span>
   </a>
@@ -1724,32 +1780,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#reporting-bugs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reporting bugs
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#suggesting-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Suggesting features
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#commit-message-style" class="md-nav__link">
     <span class="md-ellipsis">
       
         Commit message style
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reporting-bugs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reporting bugs
       
     </span>
   </a>
@@ -1802,10 +1847,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
       
         <li class="md-nav__item">
-  <a href="#architecture-quick-reference" class="md-nav__link">
+  <a href="#codebase-overview" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Architecture quick-reference
+        Codebase overview
       
     </span>
   </a>
@@ -1847,10 +1892,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#python" class="md-nav__link">
+  <a href="#typescript-frontend" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Python
+        TypeScript (frontend)
       
     </span>
   </a>
@@ -1858,10 +1903,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#typescript-frontend" class="md-nav__link">
+  <a href="#python-kodi-addon-only" class="md-nav__link">
     <span class="md-ellipsis">
       
-        TypeScript (frontend)
+        Python (Kodi addon only)
       
     </span>
   </a>
@@ -1907,32 +1952,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#reporting-bugs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reporting bugs
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#suggesting-features" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Suggesting features
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#commit-message-style" class="md-nav__link">
     <span class="md-ellipsis">
       
         Commit message style
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reporting-bugs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reporting bugs
       
     </span>
   </a>
@@ -1979,9 +2013,8 @@
 
 
 <h1 id="contributing">Contributing<a class="headerlink" href="#contributing" title="Permanent link">¶</a></h1>
-<p>Thank you for contributing to MediaFusion! This guide covers the development setup, code style expectations, and how to submit changes.</p>
-<h2 id="architecture-quick-reference">Architecture quick-reference<a class="headerlink" href="#architecture-quick-reference" title="Permanent link">¶</a></h2>
-<p>MediaFusion is a <strong>Rust + Python</strong> project:</p>
+<p>Thank you for contributing to MediaFusion!</p>
+<h2 id="codebase-overview">Codebase overview<a class="headerlink" href="#codebase-overview" title="Permanent link">¶</a></h2>
 <table>
 <thead>
 <tr>
@@ -1992,23 +2025,13 @@
 </thead>
 <tbody>
 <tr>
-<td>API server (main HTTP server)</td>
-<td>Rust (Axum)</td>
-<td><code>backend/src/</code></td>
+<td>API server + background worker</td>
+<td>Rust (Axum, Tokio)</td>
+<td><code>backend/</code></td>
 </tr>
 <tr>
-<td>Background worker (scrapers, tasks)</td>
-<td>Rust (Taskiq)</td>
-<td><code>backend/src/bin/mediafusion-worker.rs</code></td>
-</tr>
-<tr>
-<td>Web scrapers (Scrapy spiders)</td>
-<td>Python</td>
-<td><code>api/scrapers/</code></td>
-</tr>
-<tr>
-<td>Frontend (React SPA)</td>
-<td>TypeScript</td>
+<td>Web UI (admin + configure)</td>
+<td>React / TypeScript</td>
 <td><code>clients/frontend/</code></td>
 </tr>
 <tr>
@@ -2023,18 +2046,19 @@
 </tr>
 </tbody>
 </table>
+<p>The Rust backend is the heart of the project. <code>python-deprecated/</code> contains the old Python API — it is archived and not active.</p>
 <hr>
 <h2 id="development-setup">Development setup<a class="headerlink" href="#development-setup" title="Permanent link">¶</a></h2>
 <p>Full instructions are in the <a href="../deployment/local-dev/">Local Development guide</a>. Summary:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/mhdzumair/MediaFusion
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nb">cd</span><span class="w"> </span>MediaFusion
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># 1. Start databases</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Start databases</span>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="nb">cd</span><span class="w"> </span>deployment/docker-compose<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose-minimal.yml<span class="w"> </span>up<span class="w"> </span>-d<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span>../..
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># 2. Create .env (see Local Dev guide for required values)</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Create .env (see Local Dev guide for required values)</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># 3. Run the Rust API with hot-reload</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># Run the API with hot-reload</span>
 </span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>cargo<span class="w"> </span>watch<span class="w"> </span>--manifest-path<span class="w"> </span>backend/Cargo.toml<span class="w"> </span>-x<span class="w"> </span><span class="s1">'run --bin mediafusion-api'</span>
 </span></code></pre></div>
 <hr>
@@ -2046,32 +2070,32 @@
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Lint</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>cargo<span class="w"> </span>clippy<span class="w"> </span>--manifest-path<span class="w"> </span>backend/Cargo.toml
 </span></code></pre></div>
-<h3 id="python">Python<a class="headerlink" href="#python" title="Permanent link">¶</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Format and lint with ruff</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span>format<span class="w"> </span>.
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span>check<span class="w"> </span>.
-</span></code></pre></div>
 <h3 id="typescript-frontend">TypeScript (frontend)<a class="headerlink" href="#typescript-frontend" title="Permanent link">¶</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">cd</span><span class="w"> </span>clients/frontend
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>npm<span class="w"> </span>run<span class="w"> </span>lint
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>npm<span class="w"> </span>run<span class="w"> </span>format
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nb">cd</span><span class="w"> </span>clients/frontend
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>npm<span class="w"> </span>run<span class="w"> </span>lint
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>npm<span class="w"> </span>run<span class="w"> </span>format
+</span></code></pre></div>
+<h3 id="python-kodi-addon-only">Python (Kodi addon only)<a class="headerlink" href="#python-kodi-addon-only" title="Permanent link">¶</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span>format<span class="w"> </span>clients/kodi/
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span>check<span class="w"> </span>clients/kodi/
 </span></code></pre></div>
 <hr>
 <h2 id="running-tests">Running tests<a class="headerlink" href="#running-tests" title="Permanent link">¶</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Python tests</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Rust</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>cargo<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--manifest-path<span class="w"> </span>backend/Cargo.toml
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Rust tests</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>cargo<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--manifest-path<span class="w"> </span>backend/Cargo.toml
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># Python (Kodi addon)</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>uv<span class="w"> </span>run<span class="w"> </span>pytest
 </span></code></pre></div>
 <hr>
 <h2 id="adding-a-new-scraper">Adding a new scraper<a class="headerlink" href="#adding-a-new-scraper" title="Permanent link">¶</a></h2>
-<ol>
-<li><strong>Background (scheduled) scraper</strong>: add a Scrapy spider in <code>api/scrapers/</code>, register it in the scheduler in <code>backend/src/jobs/</code>.</li>
-<li><strong>Live search source</strong>: implement the <code>LiveScraper</code> trait in <code>backend/src/scrapers/</code> and register it in the scraper registry.</li>
-<li><strong>Config flag</strong>: add a new <code>IS_SCRAP_FROM_*</code> env var and field in <code>backend/src/config.rs</code>.</li>
+<p>All scrapers live in the Rust backend:</p>
+<ul>
+<li><strong>Scheduled spider</strong> (e.g. a new torrent site): add a handler in <code>backend/src/jobs/handlers/spiders/</code>, register it in <code>backend/src/bin/worker.rs</code>, and add a <code>DISABLE_*_SCHEDULER</code> env var to <code>backend/src/config.rs</code>.</li>
+<li><strong>Live search source</strong> (queried on stream requests): implement the scraper trait in <code>backend/src/scrapers/</code> and register it in the orchestrator.</li>
+<li><strong>Config flag</strong>: add an <code>IS_SCRAP_FROM_*</code> field in <code>backend/src/config.rs</code> with a <code>from_env()</code> binding.</li>
 <li><strong>Document it</strong>: add a row to the scraper table in <a href="../configuration/content-sources/">Content Sources</a> and the scheduler table in <a href="../reference/env-reference/">Environment Variables</a>.</li>
-</ol>
+</ul>
 <hr>
 <h2 id="submitting-changes">Submitting changes<a class="headerlink" href="#submitting-changes" title="Permanent link">¶</a></h2>
 <ol>
@@ -2082,35 +2106,29 @@
 <li><strong>Open a pull request</strong> against <code>main</code></li>
 </ol>
 <p>PR checklist:
-- [ ] Tests pass (<code>pytest</code> and <code>cargo test</code>)
-- [ ] Code is formatted (<code>ruff format</code>, <code>cargo fmt</code>)
-- [ ] New env vars are documented in <code>backend/src/config.rs</code> (doccomments) and in <code>docs/reference/env-reference.md</code>
+- [ ] <code>cargo fmt</code> and <code>cargo clippy</code> pass
+- [ ] <code>cargo test</code> passes
+- [ ] New env vars are documented in <code>backend/src/config.rs</code> (doc comments) and <code>docs/reference/env-reference.md</code>
 - [ ] PR description explains <em>why</em>, not just <em>what</em></p>
 <hr>
-<h2 id="reporting-bugs">Reporting bugs<a class="headerlink" href="#reporting-bugs" title="Permanent link">¶</a></h2>
-<p>Search <a href="https://github.com/mhdzumair/MediaFusion/issues">GitHub Issues</a> before opening a new one.</p>
-<p>Include:
-- MediaFusion version (<code>docker inspect</code> or binary <code>--version</code>)
-- Deployment method (Docker Compose, binary, etc.)
-- Steps to reproduce
-- Relevant logs:
-  </p><div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>logs<span class="w"> </span>mediafusion<span class="w"> </span>--tail<span class="w"> </span><span class="m">100</span>
-</span></code></pre></div><p></p>
-<h2 id="suggesting-features">Suggesting features<a class="headerlink" href="#suggesting-features" title="Permanent link">¶</a></h2>
-<p>Open a GitHub Issue with a clear title, description, and concrete use case. Link to any related issues or prior discussion.</p>
-<hr>
 <h2 id="commit-message-style">Commit message style<a class="headerlink" href="#commit-message-style" title="Permanent link">¶</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>&lt;type&gt;: &lt;short summary&gt;
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>&lt;body — explain the why, not the what&gt;
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>&lt;type&gt;: &lt;short summary&gt;
 </span></code></pre></div>
 <p>Types: <code>feat</code>, <code>fix</code>, <code>refactor</code>, <code>docs</code>, <code>test</code>, <code>chore</code></p>
 <p>Examples:
-</p><div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>feat: add Byparr support for Cloudflare-protected indexers
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>fix: return 404 on unknown stream type instead of 500
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>docs: update env reference for new DMM hashlist variables
+</p><div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>feat: add Byparr support for Cloudflare-protected indexers
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>fix: return 404 on unknown stream type instead of 500
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>docs: update env reference for DMM hashlist variables
 </span></code></pre></div><p></p>
 <hr>
+<h2 id="reporting-bugs">Reporting bugs<a class="headerlink" href="#reporting-bugs" title="Permanent link">¶</a></h2>
+<p>Search <a href="https://github.com/mhdzumair/MediaFusion/issues">GitHub Issues</a> before opening a new one. Include:</p>
+<ul>
+<li>MediaFusion version</li>
+<li>Deployment method</li>
+<li>Steps to reproduce</li>
+<li>Relevant logs: <code>docker compose logs mediafusion --tail 100</code></li>
+</ul>
 <h2 id="license">License<a class="headerlink" href="#license" title="Permanent link">¶</a></h2>
 <p>By contributing, you agree your contributions are licensed under the MIT License.</p>
 

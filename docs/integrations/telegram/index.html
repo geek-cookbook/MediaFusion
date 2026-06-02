@@ -9,13 +9,13 @@
         <meta name="author" content="Mohamed Zumair">
       
       
-        <link rel="canonical" href="https://mhdzumair.github.io/MediaFusion/docs/deployment/docker-compose/">
+        <link rel="canonical" href="https://mhdzumair.github.io/MediaFusion/docs/integrations/telegram/">
       
       
-        <link rel="prev" href="../elfhosted/">
+        <link rel="prev" href="../acestream/">
       
       
-        <link rel="next" href="../binary/">
+        <link rel="next" href="../qbittorrent/">
       
       
         
@@ -26,7 +26,7 @@
     
     
       
-        <title>Docker Compose - MediaFusion</title>
+        <title>Telegram - MediaFusion</title>
       
     
     
@@ -89,7 +89,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#docker-compose-deployment" class="md-skip">
+        <a href="#telegram-integration" class="md-skip">
           Skip to content
         </a>
       
@@ -124,7 +124,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Docker Compose
+              Telegram
             
           </span>
         </div>
@@ -292,13 +292,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="../" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../../deployment/" class="md-tabs__link">
           
   
   
@@ -334,11 +332,13 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../integrations/stremio/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../stremio/" class="md-tabs__link">
           
   
   
@@ -642,31 +642,28 @@
       
   
   
-    
   
   
-  
     
     
     
     
-      
-        
-        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked="">
         
           
-          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4">
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
             
   
   
@@ -684,7 +681,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -702,7 +699,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../" class="md-nav__link">
+      <a href="../../deployment/" class="md-nav__link">
         
   
   
@@ -730,7 +727,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../elfhosted/" class="md-nav__link">
+      <a href="../../deployment/elfhosted/" class="md-nav__link">
         
   
   
@@ -755,37 +752,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Docker Compose
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../../deployment/docker-compose/" class="md-nav__link">
         
   
   
@@ -801,175 +771,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
-      
-        <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Prerequisites
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-1-clone-the-repository" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 1: Clone the repository
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-2-configure-environment-variables" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 2: Configure environment variables
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-3-generate-a-local-ssl-certificate" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 3: Generate a local SSL certificate
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-4-configure-prowlarr-optional-but-recommended" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 4: Configure Prowlarr (optional but recommended)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-5-start-the-stack" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 5: Start the stack
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Step 5: Start the stack">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#standard-deployment-recommended-for-most-users" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Standard deployment (recommended for most users)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#high-availability-deployment" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        High-availability deployment
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-6-add-to-your-hosts-file" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 6: Add to your hosts file
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#compose-file-reference" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Compose file reference
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#updating-mediafusion" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Updating MediaFusion
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#stopping-and-resetting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Stopping and resetting
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#troubleshooting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Troubleshooting
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -982,7 +783,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../binary/" class="md-nav__link">
+      <a href="../../deployment/binary/" class="md-nav__link">
         
   
   
@@ -1010,7 +811,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../kubernetes/" class="md-nav__link">
+      <a href="../../deployment/kubernetes/" class="md-nav__link">
         
   
   
@@ -1038,7 +839,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../local-dev/" class="md-nav__link">
+      <a href="../../deployment/local-dev/" class="md-nav__link">
         
   
   
@@ -1066,7 +867,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../migrations/" class="md-nav__link">
+      <a href="../../deployment/migrations/" class="md-nav__link">
         
   
   
@@ -1094,7 +895,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../worker-cli/" class="md-nav__link">
+      <a href="../../deployment/worker-cli/" class="md-nav__link">
         
   
   
@@ -1383,28 +1184,31 @@
       
   
   
+    
   
   
+  
     
     
     
     
+      
+        
+        
       
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
       
         
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked="">
         
           
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6">
-        
-          
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
             
   
   
@@ -1422,7 +1226,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_6">
             <span class="md-nav__icon md-icon"></span>
             
@@ -1440,7 +1244,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/stremio/" class="md-nav__link">
+      <a href="../stremio/" class="md-nav__link">
         
   
   
@@ -1468,7 +1272,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/kodi/" class="md-nav__link">
+      <a href="../kodi/" class="md-nav__link">
         
   
   
@@ -1496,7 +1300,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/prowlarr/" class="md-nav__link">
+      <a href="../prowlarr/" class="md-nav__link">
         
   
   
@@ -1524,7 +1328,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/acestream/" class="md-nav__link">
+      <a href="../acestream/" class="md-nav__link">
         
   
   
@@ -1549,10 +1353,37 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../../integrations/telegram/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Telegram
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1568,6 +1399,104 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
+      
+        <li class="md-nav__item">
+  <a href="#telegram-bot" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Telegram Bot
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Telegram Bot">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-it-does" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it does
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#setup" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#telegram-channel-scraper" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Telegram Channel Scraper
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Telegram Channel Scraper">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#setup_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration-reference" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration reference
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1580,7 +1509,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/qbittorrent/" class="md-nav__link">
+      <a href="../qbittorrent/" class="md-nav__link">
         
   
   
@@ -1608,7 +1537,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../integrations/browser-extension/" class="md-nav__link">
+      <a href="../browser-extension/" class="md-nav__link">
         
   
   
@@ -1863,77 +1792,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
       
         <li class="md-nav__item">
-  <a href="#prerequisites" class="md-nav__link">
+  <a href="#telegram-bot" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Prerequisites
+        Telegram Bot
       
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-1-clone-the-repository" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 1: Clone the repository
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-2-configure-environment-variables" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 2: Configure environment variables
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-3-generate-a-local-ssl-certificate" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 3: Generate a local SSL certificate
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-4-configure-prowlarr-optional-but-recommended" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 4: Configure Prowlarr (optional but recommended)
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#step-5-start-the-stack" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Step 5: Start the stack
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Step 5: Start the stack">
+    <nav class="md-nav" aria-label="Telegram Bot">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#standard-deployment-recommended-for-most-users" class="md-nav__link">
+  <a href="#what-it-does" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Standard deployment (recommended for most users)
+        What it does
       
     </span>
   </a>
@@ -1941,10 +1815,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#high-availability-deployment" class="md-nav__link">
+  <a href="#setup" class="md-nav__link">
     <span class="md-ellipsis">
       
-        High-availability deployment
+        Setup
       
     </span>
   </a>
@@ -1957,54 +1831,38 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#step-6-add-to-your-hosts-file" class="md-nav__link">
+  <a href="#telegram-channel-scraper" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Step 6: Add to your hosts file
+        Telegram Channel Scraper
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Telegram Channel Scraper">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#setup_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Setup
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#compose-file-reference" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Compose file reference
-      
-    </span>
-  </a>
+        
+      </ul>
+    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#updating-mediafusion" class="md-nav__link">
+  <a href="#configuration-reference" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Updating MediaFusion
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#stopping-and-resetting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Stopping and resetting
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#troubleshooting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Troubleshooting
+        Configuration reference
       
     </span>
   </a>
@@ -2054,10 +1912,10 @@
     
     
       <li class="md-path__item">
-        <a href="../" class="md-path__link">
+        <a href="../stremio/" class="md-path__link">
           
   <span class="md-ellipsis">
-    Deployment
+    Integrations
   </span>
 
         </a>
@@ -2079,202 +1937,158 @@
   
 
 
-<h1 id="docker-compose-deployment">Docker Compose Deployment<a class="headerlink" href="#docker-compose-deployment" title="Permanent link">¶</a></h1>
-<p>The recommended way to self-host MediaFusion. Docker Compose manages all services — MediaFusion, PostgreSQL, Redis, and Prowlarr — in a single stack.</p>
-<div class="admonition tip">
-<p class="admonition-title">Video tutorial</p>
-<p>A video walkthrough is available at <a href="https://video.elfhosted.com/w/rgRFCmdgWW2HDES4QSD6Kb">video.elfhosted.com/w/rgRFCmdgWW2HDES4QSD6Kb</a>.</p>
-</div>
-<h2 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">¶</a></h2>
-<p>Install these tools before starting:</p>
-<ul>
-<li><a href="https://docs.docker.com/get-docker/">Docker</a> (includes Docker Compose on modern installs)</li>
-<li><a href="https://github.com/FiloSottile/mkcert#installation">mkcert</a> — for self-signed HTTPS certificates</li>
-</ul>
-<p>Verify your Docker installation:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>docker<span class="w"> </span>--version
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>version
-</span></code></pre></div>
-<h2 id="step-1-clone-the-repository">Step 1: Clone the repository<a class="headerlink" href="#step-1-clone-the-repository" title="Permanent link">¶</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/mhdzumair/MediaFusion
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="nb">cd</span><span class="w"> </span>MediaFusion/deployment/docker-compose
-</span></code></pre></div>
-<h2 id="step-2-configure-environment-variables">Step 2: Configure environment variables<a class="headerlink" href="#step-2-configure-environment-variables" title="Permanent link">¶</a></h2>
-<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio"><input id="__tabbed_1_2" name="__tabbed_1" type="radio"><div class="tabbed-labels"><label for="__tabbed_1_1">Linux / macOS</label><label for="__tabbed_1_2">Windows (PowerShell)</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>cp<span class="w"> </span>.env-sample<span class="w"> </span>.env
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># Generate a secure secret key</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">"SECRET_KEY=</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">16</span><span class="k">)</span><span class="s2">"</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>.env
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># Set the API password (protects admin endpoints)</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">"API_PASSWORD=your_strong_password"</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>.env
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1"># Set your contact email</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">"CONTACT_EMAIL=you@example.com"</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>.env
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="c1"># Set the public URL of your instance</span>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="c1"># Use https://mediafusion.local for local-only, or your real domain</span>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="nb">echo</span><span class="w"> </span><span class="s1">'HOST_URL=https://mediafusion.local'</span><span class="w"> </span>&gt;&gt;<span class="w"> </span>.env
-</span></code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nb">Copy-Item</span> <span class="p">.</span><span class="n">env-sample</span> <span class="p">.</span><span class="n">env</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nv">$secret</span> <span class="p">=</span> <span class="no">[System.Guid]</span><span class="p">::</span><span class="n">NewGuid</span><span class="p">().</span><span class="n">ToString</span><span class="p">(</span><span class="s2">"N"</span><span class="p">).</span><span class="n">Substring</span><span class="p">(</span><span class="n">0</span><span class="p">,</span> <span class="n">32</span><span class="p">)</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nb">Add-Content</span> <span class="n">-Path</span> <span class="p">.</span><span class="n">env</span> <span class="n">-Value</span> <span class="s2">"SECRET_KEY=$secret"</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="nb">Add-Content</span> <span class="n">-Path</span> <span class="p">.</span><span class="n">env</span> <span class="n">-Value</span> <span class="s2">"API_PASSWORD=your_strong_password"</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="nb">Add-Content</span> <span class="n">-Path</span> <span class="p">.</span><span class="n">env</span> <span class="n">-Value</span> <span class="s2">"CONTACT_EMAIL=you@example.com"</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="nb">Add-Content</span> <span class="n">-Path</span> <span class="p">.</span><span class="n">env</span> <span class="n">-Value</span> <span class="s1">'HOST_URL=https://mediafusion.local'</span>
-</span></code></pre></div>
-</div>
-</div>
-</div>
-<div class="admonition tip">
-<p class="admonition-title">Using a real domain?</p>
-<p>Set <code>HOST_URL</code> to your actual domain (e.g. <code>https://mediafusion.yourdomain.com</code>) and configure a reverse proxy (nginx, Caddy, Traefik) in front of the stack. Skip the <code>mkcert</code> step below.</p>
-</div>
-<p>Review the full <code>.env</code> file and adjust anything else before proceeding. See <a href="../../configuration/">Configuration Overview</a> for all options.</p>
-<h2 id="step-3-generate-a-local-ssl-certificate">Step 3: Generate a local SSL certificate<a class="headerlink" href="#step-3-generate-a-local-ssl-certificate" title="Permanent link">¶</a></h2>
-<p>This is required for Stremio to accept connections from your local instance.</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio"><input id="__tabbed_2_2" name="__tabbed_2" type="radio"><div class="tabbed-labels"><label for="__tabbed_2_1">Linux / macOS</label><label for="__tabbed_2_2">Windows (PowerShell)</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>mkcert<span class="w"> </span>-install
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>mkcert<span class="w"> </span><span class="s2">"mediafusion.local"</span>
-</span></code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">mkcert</span> <span class="n">-install</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">mkcert</span> <span class="s2">"mediafusion.local"</span>
-</span></code></pre></div>
-<div class="admonition tip">
-<p class="admonition-title">WSL users</p>
-<p>Also run <code>mkcert -install</code> in a regular Windows PowerShell (not WSL) to install the root certificate system-wide.</p>
-</div>
-</div>
-</div>
-</div>
-<h2 id="step-4-configure-prowlarr-optional-but-recommended">Step 4: Configure Prowlarr (optional but recommended)<a class="headerlink" href="#step-4-configure-prowlarr-optional-but-recommended" title="Permanent link">¶</a></h2>
-<p>Prowlarr aggregates torrent indexers and feeds results to MediaFusion. The setup script configures it automatically:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="3:2"><input checked="checked" id="__tabbed_3_1" name="__tabbed_3" type="radio"><input id="__tabbed_3_2" name="__tabbed_3" type="radio"><div class="tabbed-labels"><label for="__tabbed_3_1">Linux / macOS</label><label for="__tabbed_3_2">Windows (PowerShell)</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>./setup-prowlarr.sh
-</span></code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">.\</span><span class="n">setup-prowlarr</span><span class="p">.</span><span class="n">ps1</span>
-</span></code></pre></div>
-</div>
-</div>
-</div>
-<p>The script writes a <code>PROWLARR_API_KEY</code> to your <code>.env</code> and adds a set of working public trackers.</p>
-<div class="admonition note">
-<p class="admonition-title">Note</p>
-<p>You can add more indexers at <code>http://localhost:9696</code> after the stack starts.</p>
-</div>
-<h2 id="step-5-start-the-stack">Step 5: Start the stack<a class="headerlink" href="#step-5-start-the-stack" title="Permanent link">¶</a></h2>
-<h3 id="standard-deployment-recommended-for-most-users">Standard deployment (recommended for most users)<a class="headerlink" href="#standard-deployment-recommended-for-most-users" title="Permanent link">¶</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>up<span class="w"> </span>-d
-</span></code></pre></div>
-<p>This starts a single PostgreSQL instance with one background worker. Suitable for personal or small shared use.</p>
-<h3 id="high-availability-deployment">High-availability deployment<a class="headerlink" href="#high-availability-deployment" title="Permanent link">¶</a></h3>
-<p>For high read workloads (e.g. shared instance):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>-f<span class="w"> </span>docker-compose-postgres-ha.yml<span class="w"> </span>up<span class="w"> </span>-d
-</span></code></pre></div>
-<p>This adds a PostgreSQL read replica, PgBouncer connection pooling, and dedicated workers per queue.</p>
-<h2 id="step-6-add-to-your-hosts-file">Step 6: Add to your hosts file<a class="headerlink" href="#step-6-add-to-your-hosts-file" title="Permanent link">¶</a></h2>
-<p>Map <code>mediafusion.local</code> to <code>127.0.0.1</code> so your browser resolves the local domain:</p>
-<div class="tabbed-set tabbed-alternate" data-tabs="4:2"><input checked="checked" id="__tabbed_4_1" name="__tabbed_4" type="radio"><input id="__tabbed_4_2" name="__tabbed_4" type="radio"><div class="tabbed-labels"><label for="__tabbed_4_1">Linux / macOS</label><label for="__tabbed_4_2">Windows (PowerShell — run as Administrator)</label></div>
-<div class="tabbed-content">
-<div class="tabbed-block">
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nb">echo</span><span class="w"> </span><span class="s2">"127.0.0.1 mediafusion.local"</span><span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>tee<span class="w"> </span>-a<span class="w"> </span>/etc/hosts
-</span></code></pre></div>
-</div>
-<div class="tabbed-block">
-<div class="language-powershell highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nb">Add-Content</span> <span class="n">-Path</span> <span class="n">C</span><span class="p">:\</span><span class="n">Windows</span><span class="p">\</span><span class="n">System32</span><span class="p">\</span><span class="n">drivers</span><span class="p">\</span><span class="n">etc</span><span class="p">\</span><span class="n">hosts</span> <span class="n">-Value</span> <span class="s2">"127.0.0.1 mediafusion.local"</span>
-</span></code></pre></div>
-</div>
-</div>
-</div>
-<p>Now open <a href="https://mediafusion.local">https://mediafusion.local</a> in your browser.</p>
-<div class="admonition tip">
-<p class="admonition-title">First-time scraping delay</p>
-<p>Results may be sparse for the first hour while background scrapers populate the database. Visit <code>https://mediafusion.local/scraper</code> to trigger scrapers manually.</p>
-</div>
+<h1 id="telegram-integration">Telegram Integration<a class="headerlink" href="#telegram-integration" title="Permanent link">¶</a></h1>
+<p>MediaFusion has two distinct Telegram integrations:</p>
+<ol>
+<li><strong>Telegram Bot</strong> — a bot users can interact with to contribute streams, manage their account, and receive moderation notifications</li>
+<li><strong>Telegram Channel Scraper</strong> — a background scraper that watches configured channels for media files and imports them as streams</li>
+</ol>
+<p>Both are optional. Neither is required for basic MediaFusion operation.</p>
 <hr>
-<h2 id="compose-file-reference">Compose file reference<a class="headerlink" href="#compose-file-reference" title="Permanent link">¶</a></h2>
+<h2 id="telegram-bot">Telegram Bot<a class="headerlink" href="#telegram-bot" title="Permanent link">¶</a></h2>
+<h3 id="what-it-does">What it does<a class="headerlink" href="#what-it-does" title="Permanent link">¶</a></h3>
+<ul>
+<li>Lets users contribute video files from Telegram directly into MediaFusion</li>
+<li>Sends moderation notifications to a configured admin chat</li>
+<li>Supports batch import, metadata detection, and IMDb matching</li>
+<li>Handles user authentication linked to MediaFusion accounts</li>
+</ul>
+<h3 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">¶</a></h3>
+<p><strong>Step 1: Create a bot</strong></p>
+<ol>
+<li>Open Telegram and message <a href="https://t.me/BotFather">@BotFather</a></li>
+<li>Send <code>/newbot</code> and follow the prompts</li>
+<li>Copy the <strong>Bot API token</strong></li>
+</ol>
+<p><strong>Step 2: Configure MediaFusion</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">TELEGRAM_BOT_TOKEN</span><span class="o">=</span>your_bot_token
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nv">TELEGRAM_BOT_USERNAME</span><span class="o">=</span>your_bot_username<span class="w">   </span><span class="c1"># without @</span>
+</span></code></pre></div>
+<p><strong>Step 3: Set up a webhook (for production)</strong></p>
+<p>The bot uses webhooks rather than polling. Set a webhook secret to validate incoming updates:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nv">TELEGRAM_WEBHOOK_SECRET_TOKEN</span><span class="o">=</span><span class="k">$(</span>openssl<span class="w"> </span>rand<span class="w"> </span>-hex<span class="w"> </span><span class="m">16</span><span class="k">)</span>
+</span></code></pre></div>
+<p>MediaFusion automatically registers the webhook at <code>HOST_URL/bot/webhook</code> on startup when <code>TELEGRAM_BOT_TOKEN</code> is set.</p>
+<p><strong>Step 4: (Optional) Admin notifications</strong></p>
+<p>To receive moderation alerts (new contributions, flagged content) in a Telegram chat:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">TELEGRAM_CHAT_ID</span><span class="o">=</span>-1001234567890<span class="w">   </span><span class="c1"># get this from @userinfobot or similar</span>
+</span></code></pre></div>
+<p><strong>Step 5: (Optional) Backup channel for contributed files</strong></p>
+<p>To store contributed video files in a private Telegram channel:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">TELEGRAM_BACKUP_CHANNEL_ID</span><span class="o">=</span>-1009876543210
+</span></code></pre></div>
+<hr>
+<h2 id="telegram-channel-scraper">Telegram Channel Scraper<a class="headerlink" href="#telegram-channel-scraper" title="Permanent link">¶</a></h2>
+<p>The background scraper watches one or more Telegram channels and imports media files it finds as streams in MediaFusion. This requires a <strong>Telegram user account API</strong> (not a bot token).</p>
+<div class="admonition warning">
+<p class="admonition-title">User API credentials required</p>
+<p>This scraper uses the Telegram user API (MTProto), not the bot API. You need API credentials from <a href="https://my.telegram.org">my.telegram.org</a> and an active session string.</p>
+</div>
+<h3 id="setup_1">Setup<a class="headerlink" href="#setup_1" title="Permanent link">¶</a></h3>
+<p><strong>Step 1: Get Telegram API credentials</strong></p>
+<ol>
+<li>Go to <a href="https://my.telegram.org">my.telegram.org</a> → <strong>API development tools</strong></li>
+<li>Create an application and note the <strong>API ID</strong> and <strong>API Hash</strong></li>
+</ol>
+<p><strong>Step 2: Generate a session string</strong></p>
+<p>MediaFusion uses <a href="https://github.com/Lonami/grammers">Grammers</a> for the Telegram client. Generate a session string once and store it:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nv">TELEGRAM_API_ID</span><span class="o">=</span><span class="m">12345678</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nv">TELEGRAM_API_HASH</span><span class="o">=</span>your_api_hash
+</span></code></pre></div>
+<p>Run the session generator (see <code>backend/src/bin/telegram_session.rs</code>):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>cargo<span class="w"> </span>run<span class="w"> </span>--manifest-path<span class="w"> </span>backend/Cargo.toml<span class="w"> </span>--bin<span class="w"> </span>telegram_session
+</span></code></pre></div>
+<p>Copy the output session string into your config:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">TELEGRAM_GRAMMERS_SESSION</span><span class="o">=</span>your_session_string
+</span></code></pre></div>
+<p><strong>Step 3: Configure channels to scrape</strong></p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nv">TELEGRAM_SCRAPING_CHANNELS</span><span class="o">=</span>channelname1,channelname2,-1001234567890
+</span></code></pre></div>
+<p>Accepts channel usernames (without <code>@</code>) or numeric channel IDs.</p>
+<p><strong>Step 4: Tune scraping limits</strong></p>
 <table>
 <thead>
 <tr>
-<th>File</th>
-<th>Use case</th>
+<th>Variable</th>
+<th>Default</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>docker-compose.yml</code></td>
-<td>Standard single-PostgreSQL deployment</td>
+<td><code>TELEGRAM_SCRAPE_MESSAGE_LIMIT</code></td>
+<td><code>100</code></td>
+<td>Max messages to fetch per channel per run</td>
 </tr>
 <tr>
-<td><code>docker-compose-postgres-ha.yml</code></td>
-<td>Add-on: PostgreSQL HA with read replica + PgBouncer</td>
+<td><code>TELEGRAM_BACKGROUND_SCRAPER_CRONTAB</code></td>
+<td><em>(built-in)</em></td>
+<td>Crontab for the background scraper</td>
 </tr>
 <tr>
-<td><code>docker-compose-minimal.yml</code></td>
-<td>Databases only — for local development</td>
+<td><code>DISABLE_TELEGRAM_BACKGROUND_SCRAPER</code></td>
+<td><code>false</code></td>
+<td>Disable the Telegram background scraper</td>
 </tr>
 </tbody>
 </table>
 <hr>
-<h2 id="updating-mediafusion">Updating MediaFusion<a class="headerlink" href="#updating-mediafusion" title="Permanent link">¶</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>git<span class="w"> </span>pull
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>down
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>pull
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>up<span class="w"> </span>-d
-</span></code></pre></div>
-<div class="admonition warning">
-<p class="admonition-title">Before updating to a new major version</p>
-<p>Check the <a href="https://github.com/mhdzumair/MediaFusion/releases">release notes</a> for any migration steps. Major schema changes require the old version to be stopped cleanly before updating.</p>
-</div>
-<h2 id="stopping-and-resetting">Stopping and resetting<a class="headerlink" href="#stopping-and-resetting" title="Permanent link">¶</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Stop without removing data</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>down
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># Stop and wipe all data (destructive!)</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>down<span class="w"> </span>-v
-</span></code></pre></div>
-<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">¶</a></h2>
-<p><strong>Check logs for a specific service:</strong>
-</p><div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span>mediafusion
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>docker<span class="w"> </span>compose<span class="w"> </span>-f<span class="w"> </span>docker-compose.yml<span class="w"> </span>logs<span class="w"> </span>-f<span class="w"> </span>postgres
-</span></code></pre></div><p></p>
-<p><strong>Common issues:</strong></p>
+<h2 id="configuration-reference">Configuration reference<a class="headerlink" href="#configuration-reference" title="Permanent link">¶</a></h2>
 <table>
 <thead>
 <tr>
-<th>Symptom</th>
-<th>Likely cause</th>
+<th>Variable</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>SSL certificate errors in browser</td>
-<td><code>mkcert -install</code> not run, or not run in Windows PowerShell for WSL</td>
+<td><code>TELEGRAM_BOT_TOKEN</code></td>
+<td>Bot API token from @BotFather</td>
 </tr>
 <tr>
-<td>"Connection refused"</td>
-<td>Stack not started, or <code>HOST_URL</code> mismatch</td>
+<td><code>TELEGRAM_BOT_USERNAME</code></td>
+<td>Bot username (without @)</td>
 </tr>
 <tr>
-<td>Empty catalogs</td>
-<td>Scrapers haven't run yet — trigger manually at <code>/scraper</code></td>
+<td><code>TELEGRAM_WEBHOOK_SECRET_TOKEN</code></td>
+<td>Webhook validation secret</td>
 </tr>
 <tr>
-<td>Database connection errors</td>
-<td><code>POSTGRES_URI</code> not set correctly in <code>.env</code></td>
+<td><code>TELEGRAM_CHAT_ID</code></td>
+<td>Admin chat ID for moderation notifications</td>
+</tr>
+<tr>
+<td><code>TELEGRAM_BACKUP_CHANNEL_ID</code></td>
+<td>Channel to store contributed files</td>
+</tr>
+<tr>
+<td><code>TELEGRAM_API_ID</code></td>
+<td>Telegram user API ID (for channel scraper)</td>
+</tr>
+<tr>
+<td><code>TELEGRAM_API_HASH</code></td>
+<td>Telegram user API hash</td>
+</tr>
+<tr>
+<td><code>TELEGRAM_GRAMMERS_SESSION</code></td>
+<td>Grammers session string</td>
+</tr>
+<tr>
+<td><code>TELEGRAM_SCRAPING_CHANNELS</code></td>
+<td>Comma-separated channels to scrape</td>
+</tr>
+<tr>
+<td><code>TELEGRAM_SCRAPE_MESSAGE_LIMIT</code></td>
+<td>Max messages per channel per run</td>
+</tr>
+<tr>
+<td><code>TELEGRAM_BACKGROUND_SCRAPER_CRONTAB</code></td>
+<td>Crontab for the scraper</td>
+</tr>
+<tr>
+<td><code>DISABLE_TELEGRAM_BACKGROUND_SCRAPER</code></td>
+<td>Set <code>true</code> to disable</td>
 </tr>
 </tbody>
 </table>
@@ -2315,7 +2129,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer">
         
           
-          <a href="../elfhosted/" class="md-footer__link md-footer__link--prev" aria-label="Previous: ElfHosted (Managed)">
+          <a href="../acestream/" class="md-footer__link md-footer__link--prev" aria-label="Previous: AceStream">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"></path></svg>
@@ -2325,20 +2139,20 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                ElfHosted (Managed)
+                AceStream
               </div>
             </div>
           </a>
         
         
           
-          <a href="../binary/" class="md-footer__link md-footer__link--next" aria-label="Next: Direct Binary">
+          <a href="../qbittorrent/" class="md-footer__link md-footer__link--next" aria-label="Next: qBittorrent WebDAV">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Direct Binary
+                qBittorrent WebDAV
               </div>
             </div>
             <div class="md-footer__button md-icon">

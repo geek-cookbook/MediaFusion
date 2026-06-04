@@ -1176,6 +1176,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#rust-binary-connection-pool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rust binary connection pool
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#redis-url-for-the-rust-components" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1887,6 +1898,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#rust-binary-connection-pool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rust binary connection pool
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#redis-url-for-the-rust-components" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2082,6 +2104,61 @@
 </tr>
 </tbody>
 </table>
+<h3 id="rust-binary-connection-pool">Rust binary connection pool<a class="headerlink" href="#rust-binary-connection-pool" title="Permanent link">¶</a></h3>
+<p>The <code>mediafusion-api</code> / <code>mediafusion-worker</code> binaries manage their own SQLx connection pool, separate from the Python workers.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DB_POOL_SIZE</code></td>
+<td><code>10</code></td>
+<td>Max connections for the read-write pool</td>
+</tr>
+<tr>
+<td><code>DB_POOL_SIZE_RO</code></td>
+<td><code>DB_POOL_SIZE</code></td>
+<td>Max connections for the read-only replica pool. Defaults to <code>DB_POOL_SIZE</code> when unset. Set this to size the two pools independently (the DB sees <code>DB_POOL_SIZE + DB_POOL_SIZE_RO</code> total from this process).</td>
+</tr>
+<tr>
+<td><code>DB_POOL_MIN</code></td>
+<td><code>2</code></td>
+<td>Minimum idle connections to keep warm</td>
+</tr>
+<tr>
+<td><code>DB_ACQUIRE_TIMEOUT_SECS</code></td>
+<td><code>5</code></td>
+<td>Seconds to wait for a free connection before returning an error</td>
+</tr>
+<tr>
+<td><code>DB_IDLE_TIMEOUT_SECS</code></td>
+<td><code>600</code></td>
+<td>Drop connections idle longer than this many seconds</td>
+</tr>
+<tr>
+<td><code>DB_MAX_LIFETIME_SECS</code></td>
+<td><code>1800</code></td>
+<td>Recycle connections older than this many seconds — ensures DNS / endpoint re-resolution after a failover</td>
+</tr>
+<tr>
+<td><code>DB_STATEMENT_TIMEOUT_MS</code></td>
+<td><code>60000</code></td>
+<td>Per-session <code>statement_timeout</code> in milliseconds. Applied on every new connection via <code>SET statement_timeout</code>. Matches the DB-side guard recommended for production.</td>
+</tr>
+<tr>
+<td><code>DB_IDLE_TX_TIMEOUT_MS</code></td>
+<td><code>60000</code></td>
+<td>Per-session <code>idle_in_transaction_session_timeout</code> in milliseconds. Bounds any accidentally leaked transaction so a stalled request cannot hold row locks indefinitely.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Pool sizing guidance:</strong> With a default pool of 10 RW + 10 RO, a single <code>mediafusion-api</code> process uses up to 20 connections. Multiply by your replica count when planning Postgres <code>max_connections</code>. <code>DB_POOL_SIZE=20</code>–<code>40</code> is typical for production; always leave headroom above the total for admin connections and <code>pg_stat_activity</code> queries.</p>
+<hr>
 <h3 id="redis-url-for-the-rust-components">Redis URL for the Rust components<a class="headerlink" href="#redis-url-for-the-rust-components" title="Permanent link">¶</a></h3>
 <table>
 <thead>
